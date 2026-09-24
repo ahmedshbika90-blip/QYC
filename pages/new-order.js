@@ -183,7 +183,7 @@ export default function NewOrder() {
             {result && (
               <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-4">
                 <p className="text-green-800 font-medium">
-                  تم تقديم الطلب! الرقم: <span className="tabular-ltr">{result.orderId}</span>
+                  تم استلام طلبك! رقم الفاتورة: <span className="tabular-ltr">{result.orderId}</span>
                 </p>
                 <p className="text-green-700 text-sm mt-1">الإجمالي: {result.total}</p>
                 {result.deliveryDate ? (

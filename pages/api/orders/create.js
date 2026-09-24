@@ -19,7 +19,7 @@ export default async function handler(req, res) {
       route: client.route,
       items: resolvedItems,
       total,
-      status: "pending",
+      status: "active",
       deliveryDate: deliveryDate ? deliveryDate.toISOString() : null,
       createdAt: new Date().toISOString(),
       placedBy: "client",

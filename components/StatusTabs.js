@@ -1,6 +1,6 @@
 import { STATUS_LABELS } from "../lib/labels";
 
-const TABS = ["pending", "delivered", "cancelled", "all"];
+const TABS = ["active", "cancelled", "all"];
 const TAB_LABELS = { ...STATUS_LABELS, all: "الكل" };
 
 export default function StatusTabs({ value, onChange, counts }) {

@@ -4,9 +4,7 @@ import { useAuth } from "../../lib/useAuth";
 import Nav from "../../components/Nav";
 import { PageLoading } from "../../components/Loading";
 import { apiFetch } from "../../lib/apiFetch";
-import { STATUS_LABELS, formatDate, formatDateTime } from "../../lib/labels";
-
-const STATUS_OPTIONS = ["pending", "delivered", "cancelled"];
+import { formatDate, formatDateTime } from "../../lib/labels";
 
 export default function OrderDetail() {
   const { role, token, loading, logout } = useAuth();
@@ -43,7 +41,8 @@ export default function OrderDetail() {
     }
   }
 
-  async function updateStatus(status) {
+  async function cancelInvoice() {
+    if (!confirm("إلغاء هذه الفاتورة؟ ستبقى في السجل لكنها لن تُحتسب ضمن المبيعات.")) return;
     try {
       const res = await apiFetch(`/api/orders/${id}/status`, {
         method: "PATCH",
@@ -51,7 +50,7 @@ export default function OrderDetail() {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ status }),
+        body: JSON.stringify({ status: "cancelled" }),
       });
       if (!res.ok) throw new Error((await res.json()).error);
       fetchOrder();
@@ -85,11 +84,11 @@ export default function OrderDetail() {
     <div className="min-h-screen bg-gray-50">
       <Nav role={role} logout={logout} />
       <div className="max-w-2xl mx-auto p-4 sm:p-8">
-        <div className="bg-white rounded-lg shadow p-5 sm:p-6">
+        <div className={`bg-white rounded-lg shadow p-5 sm:p-6 ${order.status === "cancelled" ? "opacity-60" : ""}`}>
           <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-3 mb-4">
             <div>
               <h1 className="text-xl font-semibold text-gray-800">
-                طلب رقم <span className="tabular-ltr">{order.id}</span>
+                فاتورة رقم <span className="tabular-ltr">{order.id}</span>
               </h1>
               <p className="text-sm text-gray-500">
                 العميل <span className="tabular-ltr">#{order.clientId}</span> — {order.client?.name} ({order.client?.storeName})
@@ -116,15 +115,19 @@ export default function OrderDetail() {
                 </div>
               )}
             </div>
-            <select
-              value={order.status}
-              onChange={(e) => updateStatus(e.target.value)}
-              className="border rounded-lg px-3 h-11 text-base self-start"
-            >
-              {STATUS_OPTIONS.map((s) => (
-                <option key={s} value={s}>{STATUS_LABELS[s]}</option>
-              ))}
-            </select>
+            {order.status === "cancelled" ? (
+              <span className="text-sm text-red-500 bg-red-50 rounded-lg px-3 h-11 flex items-center self-start">
+                ملغاة
+              </span>
+            ) : (
+              <button
+                type="button"
+                onClick={cancelInvoice}
+                className="text-sm text-red-600 bg-red-50 active:bg-red-100 rounded-lg px-4 h-11 self-start"
+              >
+                إلغاء الفاتورة
+              </button>
+            )}
           </div>
 
           {error && <p className="text-red-600 text-sm mb-4">{error}</p>}
@@ -157,7 +160,7 @@ export default function OrderDetail() {
             ) : (
               <p>حسب الطلب — تواصل مع العميل لتحديد الموعد.</p>
             )}
-            <p>تاريخ الطلب: {formatDateTime(order.createdAt)}</p>
+            <p>تاريخ الفاتورة: {formatDateTime(order.createdAt)}</p>
           </div>
 
           <div>
@@ -168,7 +171,7 @@ export default function OrderDetail() {
               onBlur={saveNotes}
               rows={3}
               className="w-full border rounded-lg px-3 py-2 text-base"
-              placeholder="أضف أي ملاحظات حول هذا الطلب..."
+              placeholder="أضف أي ملاحظات حول هذه الفاتورة..."
             />
             {saving && <p className="text-xs text-gray-400 mt-1">جارٍ الحفظ...</p>}
           </div>

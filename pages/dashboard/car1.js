@@ -16,7 +16,7 @@ export default function Car1Dashboard() {
   const [fetching, setFetching] = useState(true);
   const [error, setError] = useState("");
 
-  const [statusFilter, setStatusFilter] = useState("pending");
+  const [statusFilter, setStatusFilter] = useState("active");
   const [locationQuery, setLocationQuery] = useState("");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
@@ -84,15 +84,19 @@ export default function Car1Dashboard() {
   const baseFiltered = useMemo(() => orders.filter(matchesFilters), [orders, matchesFilters]);
   const counts = useMemo(
     () => ({
-      pending: baseFiltered.filter((o) => o.status === "pending").length,
-      delivered: baseFiltered.filter((o) => o.status === "delivered").length,
+      active: baseFiltered.filter((o) => o.status !== "cancelled").length,
       cancelled: baseFiltered.filter((o) => o.status === "cancelled").length,
       all: baseFiltered.length,
     }),
     [baseFiltered]
   );
   const visible = useMemo(
-    () => (statusFilter === "all" ? baseFiltered : baseFiltered.filter((o) => o.status === statusFilter)),
+    () =>
+      statusFilter === "all"
+        ? baseFiltered
+        : statusFilter === "cancelled"
+        ? baseFiltered.filter((o) => o.status === "cancelled")
+        : baseFiltered.filter((o) => o.status !== "cancelled"),
     [baseFiltered, statusFilter]
   );
 
@@ -106,7 +110,7 @@ export default function Car1Dashboard() {
 
         <QuickActions
           actions={[
-            { href: "/place-order", label: "طلب جديد" },
+            { href: "/place-order", label: "فاتورة جديدة" },
             { href: "/register-client", label: "إضافة عميل" },
           ]}
         />
@@ -135,7 +139,7 @@ export default function Car1Dashboard() {
           <SkeletonRows count={4} />
         ) : (
           <div className="space-y-2">
-            {visible.length === 0 && <p className="text-gray-400">لا توجد طلبات مطابقة.</p>}
+            {visible.length === 0 && <p className="text-gray-400">لا توجد فواتير مطابقة.</p>}
             {visible.map((order) => (
               <OrderCard
                 key={order.id}

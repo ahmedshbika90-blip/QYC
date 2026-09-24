@@ -163,7 +163,7 @@ export default function PlaceOrder() {
         }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "تعذر تقديم الطلب");
+      if (!res.ok) throw new Error(data.error || "تعذر تسجيل الفاتورة");
       setResult(data);
       setCart([]);
       clearClient();
@@ -193,7 +193,7 @@ export default function PlaceOrder() {
       <Nav role={role} logout={logout} />
       <div className="max-w-lg mx-auto p-4 sm:p-8">
         <div className="bg-white p-5 sm:p-8 rounded-lg shadow-md">
-          <h1 className="text-xl font-semibold mb-6 text-gray-800">تسجيل طلب لعميل</h1>
+          <h1 className="text-xl font-semibold mb-6 text-gray-800">تسجيل فاتورة لعميل</h1>
 
           {error && (
             <div className="text-red-600 text-sm mb-4 flex items-center gap-2">
@@ -206,7 +206,7 @@ export default function PlaceOrder() {
           {result && (
             <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-4">
               <p className="text-green-800 font-medium">
-                تم تقديم الطلب! الرقم: <span className="tabular-ltr">{result.orderId}</span>
+                تم إنشاء الفاتورة! الرقم: <span className="tabular-ltr">{result.orderId}</span>
               </p>
               <p className="text-green-700 text-sm mt-1">الإجمالي: {result.total}</p>
               {result.deliveryDate ? (
@@ -351,7 +351,7 @@ export default function PlaceOrder() {
                 className="w-full bg-gray-900 text-white rounded-lg h-12 text-base font-medium active:bg-gray-700 disabled:opacity-50 flex items-center justify-center gap-2"
               >
                 {submitting && <Spinner className="w-4 h-4" />}
-                {submitting ? "جارٍ تقديم الطلب..." : "تقديم الطلب"}
+                {submitting ? "جارٍ تسجيل الفاتورة..." : "تسجيل الفاتورة"}
               </button>
             </form>
           )}

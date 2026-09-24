@@ -17,7 +17,7 @@ export default function SupervisorDashboard() {
   const [fetching, setFetching] = useState(true);
   const [error, setError] = useState("");
 
-  const [statusFilter, setStatusFilter] = useState("pending");
+  const [statusFilter, setStatusFilter] = useState("active");
   const [locationQuery, setLocationQuery] = useState("");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
@@ -86,15 +86,19 @@ export default function SupervisorDashboard() {
   const baseFiltered = useMemo(() => orders.filter(matchesFilters), [orders, matchesFilters]);
   const counts = useMemo(
     () => ({
-      pending: baseFiltered.filter((o) => o.status === "pending").length,
-      delivered: baseFiltered.filter((o) => o.status === "delivered").length,
+      active: baseFiltered.filter((o) => o.status !== "cancelled").length,
       cancelled: baseFiltered.filter((o) => o.status === "cancelled").length,
       all: baseFiltered.length,
     }),
     [baseFiltered]
   );
   const visible = useMemo(
-    () => (statusFilter === "all" ? baseFiltered : baseFiltered.filter((o) => o.status === statusFilter)),
+    () =>
+      statusFilter === "all"
+        ? baseFiltered
+        : statusFilter === "cancelled"
+        ? baseFiltered.filter((o) => o.status === "cancelled")
+        : baseFiltered.filter((o) => o.status !== "cancelled"),
     [baseFiltered, statusFilter]
   );
 
@@ -142,7 +146,7 @@ export default function SupervisorDashboard() {
         />
 
         <p className="text-sm text-gray-500 mb-3">
-          {visible.length} طلب — الإجمالي {totalRevenue.toFixed(2)} (باستثناء الملغاة)
+          {visible.length} فاتورة — الإجمالي {totalRevenue.toFixed(2)} (باستثناء الملغاة)
         </p>
 
         {error && (
@@ -156,7 +160,7 @@ export default function SupervisorDashboard() {
           <SkeletonRows count={4} />
         ) : (
           <div className="space-y-2">
-            {visible.length === 0 && <p className="text-gray-400">لا توجد طلبات مطابقة.</p>}
+            {visible.length === 0 && <p className="text-gray-400">لا توجد فواتير مطابقة.</p>}
             {visible.map((order) => (
               <OrderCard
                 key={order.id}

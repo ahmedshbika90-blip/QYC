@@ -132,7 +132,7 @@ export default function SalesReport() {
           {error && <p className="text-red-600 text-sm mt-3">{error}</p>}
 
           <p className="text-xs text-gray-400 mt-3">
-            اترك التواريخ فارغة لعرض كل السجل. الطلبات الملغاة لا تُحتسب ضمن التقرير.
+            اترك التواريخ فارغة لعرض كل السجل. الفواتير الملغاة لا تُحتسب ضمن التقرير.
           </p>
         </div>
 

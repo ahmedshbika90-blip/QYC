@@ -6,12 +6,12 @@ const ROLE_TO_ROUTE = {
   agent_car2: "car2",
 };
 
-// Builds a sales report from DELIVERED orders only — cancelled orders
-// never represent an actual sale, and pending ones haven't happened yet,
-// so both are excluded. Only equality filters are used in the Firestore
-// query (route ==, status ==) so no new composite index is ever needed;
-// the date range and per-client grouping happen in memory afterward,
-// which is fine at this business's order volume.
+// Builds a sales report from every invoice that ISN'T cancelled — with
+// the active/cancelled-only model, any non-cancelled invoice represents
+// a real sale. Only equality filters are used in the Firestore query
+// (route ==) so no new composite index is ever needed; excluding
+// cancelled invoices, the date range, and per-client grouping all happen
+// in memory afterward, which is fine at this business's order volume.
 export default async function handler(req, res) {
   if (req.method !== "GET") {
     return res.status(405).json({ error: "طريقة الطلب غير مسموح بها" });
@@ -20,7 +20,7 @@ export default async function handler(req, res) {
   try {
     const decoded = await requireUser(req);
 
-    let query = adminDb.collection("orders").where("status", "==", "delivered");
+    let query = adminDb.collection("orders");
 
     const restrictedRoute = ROLE_TO_ROUTE[decoded.role];
     if (restrictedRoute) {
@@ -39,7 +39,9 @@ export default async function handler(req, res) {
     }
 
     const snap = await query.get();
-    let orders = snap.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+    let orders = snap.docs
+      .map((doc) => ({ id: doc.id, ...doc.data() }))
+      .filter((o) => o.status !== "cancelled");
 
     const { from, to } = req.query;
     if (from) {

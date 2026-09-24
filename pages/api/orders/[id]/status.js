@@ -6,7 +6,7 @@ const ROLE_TO_ROUTE = {
   agent_car2: "car2",
 };
 
-const VALID_STATUSES = ["pending", "delivered", "cancelled"];
+const VALID_STATUSES = ["active", "cancelled"];
 
 export default async function handler(req, res) {
   if (req.method !== "PATCH") {
