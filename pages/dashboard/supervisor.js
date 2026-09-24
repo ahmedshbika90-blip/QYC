@@ -1,12 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
-import Link from "next/link";
 import { useAuth } from "../../lib/useAuth";
 import Nav from "../../components/Nav";
+import StatusTabs from "../../components/StatusTabs";
+import FilterPanel from "../../components/FilterPanel";
+import OrderCard from "../../components/OrderCard";
+import QuickActions from "../../components/QuickActions";
 import { PageLoading, SkeletonRows } from "../../components/Loading";
 import { apiFetch } from "../../lib/apiFetch";
-import { STATUS_LABELS, formatDate } from "../../lib/labels";
-
-const STATUS_OPTIONS = ["pending", "delivered", "cancelled"];
+import { formatDate } from "../../lib/labels";
 
 export default function SupervisorDashboard() {
   const { role, token, loading, logout } = useAuth(["supervisor"]);
@@ -16,7 +17,7 @@ export default function SupervisorDashboard() {
   const [fetching, setFetching] = useState(true);
   const [error, setError] = useState("");
 
-  // Filters
+  const [statusFilter, setStatusFilter] = useState("pending");
   const [locationQuery, setLocationQuery] = useState("");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
@@ -65,8 +66,8 @@ export default function SupervisorDashboard() {
     }
   }
 
-  const visible = useMemo(() => {
-    return orders.filter((order) => {
+  const matchesFilters = useMemo(() => {
+    return (order) => {
       if (routeFilter !== "all" && order.route !== routeFilter) return false;
       if (locationQuery) {
         const location = clientsById[order.clientId]?.location || "";
@@ -79,8 +80,23 @@ export default function SupervisorDashboard() {
         if (new Date(order.createdAt) > to) return false;
       }
       return true;
-    });
-  }, [orders, clientsById, routeFilter, locationQuery, dateFrom, dateTo]);
+    };
+  }, [clientsById, routeFilter, locationQuery, dateFrom, dateTo]);
+
+  const baseFiltered = useMemo(() => orders.filter(matchesFilters), [orders, matchesFilters]);
+  const counts = useMemo(
+    () => ({
+      pending: baseFiltered.filter((o) => o.status === "pending").length,
+      delivered: baseFiltered.filter((o) => o.status === "delivered").length,
+      cancelled: baseFiltered.filter((o) => o.status === "cancelled").length,
+      all: baseFiltered.length,
+    }),
+    [baseFiltered]
+  );
+  const visible = useMemo(
+    () => (statusFilter === "all" ? baseFiltered : baseFiltered.filter((o) => o.status === statusFilter)),
+    [baseFiltered, statusFilter]
+  );
 
   const totalRevenue = visible
     .filter((o) => o.status !== "cancelled")
@@ -92,12 +108,12 @@ export default function SupervisorDashboard() {
     <div className="min-h-screen bg-gray-50">
       <Nav role={role} logout={logout} />
       <div className="max-w-3xl mx-auto p-4 sm:p-8">
-        <div className="flex justify-between items-center mb-2 gap-3">
-          <h1 className="text-xl font-semibold text-gray-800">المشرف — جميع الطلبات</h1>
+        <div className="flex justify-between items-center mb-3 gap-3">
+          <h1 className="text-xl font-semibold text-gray-800">المشرف</h1>
           <select
             value={routeFilter}
             onChange={(e) => setRouteFilter(e.target.value)}
-            className="border rounded-lg px-3 h-11 text-base"
+            className="border rounded-lg px-3 h-10 text-sm"
           >
             <option value="all">كل المسارات</option>
             <option value="car1">السيارة ١</option>
@@ -105,33 +121,27 @@ export default function SupervisorDashboard() {
           </select>
         </div>
 
-        <div className="bg-white rounded-lg shadow p-4 mb-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <input
-            type="text"
-            value={locationQuery}
-            onChange={(e) => setLocationQuery(e.target.value)}
-            placeholder="ابحث حسب الموقع..."
-            className="border rounded-lg px-3 h-11 text-base"
-          />
-          <div className="grid grid-cols-2 gap-3">
-            <input
-              type="date"
-              value={dateFrom}
-              onChange={(e) => setDateFrom(e.target.value)}
-              className="border rounded-lg px-3 h-11 text-base"
-              aria-label="من تاريخ"
-            />
-            <input
-              type="date"
-              value={dateTo}
-              onChange={(e) => setDateTo(e.target.value)}
-              className="border rounded-lg px-3 h-11 text-base"
-              aria-label="إلى تاريخ"
-            />
-          </div>
+        <QuickActions
+          actions={[
+            { href: "/reports/sales", label: "تقرير المبيعات" },
+            { href: "/products", label: "الأسعار والمنتجات" },
+          ]}
+        />
+
+        <div className="mb-3">
+          <StatusTabs value={statusFilter} onChange={setStatusFilter} counts={counts} />
         </div>
 
-        <p className="text-sm text-gray-500 mb-4">
+        <FilterPanel
+          locationQuery={locationQuery}
+          onLocationChange={setLocationQuery}
+          dateFrom={dateFrom}
+          onDateFromChange={setDateFrom}
+          dateTo={dateTo}
+          onDateToChange={setDateTo}
+        />
+
+        <p className="text-sm text-gray-500 mb-3">
           {visible.length} طلب — الإجمالي {totalRevenue.toFixed(2)} (باستثناء الملغاة)
         </p>
 
@@ -145,38 +155,21 @@ export default function SupervisorDashboard() {
         {fetching ? (
           <SkeletonRows count={4} />
         ) : (
-          <div className="space-y-3">
+          <div className="space-y-2">
             {visible.length === 0 && <p className="text-gray-400">لا توجد طلبات مطابقة.</p>}
             {visible.map((order) => (
-              <div key={order.id} className="bg-white rounded-lg shadow p-4">
-                <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-2">
-                  <Link href={`/orders/${order.id}`} className="hover:underline">
-                    <p className="font-medium text-gray-800">
-                      العميل <span className="tabular-ltr">#{order.clientId}</span>{" "}
-                      <span className="text-xs font-normal text-gray-400 ms-2">
-                        {order.route === "car1" ? "السيارة ١" : "السيارة ٢"}
-                      </span>
-                    </p>
-                    <p className="text-xs text-gray-400">{clientsById[order.clientId]?.location}</p>
-                    <p className="text-sm text-gray-500">
-                      {order.items.map((it) => `${it.name} ×${it.qty}`).join("، ")}
-                    </p>
-                    <p className="text-xs text-gray-400 mt-1">
-                      الإجمالي: {order.total ?? "—"}
-                      {order.deliveryDate && ` · التسليم: ${formatDate(order.deliveryDate)}`}
-                    </p>
-                  </Link>
-                  <select
-                    value={order.status}
-                    onChange={(e) => updateStatus(order.id, e.target.value)}
-                    className="border rounded-lg px-3 h-11 text-base"
-                  >
-                    {STATUS_OPTIONS.map((s) => (
-                      <option key={s} value={s}>{STATUS_LABELS[s]}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
+              <OrderCard
+                key={order.id}
+                order={order}
+                location={clientsById[order.clientId]?.location}
+                badge={
+                  <span className="text-xs font-normal text-gray-400 ms-2">
+                    {order.route === "car1" ? "السيارة ١" : "السيارة ٢"}
+                  </span>
+                }
+                subtitle={order.deliveryDate ? `التسليم: ${formatDate(order.deliveryDate)}` : null}
+                onStatusChange={updateStatus}
+              />
             ))}
           </div>
         )}

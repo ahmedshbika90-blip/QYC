@@ -1,12 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
-import Link from "next/link";
 import { useAuth } from "../../lib/useAuth";
 import Nav from "../../components/Nav";
+import StatusTabs from "../../components/StatusTabs";
+import FilterPanel from "../../components/FilterPanel";
+import OrderCard from "../../components/OrderCard";
+import QuickActions from "../../components/QuickActions";
 import { PageLoading, SkeletonRows } from "../../components/Loading";
 import { apiFetch } from "../../lib/apiFetch";
-import { STATUS_LABELS, formatDateTime } from "../../lib/labels";
-
-const STATUS_OPTIONS = ["pending", "delivered", "cancelled"];
+import { formatDateTime } from "../../lib/labels";
 
 export default function Car1Dashboard() {
   const { role, token, loading, logout } = useAuth(["agent_car1"]);
@@ -15,7 +16,7 @@ export default function Car1Dashboard() {
   const [fetching, setFetching] = useState(true);
   const [error, setError] = useState("");
 
-  // Filters
+  const [statusFilter, setStatusFilter] = useState("pending");
   const [locationQuery, setLocationQuery] = useState("");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
@@ -64,8 +65,8 @@ export default function Car1Dashboard() {
     }
   }
 
-  const filteredOrders = useMemo(() => {
-    return orders.filter((order) => {
+  const matchesFilters = useMemo(() => {
+    return (order) => {
       if (locationQuery) {
         const location = clientsById[order.clientId]?.location || "";
         if (!location.toLowerCase().includes(locationQuery.toLowerCase())) return false;
@@ -77,8 +78,23 @@ export default function Car1Dashboard() {
         if (new Date(order.createdAt) > to) return false;
       }
       return true;
-    });
-  }, [orders, clientsById, locationQuery, dateFrom, dateTo]);
+    };
+  }, [clientsById, locationQuery, dateFrom, dateTo]);
+
+  const baseFiltered = useMemo(() => orders.filter(matchesFilters), [orders, matchesFilters]);
+  const counts = useMemo(
+    () => ({
+      pending: baseFiltered.filter((o) => o.status === "pending").length,
+      delivered: baseFiltered.filter((o) => o.status === "delivered").length,
+      cancelled: baseFiltered.filter((o) => o.status === "cancelled").length,
+      all: baseFiltered.length,
+    }),
+    [baseFiltered]
+  );
+  const visible = useMemo(
+    () => (statusFilter === "all" ? baseFiltered : baseFiltered.filter((o) => o.status === statusFilter)),
+    [baseFiltered, statusFilter]
+  );
 
   if (loading) return <PageLoading />;
 
@@ -86,34 +102,27 @@ export default function Car1Dashboard() {
     <div className="min-h-screen bg-gray-50">
       <Nav role={role} logout={logout} />
       <div className="max-w-3xl mx-auto p-4 sm:p-8">
-        <h1 className="text-xl font-semibold mb-2 text-gray-800">السيارة ١ — الطلبات الجديدة</h1>
-        <p className="text-sm text-gray-500 mb-4">
-          تصل الطلبات فور تقديم العملاء لها. تواصل مع كل عميل لتحديد موعد التسليم.
-        </p>
+        <h1 className="text-xl font-semibold mb-3 text-gray-800">السيارة ١</h1>
 
-        <div className="bg-white rounded-lg shadow p-4 mb-4 grid grid-cols-1 sm:grid-cols-3 gap-3">
-          <input
-            type="text"
-            value={locationQuery}
-            onChange={(e) => setLocationQuery(e.target.value)}
-            placeholder="ابحث حسب الموقع..."
-            className="border rounded-lg px-3 h-11 text-base sm:col-span-1"
-          />
-          <input
-            type="date"
-            value={dateFrom}
-            onChange={(e) => setDateFrom(e.target.value)}
-            className="border rounded-lg px-3 h-11 text-base"
-            aria-label="من تاريخ"
-          />
-          <input
-            type="date"
-            value={dateTo}
-            onChange={(e) => setDateTo(e.target.value)}
-            className="border rounded-lg px-3 h-11 text-base"
-            aria-label="إلى تاريخ"
-          />
+        <QuickActions
+          actions={[
+            { href: "/place-order", label: "طلب جديد" },
+            { href: "/register-client", label: "إضافة عميل" },
+          ]}
+        />
+
+        <div className="mb-3">
+          <StatusTabs value={statusFilter} onChange={setStatusFilter} counts={counts} />
         </div>
+
+        <FilterPanel
+          locationQuery={locationQuery}
+          onLocationChange={setLocationQuery}
+          dateFrom={dateFrom}
+          onDateFromChange={setDateFrom}
+          dateTo={dateTo}
+          onDateToChange={setDateTo}
+        />
 
         {error && (
           <div className="text-red-600 text-sm mb-4 flex items-center gap-2">
@@ -125,34 +134,16 @@ export default function Car1Dashboard() {
         {fetching ? (
           <SkeletonRows count={4} />
         ) : (
-          <div className="space-y-3">
-            {filteredOrders.length === 0 && <p className="text-gray-400">لا توجد طلبات مطابقة.</p>}
-            {filteredOrders.map((order) => (
-              <div key={order.id} className="bg-white rounded-lg shadow p-4">
-                <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-2">
-                  <Link href={`/orders/${order.id}`} className="hover:underline">
-                    <p className="font-medium text-gray-800">
-                      العميل <span className="tabular-ltr">#{order.clientId}</span>
-                    </p>
-                    <p className="text-xs text-gray-400">{clientsById[order.clientId]?.location}</p>
-                    <p className="text-sm text-gray-500">
-                      {order.items.map((it) => `${it.name} ×${it.qty}`).join("، ")}
-                    </p>
-                    <p className="text-xs text-gray-400 mt-1">
-                      الإجمالي: {order.total ?? "—"} · {formatDateTime(order.createdAt)}
-                    </p>
-                  </Link>
-                  <select
-                    value={order.status}
-                    onChange={(e) => updateStatus(order.id, e.target.value)}
-                    className="border rounded-lg px-3 h-11 text-base"
-                  >
-                    {STATUS_OPTIONS.map((s) => (
-                      <option key={s} value={s}>{STATUS_LABELS[s]}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
+          <div className="space-y-2">
+            {visible.length === 0 && <p className="text-gray-400">لا توجد طلبات مطابقة.</p>}
+            {visible.map((order) => (
+              <OrderCard
+                key={order.id}
+                order={order}
+                location={clientsById[order.clientId]?.location}
+                subtitle={formatDateTime(order.createdAt)}
+                onStatusChange={updateStatus}
+              />
             ))}
           </div>
         )}

@@ -14,10 +14,10 @@ export default function Nav({ role, logout }) {
   const links = [
     role && { href: ROLE_HOME[role], label: "الرئيسية" },
     role !== "supervisor" && { href: "/place-order", label: "تسجيل طلب" },
-    { href: "/clients", label: "العملاء" },
     { href: "/register-client", label: "إضافة عميل" },
-    { href: "/products", label: "المنتجات" },
     { href: "/reports/sales", label: "تقرير المبيعات" },
+    { href: "/clients", label: "العملاء" },
+    { href: "/products", label: "المنتجات" },
   ].filter(Boolean);
 
   return (
