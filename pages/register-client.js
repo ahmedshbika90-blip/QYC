@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { useAuth } from "../lib/useAuth";
 import Nav from "../components/Nav";
+import { PageLoading, Spinner } from "../components/Loading";
+import { apiFetch } from "../lib/apiFetch";
 
 export default function RegisterClient() {
   const { role, token, loading, logout } = useAuth();
@@ -17,7 +19,7 @@ export default function RegisterClient() {
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
-  if (loading) return <p className="p-8">Loading...</p>;
+  if (loading) return <PageLoading />;
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -29,7 +31,7 @@ export default function RegisterClient() {
         ...form,
         whatsapp: sameAsPhone ? form.phone : form.whatsapp,
       };
-      const res = await fetch("/api/clients/register", {
+      const res = await apiFetch("/api/clients/register", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -38,7 +40,7 @@ export default function RegisterClient() {
         body: JSON.stringify(payload),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Registration failed");
+      if (!res.ok) throw new Error(data.error || "تعذر تسجيل العميل");
       setResult(data);
       setForm({ name: "", storeName: "", location: "", route: "car1", phone: "", whatsapp: "" });
       setSameAsPhone(true);
@@ -52,106 +54,111 @@ export default function RegisterClient() {
   return (
     <div className="min-h-screen bg-gray-50">
       <Nav role={role} logout={logout} />
-      <div className="max-w-md mx-auto mt-8 bg-white p-8 rounded-lg shadow-md">
-        <h1 className="text-xl font-semibold mb-6 text-gray-800">Register New Client</h1>
+      <div className="max-w-md mx-auto mt-4 sm:mt-8 bg-white p-5 sm:p-8 rounded-lg shadow-md">
+        <h1 className="text-xl font-semibold mb-6 text-gray-800">تسجيل عميل جديد</h1>
 
         {error && <p className="text-red-600 text-sm mb-4">{error}</p>}
         {result && (
-          <div className="bg-green-50 border border-green-200 rounded p-4 mb-4">
+          <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-4">
             <p className="text-green-800 font-medium">
-              Client registered — ID: <span className="font-mono text-lg">{result.clientId}</span>
+              تم تسجيل العميل — الرقم:{" "}
+              <span className="font-mono text-lg tabular-ltr">{result.clientId}</span>
             </p>
             <p className="text-green-700 text-sm mt-1">
-              Give this ID to the client. They'll use it to place orders.
+              أعطِ هذا الرقم للعميل، سيستخدمه لتقديم الطلبات.
             </p>
           </div>
         )}
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-sm text-gray-600 mb-1">Client Name</label>
+            <label className="block text-sm text-gray-600 mb-1">اسم العميل</label>
             <input
               type="text"
               value={form.name}
               onChange={(e) => setForm({ ...form, name: e.target.value })}
-              className="w-full border rounded px-3 py-2"
+              className="w-full border rounded-lg px-3 h-12 text-base"
               required
             />
           </div>
 
           <div>
-            <label className="block text-sm text-gray-600 mb-1">Store Name</label>
+            <label className="block text-sm text-gray-600 mb-1">اسم المتجر</label>
             <input
               type="text"
               value={form.storeName}
               onChange={(e) => setForm({ ...form, storeName: e.target.value })}
-              className="w-full border rounded px-3 py-2"
+              className="w-full border rounded-lg px-3 h-12 text-base"
               required
             />
           </div>
 
           <div>
-            <label className="block text-sm text-gray-600 mb-1">Location</label>
+            <label className="block text-sm text-gray-600 mb-1">الموقع</label>
             <input
               type="text"
               value={form.location}
               onChange={(e) => setForm({ ...form, location: e.target.value })}
-              className="w-full border rounded px-3 py-2"
-              placeholder="e.g. Al-Amarat, Street 15"
+              className="w-full border rounded-lg px-3 h-12 text-base"
+              placeholder="مثال: العمارات، شارع ١٥"
               required
             />
           </div>
 
           <div>
-            <label className="block text-sm text-gray-600 mb-1">Phone (for calls)</label>
+            <label className="block text-sm text-gray-600 mb-1">رقم الهاتف (للاتصال)</label>
             <input
               type="tel"
               value={form.phone}
               onChange={(e) => setForm({ ...form, phone: e.target.value })}
-              className="w-full border rounded px-3 py-2"
-              placeholder="e.g. 091 234 5678"
+              className="w-full border rounded-lg px-3 h-12 text-base tabular-ltr text-start"
+              dir="ltr"
+              placeholder="0912345678"
               required
             />
           </div>
 
           <div>
-            <label className="flex items-center gap-2 text-sm text-gray-600 mb-2">
+            <label className="flex items-center gap-2 text-base text-gray-600 min-h-[44px]">
               <input
                 type="checkbox"
+                className="w-5 h-5"
                 checked={sameAsPhone}
                 onChange={(e) => setSameAsPhone(e.target.checked)}
               />
-              WhatsApp is the same number
+              رقم الواتساب هو نفس رقم الهاتف
             </label>
             {!sameAsPhone && (
               <input
                 type="tel"
                 value={form.whatsapp}
                 onChange={(e) => setForm({ ...form, whatsapp: e.target.value })}
-                className="w-full border rounded px-3 py-2"
-                placeholder="WhatsApp number, if different"
+                className="w-full border rounded-lg px-3 h-12 text-base tabular-ltr text-start"
+                dir="ltr"
+                placeholder="رقم الواتساب إن كان مختلفًا"
               />
             )}
           </div>
 
           <div>
-            <label className="block text-sm text-gray-600 mb-1">Route</label>
+            <label className="block text-sm text-gray-600 mb-1">المسار</label>
             <select
               value={form.route}
               onChange={(e) => setForm({ ...form, route: e.target.value })}
-              className="w-full border rounded px-3 py-2"
+              className="w-full border rounded-lg px-3 h-12 text-base"
             >
-              <option value="car1">Car 1 (on-demand)</option>
-              <option value="car2">Car 2 (fixed weekly route)</option>
+              <option value="car1">السيارة ١ (حسب الطلب)</option>
+              <option value="car2">السيارة ٢ (خط أسبوعي ثابت)</option>
             </select>
           </div>
 
           <button
             type="submit"
             disabled={submitting}
-            className="w-full bg-gray-900 text-white rounded py-2 font-medium disabled:opacity-50"
+            className="w-full bg-gray-900 text-white rounded-lg h-12 text-base font-medium active:bg-gray-700 disabled:opacity-50 flex items-center justify-center gap-2"
           >
-            {submitting ? "Registering..." : "Register Client"}
+            {submitting && <Spinner className="w-4 h-4" />}
+            {submitting ? "جارٍ التسجيل..." : "تسجيل العميل"}
           </button>
         </form>
       </div>

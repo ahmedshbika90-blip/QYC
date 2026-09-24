@@ -1,6 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 import { useAuth } from "../lib/useAuth";
 import Nav from "../components/Nav";
+import QtyStepper from "../components/QtyStepper";
+import { PageLoading, Spinner } from "../components/Loading";
+import { apiFetch } from "../lib/apiFetch";
+import { formatDate } from "../lib/labels";
 
 export default function PlaceOrder() {
   const { role, token, loading, logout } = useAuth();
@@ -30,7 +34,7 @@ export default function PlaceOrder() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token]);
 
-  // Close dropdowns when clicking outside them.
+  // Close dropdowns when tapping/clicking outside them.
   useEffect(() => {
     function handleClickOutside(e) {
       if (clientBoxRef.current && !clientBoxRef.current.contains(e.target)) {
@@ -41,15 +45,20 @@ export default function PlaceOrder() {
       }
     }
     document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
+    document.addEventListener("touchstart", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("touchstart", handleClickOutside);
+    };
   }, []);
 
   async function fetchData() {
     setFetching(true);
+    setError("");
     try {
       const [clientsRes, productsRes] = await Promise.all([
-        fetch("/api/clients/list", { headers: { Authorization: `Bearer ${token}` } }),
-        fetch("/api/products/list", { headers: { Authorization: `Bearer ${token}` } }),
+        apiFetch("/api/clients/list", { headers: { Authorization: `Bearer ${token}` } }),
+        apiFetch("/api/products/list", { headers: { Authorization: `Bearer ${token}` } }),
       ]);
       const clientsData = await clientsRes.json();
       const productsData = await productsRes.json();
@@ -103,9 +112,11 @@ export default function PlaceOrder() {
   }
 
   function setCartQty(productId, qty) {
-    setCart((prev) =>
-      prev.map((it) => (it.productId === productId ? { ...it, qty: Math.max(1, qty) } : it))
-    );
+    if (qty <= 0) {
+      removeFromCart(productId);
+      return;
+    }
+    setCart((prev) => prev.map((it) => (it.productId === productId ? { ...it, qty } : it)));
   }
 
   function removeFromCart(productId) {
@@ -120,17 +131,17 @@ export default function PlaceOrder() {
     setResult(null);
 
     if (!selectedClient) {
-      setError("Select a client first");
+      setError("اختر عميلاً أولاً");
       return;
     }
     if (cart.length === 0) {
-      setError("Add at least one product");
+      setError("أضف منتجًا واحدًا على الأقل");
       return;
     }
 
     setSubmitting(true);
     try {
-      const res = await fetch("/api/orders/create-staff", {
+      const res = await apiFetch("/api/orders/create-staff", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -142,7 +153,7 @@ export default function PlaceOrder() {
         }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Could not place order");
+      if (!res.ok) throw new Error(data.error || "تعذر تقديم الطلب");
       setResult(data);
       setCart([]);
       clearClient();
@@ -153,15 +164,15 @@ export default function PlaceOrder() {
     }
   }
 
-  if (loading) return <p className="p-8">Loading...</p>;
+  if (loading) return <PageLoading />;
 
   if (role === "supervisor") {
     return (
       <div className="min-h-screen bg-gray-50">
         <Nav role={role} logout={logout} />
         <p className="p-8 text-gray-500">
-          Supervisors oversee orders but don't place them directly — use the agent
-          accounts for phone-in orders.
+          المشرف يتابع الطلبات ولا يقوم بتقديمها مباشرة — استخدم حسابات المندوبين
+          لتسجيل الطلبات الهاتفية.
         </p>
       </div>
     );
@@ -170,44 +181,55 @@ export default function PlaceOrder() {
   return (
     <div className="min-h-screen bg-gray-50">
       <Nav role={role} logout={logout} />
-      <div className="max-w-lg mx-auto p-8">
-        <div className="bg-white p-8 rounded-lg shadow-md">
-          <h1 className="text-xl font-semibold mb-6 text-gray-800">Place an Order for a Client</h1>
+      <div className="max-w-lg mx-auto p-4 sm:p-8">
+        <div className="bg-white p-5 sm:p-8 rounded-lg shadow-md">
+          <h1 className="text-xl font-semibold mb-6 text-gray-800">تسجيل طلب لعميل</h1>
 
-          {error && <p className="text-red-600 text-sm mb-4">{error}</p>}
+          {error && (
+            <div className="text-red-600 text-sm mb-4 flex items-center gap-2">
+              <span>{error}</span>
+              <button type="button" onClick={fetchData} className="underline shrink-0">
+                إعادة المحاولة
+              </button>
+            </div>
+          )}
           {result && (
-            <div className="bg-green-50 border border-green-200 rounded p-4 mb-4">
-              <p className="text-green-800 font-medium">Order placed! ID: {result.orderId}</p>
-              <p className="text-green-700 text-sm mt-1">Total: {result.total}</p>
+            <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-4">
+              <p className="text-green-800 font-medium">
+                تم تقديم الطلب! الرقم: <span className="tabular-ltr">{result.orderId}</span>
+              </p>
+              <p className="text-green-700 text-sm mt-1">الإجمالي: {result.total}</p>
               {result.deliveryDate ? (
                 <p className="text-green-700 text-sm mt-1">
-                  Delivery date: {new Date(result.deliveryDate).toDateString()}
+                  تاريخ التسليم: {formatDate(result.deliveryDate)}
                 </p>
               ) : (
-                <p className="text-green-700 text-sm mt-1">On-demand — arrange timing directly.</p>
+                <p className="text-green-700 text-sm mt-1">حسب الطلب — تواصل مع العميل لتحديد الموعد.</p>
               )}
             </div>
           )}
 
           {fetching ? (
-            <p className="text-gray-400 text-sm">Loading clients and catalog...</p>
+            <div className="flex items-center gap-2 text-gray-400 text-sm py-4">
+              <Spinner className="w-4 h-4" /> جارٍ تحميل العملاء والمنتجات...
+            </div>
           ) : (
             <form onSubmit={handleSubmit} className="space-y-5">
               {/* Client picker */}
               <div ref={clientBoxRef} className="relative">
-                <label className="block text-sm text-gray-600 mb-1">Client</label>
+                <label className="block text-sm text-gray-600 mb-1">العميل</label>
 
                 {selectedClient ? (
-                  <div className="flex items-center justify-between border rounded px-3 py-2 bg-gray-50">
-                    <span className="text-sm text-gray-800">
+                  <div className="flex items-center justify-between border rounded-lg px-3 py-3 bg-gray-50">
+                    <span className="text-base text-gray-800 truncate">
                       #{selectedClient.id} — {selectedClient.name} ({selectedClient.storeName})
                     </span>
                     <button
                       type="button"
                       onClick={clearClient}
-                      className="text-xs text-gray-400 hover:text-gray-700"
+                      className="text-sm text-gray-500 min-h-[44px] px-2 shrink-0"
                     >
-                      Change
+                      تغيير
                     </button>
                   </div>
                 ) : (
@@ -220,20 +242,20 @@ export default function PlaceOrder() {
                         setClientDropdownOpen(true);
                       }}
                       onFocus={() => setClientDropdownOpen(true)}
-                      placeholder="Search by name, store, or ID..."
-                      className="w-full border rounded px-3 py-2"
+                      placeholder="ابحث بالاسم أو المتجر أو الرقم..."
+                      className="w-full border rounded-lg px-3 h-12 text-base"
                     />
                     {clientDropdownOpen && (
-                      <div className="absolute z-10 mt-1 w-full bg-white border rounded shadow-lg max-h-56 overflow-y-auto">
+                      <div className="absolute z-10 mt-1 w-full bg-white border rounded-lg shadow-lg max-h-64 overflow-y-auto">
                         {filteredClients.length === 0 ? (
-                          <p className="px-3 py-2 text-sm text-gray-400">No clients match</p>
+                          <p className="px-3 py-3 text-sm text-gray-400">لا يوجد عملاء مطابقون</p>
                         ) : (
                           filteredClients.map((c) => (
                             <button
                               type="button"
                               key={c.id}
                               onClick={() => pickClient(c)}
-                              className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 border-b last:border-0"
+                              className="w-full text-start px-3 py-3 text-base active:bg-gray-100 border-b last:border-0 min-h-[44px]"
                             >
                               #{c.id} — {c.name} <span className="text-gray-400">({c.storeName})</span>
                             </button>
@@ -247,7 +269,7 @@ export default function PlaceOrder() {
 
               {/* Product picker */}
               <div ref={productBoxRef} className="relative">
-                <label className="block text-sm text-gray-600 mb-1">Add Products</label>
+                <label className="block text-sm text-gray-600 mb-1">إضافة منتجات</label>
                 <input
                   type="text"
                   value={productQuery}
@@ -256,20 +278,20 @@ export default function PlaceOrder() {
                     setProductDropdownOpen(true);
                   }}
                   onFocus={() => setProductDropdownOpen(true)}
-                  placeholder="Search products..."
-                  className="w-full border rounded px-3 py-2"
+                  placeholder="ابحث عن منتج..."
+                  className="w-full border rounded-lg px-3 h-12 text-base"
                 />
                 {productDropdownOpen && (
-                  <div className="absolute z-10 mt-1 w-full bg-white border rounded shadow-lg max-h-56 overflow-y-auto">
+                  <div className="absolute z-10 mt-1 w-full bg-white border rounded-lg shadow-lg max-h-64 overflow-y-auto">
                     {filteredProducts.length === 0 ? (
-                      <p className="px-3 py-2 text-sm text-gray-400">No matching products</p>
+                      <p className="px-3 py-3 text-sm text-gray-400">لا توجد منتجات مطابقة</p>
                     ) : (
                       filteredProducts.map((p) => (
                         <button
                           type="button"
                           key={p.id}
                           onClick={() => addProduct(p)}
-                          className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 border-b last:border-0 flex justify-between"
+                          className="w-full text-start px-3 py-3 text-base active:bg-gray-100 border-b last:border-0 flex justify-between min-h-[44px]"
                         >
                           <span>{p.name}</span>
                           <span className="text-gray-400">
@@ -284,48 +306,34 @@ export default function PlaceOrder() {
 
               {/* Cart */}
               {cart.length > 0 && (
-                <div className="border rounded divide-y">
+                <div className="border rounded-lg divide-y">
                   {cart.map((it) => (
-                    <div key={it.productId} className="flex items-center justify-between px-3 py-2">
-                      <div>
-                        <p className="text-sm text-gray-800">{it.name}</p>
-                        <p className="text-xs text-gray-400">
+                    <div key={it.productId} className="flex items-center justify-between px-3 py-3 gap-3">
+                      <div className="min-w-0">
+                        <p className="text-base text-gray-800 truncate">{it.name}</p>
+                        <p className="text-sm text-gray-400">
                           {it.price} / {it.unit}
                         </p>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <input
-                          type="number"
-                          min="1"
-                          value={it.qty}
-                          onChange={(e) => setCartQty(it.productId, Number(e.target.value))}
-                          className="w-16 border rounded px-2 py-1 text-sm text-right"
-                        />
-                        <button
-                          type="button"
-                          onClick={() => removeFromCart(it.productId)}
-                          className="text-red-400 hover:text-red-600 text-sm px-1"
-                        >
-                          &times;
-                        </button>
-                      </div>
+                      <QtyStepper value={it.qty} onChange={(v) => setCartQty(it.productId, v)} min={0} />
                     </div>
                   ))}
                 </div>
               )}
 
               {cart.length > 0 && (
-                <div className="text-right text-sm text-gray-600">
-                  Total: <span className="font-semibold text-gray-900">{total.toFixed(2)}</span>
+                <div className="text-end text-base text-gray-600">
+                  الإجمالي: <span className="font-semibold text-gray-900">{total.toFixed(2)}</span>
                 </div>
               )}
 
               <button
                 type="submit"
                 disabled={submitting}
-                className="w-full bg-gray-900 text-white rounded py-2 font-medium disabled:opacity-50"
+                className="w-full bg-gray-900 text-white rounded-lg h-12 text-base font-medium active:bg-gray-700 disabled:opacity-50 flex items-center justify-center gap-2"
               >
-                {submitting ? "Placing order..." : "Place Order"}
+                {submitting && <Spinner className="w-4 h-4" />}
+                {submitting ? "جارٍ تقديم الطلب..." : "تقديم الطلب"}
               </button>
             </form>
           )}

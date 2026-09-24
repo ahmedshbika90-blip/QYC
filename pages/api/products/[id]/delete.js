@@ -5,7 +5,7 @@ const { requireUser, requireRole } = require("../../../../lib/apiAuth");
 // price, and unit at the time it was ordered, so past orders are unaffected.
 export default async function handler(req, res) {
   if (req.method !== "DELETE") {
-    return res.status(405).json({ error: "Method not allowed" });
+    return res.status(405).json({ error: "طريقة الطلب غير مسموح بها" });
   }
 
   try {
@@ -16,7 +16,7 @@ export default async function handler(req, res) {
     const ref = adminDb.collection("products").doc(id);
     const snap = await ref.get();
     if (!snap.exists) {
-      return res.status(404).json({ error: "Product not found" });
+      return res.status(404).json({ error: "المنتج غير موجود" });
     }
 
     await ref.delete();

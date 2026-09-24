@@ -3,7 +3,7 @@ const { requireUser, requireRole } = require("../../../lib/apiAuth");
 
 export default async function handler(req, res) {
   if (req.method !== "POST") {
-    return res.status(405).json({ error: "Method not allowed" });
+    return res.status(405).json({ error: "طريقة الطلب غير مسموح بها" });
   }
 
   try {
@@ -13,11 +13,11 @@ export default async function handler(req, res) {
     const { name, price, unit, category } = req.body || {};
 
     if (!name || price === undefined || price === null || !unit) {
-      return res.status(400).json({ error: "name, price, and unit are required" });
+      return res.status(400).json({ error: "الاسم والسعر والوحدة كلها مطلوبة" });
     }
     const numericPrice = Number(price);
     if (Number.isNaN(numericPrice) || numericPrice < 0) {
-      return res.status(400).json({ error: "price must be a non-negative number" });
+      return res.status(400).json({ error: "السعر يجب أن يكون رقمًا موجبًا" });
     }
 
     const productDoc = {

@@ -4,7 +4,7 @@ const { buildOrderFromItems, getActiveClient, calculateDeliveryDate } = require(
 // Public — clients place their own orders here with no login, using their 4-digit ID.
 export default async function handler(req, res) {
   if (req.method !== "POST") {
-    return res.status(405).json({ error: "Method not allowed" });
+    return res.status(405).json({ error: "طريقة الطلب غير مسموح بها" });
   }
 
   try {

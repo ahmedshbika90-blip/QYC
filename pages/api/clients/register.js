@@ -22,7 +22,7 @@ async function getNextClientId() {
 
 export default async function handler(req, res) {
   if (req.method !== "POST") {
-    return res.status(405).json({ error: "Method not allowed" });
+    return res.status(405).json({ error: "طريقة الطلب غير مسموح بها" });
   }
 
   try {
@@ -33,11 +33,11 @@ export default async function handler(req, res) {
 
     if (!name || !storeName || !location || !route || !phone) {
       return res.status(400).json({
-        error: "name, storeName, location, route, and phone are all required",
+        error: "الاسم والمتجر والموقع والمسار ورقم الهاتف كلها مطلوبة",
       });
     }
     if (!["car1", "car2"].includes(route)) {
-      return res.status(400).json({ error: 'route must be "car1" or "car2"' });
+      return res.status(400).json({ error: 'المسار يجب أن يكون السيارة ١ أو السيارة ٢' });
     }
 
     const clientId = await getNextClientId();

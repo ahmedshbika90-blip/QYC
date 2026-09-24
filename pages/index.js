@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { useRouter } from "next/router";
 import { onAuthStateChanged } from "firebase/auth";
 import { auth } from "../lib/firebaseClient";
+import { PageLoading } from "../components/Loading";
 
 const ROLE_HOME = {
   agent_car1: "/dashboard/car1",
@@ -25,5 +26,5 @@ export default function Home() {
     return () => unsub();
   }, [router]);
 
-  return <p className="p-8 text-gray-500">Loading...</p>;
+  return <PageLoading />;
 }

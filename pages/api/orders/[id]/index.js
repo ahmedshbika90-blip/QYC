@@ -8,7 +8,7 @@ const ROLE_TO_ROUTE = {
 
 export default async function handler(req, res) {
   if (req.method !== "GET") {
-    return res.status(405).json({ error: "Method not allowed" });
+    return res.status(405).json({ error: "طريقة الطلب غير مسموح بها" });
   }
 
   try {
@@ -17,16 +17,16 @@ export default async function handler(req, res) {
 
     const snap = await adminDb.collection("orders").doc(id).get();
     if (!snap.exists) {
-      return res.status(404).json({ error: "Order not found" });
+      return res.status(404).json({ error: "الطلب غير موجود" });
     }
     const order = snap.data();
 
     const restrictedRoute = ROLE_TO_ROUTE[decoded.role];
     if (restrictedRoute && order.route !== restrictedRoute) {
-      return res.status(403).json({ error: "Forbidden: not your route" });
+      return res.status(403).json({ error: "غير مصرح: هذا خارج مسارك" });
     }
     if (!restrictedRoute && decoded.role !== "supervisor") {
-      return res.status(403).json({ error: "Forbidden: unrecognized role" });
+      return res.status(403).json({ error: "غير مصرح: الصلاحية غير معروفة" });
     }
 
     const clientSnap = await adminDb.collection("clients").doc(order.clientId).get();

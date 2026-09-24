@@ -9,11 +9,11 @@ const ROLE_TO_ROUTE = {
 function checkAccess(decoded, clientRoute, res) {
   const restrictedRoute = ROLE_TO_ROUTE[decoded.role];
   if (restrictedRoute && clientRoute !== restrictedRoute) {
-    res.status(403).json({ error: "Forbidden: not your route" });
+    res.status(403).json({ error: "غير مصرح: هذا خارج مسارك" });
     return false;
   }
   if (!restrictedRoute && decoded.role !== "supervisor") {
-    res.status(403).json({ error: "Forbidden: unrecognized role" });
+    res.status(403).json({ error: "غير مصرح: الصلاحية غير معروفة" });
     return false;
   }
   return true;
@@ -27,7 +27,7 @@ export default async function handler(req, res) {
     const ref = adminDb.collection("clients").doc(id);
     const snap = await ref.get();
     if (!snap.exists) {
-      return res.status(404).json({ error: "Client not found" });
+      return res.status(404).json({ error: "العميل غير موجود" });
     }
     const client = snap.data();
 
@@ -43,11 +43,11 @@ export default async function handler(req, res) {
       const { name, storeName, location, route, active, phone, whatsapp } = req.body || {};
 
       if (route !== undefined && route !== client.route && decoded.role !== "supervisor") {
-        return res.status(403).json({ error: "Only a supervisor can reassign a client's route" });
+        return res.status(403).json({ error: "المشرف فقط يمكنه تغيير مسار العميل" });
       }
       if (!checkAccess(decoded, client.route, res)) return;
       if (route !== undefined && !["car1", "car2"].includes(route)) {
-        return res.status(400).json({ error: 'route must be "car1" or "car2"' });
+        return res.status(400).json({ error: 'المسار يجب أن يكون السيارة ١ أو السيارة ٢' });
       }
 
       const updates = { updatedAt: new Date().toISOString(), updatedBy: decoded.uid };
@@ -63,7 +63,7 @@ export default async function handler(req, res) {
       return res.status(200).json({ ok: true });
     }
 
-    return res.status(405).json({ error: "Method not allowed" });
+    return res.status(405).json({ error: "طريقة الطلب غير مسموح بها" });
   } catch (err) {
     const status = err.statusCode || 500;
     return res.status(status).json({ error: err.message });

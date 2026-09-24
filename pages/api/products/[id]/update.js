@@ -3,7 +3,7 @@ const { requireUser, requireRole } = require("../../../../lib/apiAuth");
 
 export default async function handler(req, res) {
   if (req.method !== "PATCH") {
-    return res.status(405).json({ error: "Method not allowed" });
+    return res.status(405).json({ error: "طريقة الطلب غير مسموح بها" });
   }
 
   try {
@@ -21,7 +21,7 @@ export default async function handler(req, res) {
     if (price !== undefined) {
       const numericPrice = Number(price);
       if (Number.isNaN(numericPrice) || numericPrice < 0) {
-        return res.status(400).json({ error: "price must be a non-negative number" });
+        return res.status(400).json({ error: "السعر يجب أن يكون رقمًا موجبًا" });
       }
       updates.price = numericPrice;
     }
@@ -29,7 +29,7 @@ export default async function handler(req, res) {
     const ref = adminDb.collection("products").doc(id);
     const snap = await ref.get();
     if (!snap.exists) {
-      return res.status(404).json({ error: "Product not found" });
+      return res.status(404).json({ error: "المنتج غير موجود" });
     }
 
     await ref.update(updates);

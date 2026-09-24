@@ -1,3 +1,16 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+html {
+  font-family: "Cairo", ui-sans-serif, system-ui, sans-serif;
+}
+
+/* Keep numerals (prices, phone numbers, IDs) left-to-right even inside
+   RTL text, and in the Latin script — Arabic-indic digits are avoided
+   deliberately (see lib/labels.js) since this app's numbers are read
+   digit-by-digit in daily business use. */
+.tabular-ltr {
+  direction: ltr;
+  unicode-bidi: isolate;
+}

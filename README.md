@@ -13,6 +13,32 @@ weekly delivery day. A supervisor account sees everything.
 Roles are stored as Firebase Auth custom claims, not in Firestore, so
 security rules and API routes can check them directly off the ID token.
 
+## Arabic / RTL
+The whole interface is in Arabic with a global `dir="rtl"` layout (set in
+`pages/_document.js`). Data stays in English internally (status values,
+route codes) — only what's displayed is translated, via `lib/labels.js`.
+Numbers (prices, phone numbers, client/order IDs) stay in Western digits
+on purpose (`.tabular-ltr` class) since that's how they're read in daily
+business use, even inside Arabic text. Dates are formatted with the
+Gregorian calendar explicitly forced (`lib/labels.js` → `formatDate`),
+since some browsers default Arabic locales to the Hijri calendar, which
+would otherwise scramble delivery-date scheduling.
+
+## Built for unreliable connections
+- Every client-side API call goes through `lib/apiFetch.js`, which adds a
+  15s timeout and retries twice with backoff before giving up — a slow
+  or flaky connection gets a real chance to succeed instead of failing
+  on the first hiccup.
+- `components/OfflineBanner.js` shows a banner the moment the browser
+  goes offline, so people aren't left guessing why nothing is loading.
+- `/new-order`'s product catalog is cached in `localStorage`; if the live
+  fetch fails, it falls back to the last successfully loaded catalog so
+  clients can still browse and place an order (with a note that prices
+  may be stale) instead of hitting a dead page.
+- Loading states use skeleton placeholders (`components/Loading.js`)
+  instead of a layout jump from blank to full, which matters more on
+  connections where a fetch can visibly take a couple of seconds.
+
 ## What's in this build
 - **Product catalog** — staff add products with price + unit; clients pick
   quantities from the live catalog when ordering (no more free-text items).

@@ -2,6 +2,9 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/router";
 import { useAuth } from "../../lib/useAuth";
 import Nav from "../../components/Nav";
+import { PageLoading } from "../../components/Loading";
+import { apiFetch } from "../../lib/apiFetch";
+import { STATUS_LABELS, formatDate, formatDateTime } from "../../lib/labels";
 
 const STATUS_OPTIONS = ["pending", "contacted", "confirmed", "processing", "delivered", "cancelled"];
 
@@ -24,8 +27,9 @@ export default function OrderDetail() {
 
   async function fetchOrder() {
     setFetching(true);
+    setError("");
     try {
-      const res = await fetch(`/api/orders/${id}`, {
+      const res = await apiFetch(`/api/orders/${id}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       const data = await res.json();
@@ -41,7 +45,7 @@ export default function OrderDetail() {
 
   async function updateStatus(status) {
     try {
-      const res = await fetch(`/api/orders/${id}/status`, {
+      const res = await apiFetch(`/api/orders/${id}/status`, {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",
@@ -59,7 +63,7 @@ export default function OrderDetail() {
   async function saveNotes() {
     setSaving(true);
     try {
-      const res = await fetch(`/api/orders/${id}/status`, {
+      const res = await apiFetch(`/api/orders/${id}/status`, {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",
@@ -75,36 +79,38 @@ export default function OrderDetail() {
     }
   }
 
-  if (loading || fetching || !order) return <p className="p-8">Loading...</p>;
+  if (loading || fetching || !order) return <PageLoading />;
 
   return (
     <div className="min-h-screen bg-gray-50">
       <Nav role={role} logout={logout} />
-      <div className="max-w-2xl mx-auto p-8">
-        <div className="bg-white rounded-lg shadow p-6">
-          <div className="flex justify-between items-start mb-4">
+      <div className="max-w-2xl mx-auto p-4 sm:p-8">
+        <div className="bg-white rounded-lg shadow p-5 sm:p-6">
+          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-3 mb-4">
             <div>
-              <h1 className="text-xl font-semibold text-gray-800">Order #{order.id}</h1>
+              <h1 className="text-xl font-semibold text-gray-800">
+                طلب رقم <span className="tabular-ltr">{order.id}</span>
+              </h1>
               <p className="text-sm text-gray-500">
-                Client #{order.clientId} — {order.client?.name} ({order.client?.storeName})
+                العميل <span className="tabular-ltr">#{order.clientId}</span> — {order.client?.name} ({order.client?.storeName})
               </p>
               <p className="text-xs text-gray-400">{order.client?.location}</p>
               {order.client?.phone && (
-                <div className="flex gap-3 mt-2">
+                <div className="flex gap-4 mt-2">
                   <a
                     href={`tel:${order.client.phone}`}
-                    className="text-xs text-blue-600 hover:underline"
+                    className="text-sm text-blue-600 min-h-[44px] flex items-center"
                   >
-                    Call {order.client.phone}
+                    اتصال {order.client.phone}
                   </a>
                   {order.client.whatsapp && (
                     <a
                       href={`https://wa.me/${order.client.whatsapp.replace(/[^\d]/g, "")}`}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-xs text-green-600 hover:underline"
+                      className="text-sm text-green-600 min-h-[44px] flex items-center"
                     >
-                      WhatsApp
+                      واتساب
                     </a>
                   )}
                 </div>
@@ -113,63 +119,58 @@ export default function OrderDetail() {
             <select
               value={order.status}
               onChange={(e) => updateStatus(e.target.value)}
-              className="border rounded px-2 py-1 text-sm"
+              className="border rounded-lg px-3 h-11 text-base self-start"
             >
               {STATUS_OPTIONS.map((s) => (
-                <option key={s} value={s}>{s}</option>
+                <option key={s} value={s}>{STATUS_LABELS[s]}</option>
               ))}
             </select>
           </div>
 
           {error && <p className="text-red-600 text-sm mb-4">{error}</p>}
 
-          <table className="w-full text-sm mb-4">
-            <thead>
-              <tr className="text-left text-gray-400 border-b">
-                <th className="py-2">Item</th>
-                <th className="py-2 text-right">Qty</th>
-                <th className="py-2 text-right">Price</th>
-                <th className="py-2 text-right">Subtotal</th>
-              </tr>
-            </thead>
-            <tbody>
-              {order.items.map((it, i) => (
-                <tr key={i} className="border-b last:border-0">
-                  <td className="py-2 text-gray-800">{it.name}</td>
-                  <td className="py-2 text-right text-gray-600">
-                    {it.qty} {it.unit || ""}
-                  </td>
-                  <td className="py-2 text-right text-gray-600">{it.price}</td>
-                  <td className="py-2 text-right text-gray-800">{it.subtotal ?? it.price * it.qty}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-
-          <div className="text-right font-semibold text-gray-800 mb-4">
-            Total: {order.total ?? "—"}
+          {/* Card list instead of a table — a table squeezes unreadably on
+              phone width, this stays legible and touch-friendly. */}
+          <div className="border rounded-lg divide-y mb-4">
+            {order.items.map((it, i) => (
+              <div key={i} className="flex items-center justify-between px-3 py-3 gap-3">
+                <div className="min-w-0">
+                  <p className="text-base text-gray-800 truncate">{it.name}</p>
+                  <p className="text-sm text-gray-400">
+                    {it.qty} {it.unit || ""} × {it.price}
+                  </p>
+                </div>
+                <p className="text-base font-medium text-gray-800 shrink-0">
+                  {it.subtotal ?? it.price * it.qty}
+                </p>
+              </div>
+            ))}
           </div>
 
-          <div className="text-sm text-gray-500 mb-4">
+          <div className="text-end font-semibold text-gray-800 mb-4 text-base">
+            الإجمالي: {order.total ?? "—"}
+          </div>
+
+          <div className="text-sm text-gray-500 mb-4 space-y-0.5">
             {order.deliveryDate ? (
-              <p>Delivery date: {new Date(order.deliveryDate).toDateString()}</p>
+              <p>تاريخ التسليم: {formatDate(order.deliveryDate)}</p>
             ) : (
-              <p>On-demand — contact client to arrange timing.</p>
+              <p>حسب الطلب — تواصل مع العميل لتحديد الموعد.</p>
             )}
-            <p>Placed: {new Date(order.createdAt).toLocaleString()}</p>
+            <p>تاريخ الطلب: {formatDateTime(order.createdAt)}</p>
           </div>
 
           <div>
-            <label className="block text-sm text-gray-600 mb-1">Notes</label>
+            <label className="block text-sm text-gray-600 mb-1">ملاحظات</label>
             <textarea
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               onBlur={saveNotes}
               rows={3}
-              className="w-full border rounded px-3 py-2 text-sm"
-              placeholder="Add any notes about this order..."
+              className="w-full border rounded-lg px-3 py-2 text-base"
+              placeholder="أضف أي ملاحظات حول هذا الطلب..."
             />
-            {saving && <p className="text-xs text-gray-400 mt-1">Saving...</p>}
+            {saving && <p className="text-xs text-gray-400 mt-1">جارٍ الحفظ...</p>}
           </div>
         </div>
       </div>

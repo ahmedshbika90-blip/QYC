@@ -17,7 +17,7 @@ const VALID_STATUSES = [
 
 export default async function handler(req, res) {
   if (req.method !== "PATCH") {
-    return res.status(405).json({ error: "Method not allowed" });
+    return res.status(405).json({ error: "طريقة الطلب غير مسموح بها" });
   }
 
   try {
@@ -26,25 +26,25 @@ export default async function handler(req, res) {
     const { status, notes } = req.body || {};
 
     if (status !== undefined && !VALID_STATUSES.includes(status)) {
-      return res.status(400).json({ error: `status must be one of ${VALID_STATUSES.join(", ")}` });
+      return res.status(400).json({ error: "قيمة الحالة غير صحيحة" });
     }
     if (status === undefined && notes === undefined) {
-      return res.status(400).json({ error: "Provide status and/or notes to update" });
+      return res.status(400).json({ error: "يرجى إدخال الحالة أو الملاحظات للتحديث" });
     }
 
     const orderRef = adminDb.collection("orders").doc(id);
     const orderSnap = await orderRef.get();
     if (!orderSnap.exists) {
-      return res.status(404).json({ error: "Order not found" });
+      return res.status(404).json({ error: "الطلب غير موجود" });
     }
     const order = orderSnap.data();
 
     const restrictedRoute = ROLE_TO_ROUTE[decoded.role];
     if (restrictedRoute && order.route !== restrictedRoute) {
-      return res.status(403).json({ error: "Forbidden: not your route" });
+      return res.status(403).json({ error: "غير مصرح: هذا خارج مسارك" });
     }
     if (!restrictedRoute && decoded.role !== "supervisor") {
-      return res.status(403).json({ error: "Forbidden: unrecognized role" });
+      return res.status(403).json({ error: "غير مصرح: الصلاحية غير معروفة" });
     }
 
     const updates = { updatedAt: new Date().toISOString(), updatedBy: decoded.uid };

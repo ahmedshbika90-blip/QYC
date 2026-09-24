@@ -12,7 +12,7 @@ const ROLE_TO_ROUTE = {
 // for clients on their own route.
 export default async function handler(req, res) {
   if (req.method !== "POST") {
-    return res.status(405).json({ error: "Method not allowed" });
+    return res.status(405).json({ error: "طريقة الطلب غير مسموح بها" });
   }
 
   try {
@@ -25,7 +25,7 @@ export default async function handler(req, res) {
 
     const restrictedRoute = ROLE_TO_ROUTE[decoded.role];
     if (client.route !== restrictedRoute) {
-      return res.status(403).json({ error: "This client is not on your route" });
+      return res.status(403).json({ error: "هذا العميل ليس ضمن مسارك" });
     }
 
     const { resolvedItems, total } = await buildOrderFromItems(items);
