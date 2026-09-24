@@ -1,0 +1,53 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function role() {
+      return request.auth.token.role;
+    }
+
+    function isSupervisor() {
+      return isSignedIn() && role() == 'supervisor';
+    }
+
+    function isAgentForRoute(route) {
+      return isSignedIn() &&
+        ((route == 'car1' && role() == 'agent_car1') ||
+         (route == 'car2' && role() == 'agent_car2'));
+    }
+
+    // Clients are managed by staff only. Clients themselves never sign in —
+    // they interact only via /api/orders/create and /api/clients/register,
+    // which use the Admin SDK server-side and bypass these rules entirely.
+    match /clients/{clientId} {
+      allow read: if isSupervisor() || isAgentForRoute(resource.data.route);
+      allow write: if isSupervisor() || isAgentForRoute(request.resource.data.route);
+    }
+
+    match /orders/{orderId} {
+      allow read: if isSupervisor() || isAgentForRoute(resource.data.route);
+      allow update: if isSupervisor() || isAgentForRoute(resource.data.route);
+      allow create: if false; // orders are created server-side only
+      allow delete: if false;
+    }
+
+    // Product catalog is read via the /api/products/list server route (bypasses
+    // these rules), so client-side reads aren't required, but allow signed-in
+    // staff read access for completeness; writes stay server-side only.
+    match /products/{productId} {
+      allow read: if isSignedIn();
+      allow write: if false;
+    }
+
+    // Internal counter used to generate sequential 4-digit client IDs.
+    // Only touched by the Admin SDK server-side — never directly by clients.
+    match /meta/{docId} {
+      allow read, write: if false;
+    }
+  }
+}
