@@ -14,3 +14,27 @@ html {
   direction: ltr;
   unicode-bidi: isolate;
 }
+
+/* Printable sales report: elements marked .no-print (nav, the filter
+   form, the print button itself) are hidden when actually printing or
+   saving as PDF via the browser's print dialog — only the report content
+   ends up on the page. break-inside-avoid keeps one client's table from
+   splitting awkwardly across a page boundary. */
+/* The sales report is a wide client×product table — landscape gives it
+   much more usable width than the browser's default portrait print. */
+@page {
+  size: landscape;
+  margin: 12mm;
+}
+
+@media print {
+  .no-print {
+    display: none !important;
+  }
+  body {
+    background: white;
+  }
+  .break-inside-avoid {
+    break-inside: avoid;
+  }
+}

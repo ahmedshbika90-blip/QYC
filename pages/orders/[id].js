@@ -6,7 +6,7 @@ import { PageLoading } from "../../components/Loading";
 import { apiFetch } from "../../lib/apiFetch";
 import { STATUS_LABELS, formatDate, formatDateTime } from "../../lib/labels";
 
-const STATUS_OPTIONS = ["pending", "contacted", "confirmed", "processing", "delivered", "cancelled"];
+const STATUS_OPTIONS = ["pending", "delivered", "cancelled"];
 
 export default function OrderDetail() {
   const { role, token, loading, logout } = useAuth();

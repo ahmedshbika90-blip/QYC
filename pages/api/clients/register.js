@@ -20,6 +20,11 @@ async function getNextClientId() {
   });
 }
 
+const ROLE_TO_ROUTE = {
+  agent_car1: "car1",
+  agent_car2: "car2",
+};
+
 export default async function handler(req, res) {
   if (req.method !== "POST") {
     return res.status(405).json({ error: "طريقة الطلب غير مسموح بها" });
@@ -29,7 +34,17 @@ export default async function handler(req, res) {
     const decoded = await requireUser(req);
     requireRole(decoded, ["agent_car1", "agent_car2", "supervisor"]);
 
-    const { name, storeName, location, route, phone, whatsapp } = req.body || {};
+    const { name, storeName, location, phone, whatsapp } = req.body || {};
+    let { route } = req.body || {};
+
+    // An agent's own route isn't a choice — it's fixed by who they are
+    // logged in as. The submitted route (if any) is ignored entirely for
+    // agents so a tampered request can never register a client onto the
+    // other agent's route. Only the supervisor actually picks a route.
+    const forcedRoute = ROLE_TO_ROUTE[decoded.role];
+    if (forcedRoute) {
+      route = forcedRoute;
+    }
 
     if (!name || !storeName || !location || !route || !phone) {
       return res.status(400).json({

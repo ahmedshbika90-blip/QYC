@@ -105,13 +105,36 @@ would otherwise scramble delivery-date scheduling.
 - `/register-client` — staff registers a new client, gets back their 4-digit ID
 - `/clients` — searchable list of all clients (route-scoped for agents)
 - `/clients/[id]` — edit a client's details, reassign route (supervisor only), deactivate
-- `/products` — manage the product catalog: add, reprice, activate/deactivate
-- `/new-order` — public page, clients place orders using their ID (no login)
+- `/products` — manage the product catalog: add, reprice per route (car1/car2), activate/deactivate/delete (supervisor only)
+- `/new-order` — public page: client enters their ID, catalog loads priced for their route, then places the order
 - `/place-order` — agents (car1/car2 only, not supervisor) place an order on behalf of an already-registered client, e.g. for phone-in orders
 - `/orders/[id]` — full order detail: items, total, status, notes
+- `/reports/sales` — printable sales report (date range, route filter for supervisor), grouped by client with per-client and grand totals; "طباعة / حفظ PDF" uses the browser's own print-to-PDF, so Arabic/RTL renders correctly with no server-side PDF library needed
 - `/dashboard/car1` — car1 agent's order queue
 - `/dashboard/car2` — car2 agent's orders grouped by delivery date
 - `/dashboard/supervisor` — all orders, filterable by route, with total value
+
+## Order status
+Simplified to three values: `pending` (set automatically at creation, never
+chosen manually), `delivered`, and `cancelled` — the agent picks one of the
+latter two once they've handled the order. There's no more multi-step
+contacted/confirmed/processing workflow. The sales report only counts
+`delivered` orders; `cancelled` ones are excluded entirely, and `pending`
+ones haven't happened yet so they're excluded too.
+
+## Per-route pricing
+Each product now has two prices — `prices.car1` and `prices.car2` — set
+independently by the supervisor on `/products`. The correct price is
+always resolved server-side from the client's actual route (never trusted
+from the browser): `/new-order` looks up the client's route first via
+`/api/clients/lookup-route`, then loads the catalog priced for that route;
+`/place-order` resolves the price once an agent selects a client, since
+the agent already knows which route they work.
+
+**If you have existing products from before this change**, they'll have
+a single old `price` field instead of `prices.car1`/`prices.car2` — open
+each one in `/products` and re-enter both prices; there's no automatic
+migration.
 
 ## Notes / things to revisit
 - Client ID generation is sequential starting at 1000, via a Firestore
@@ -120,9 +143,10 @@ would otherwise scramble delivery-date scheduling.
   `order.route` is always copied from the client at creation time.
 - No pagination yet on `/clients` or dashboards — fine at current scale,
   worth adding if client/order counts grow into the hundreds+.
-- Reporting beyond the simple running total on the supervisor dashboard
-  (e.g. revenue by month, by product) isn't built — Firestore isn't great
-  at this; denormalize into a summary collection or export to BigQuery
-  later if you need it.
+- The sales report fetches all delivered orders for the route(s) in scope
+  and filters/groups in memory — deliberately avoids needing a new
+  Firestore composite index, but worth revisiting (e.g. paginating or
+  pre-aggregating) if order volume grows very large over time.
 - No email/SMS notifications when an order status changes — currently
   everything is pull-based (agent checks the dashboard).
+

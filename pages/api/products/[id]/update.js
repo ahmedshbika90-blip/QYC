@@ -11,19 +11,40 @@ export default async function handler(req, res) {
     requireRole(decoded, ["supervisor"]);
 
     const { id } = req.query;
-    const { name, price, unit, category, active } = req.body || {};
+    const { name, unit, category, active, priceCar1, priceCar2 } = req.body || {};
 
     const updates = { updatedAt: new Date().toISOString(), updatedBy: decoded.uid };
     if (name !== undefined) updates.name = name;
     if (unit !== undefined) updates.unit = unit;
     if (category !== undefined) updates.category = category;
     if (active !== undefined) updates.active = Boolean(active);
-    if (price !== undefined) {
-      const numericPrice = Number(price);
-      if (Number.isNaN(numericPrice) || numericPrice < 0) {
-        return res.status(400).json({ error: "السعر يجب أن يكون رقمًا موجبًا" });
+
+    if (priceCar1 !== undefined || priceCar2 !== undefined) {
+      const ref = adminDb.collection("products").doc(id);
+      const snap = await ref.get();
+      if (!snap.exists) {
+        return res.status(404).json({ error: "المنتج غير موجود" });
       }
-      updates.price = numericPrice;
+      const current = snap.data().prices || {};
+      const nextPrices = { ...current };
+
+      if (priceCar1 !== undefined) {
+        const n = Number(priceCar1);
+        if (Number.isNaN(n) || n < 0) {
+          return res.status(400).json({ error: "سعر السيارة ١ يجب أن يكون رقمًا موجبًا" });
+        }
+        nextPrices.car1 = n;
+      }
+      if (priceCar2 !== undefined) {
+        const n = Number(priceCar2);
+        if (Number.isNaN(n) || n < 0) {
+          return res.status(400).json({ error: "سعر السيارة ٢ يجب أن يكون رقمًا موجبًا" });
+        }
+        nextPrices.car2 = n;
+      }
+      updates.prices = nextPrices;
+      await ref.update(updates);
+      return res.status(200).json({ ok: true });
     }
 
     const ref = adminDb.collection("products").doc(id);

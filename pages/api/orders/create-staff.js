@@ -28,7 +28,7 @@ export default async function handler(req, res) {
       return res.status(403).json({ error: "هذا العميل ليس ضمن مسارك" });
     }
 
-    const { resolvedItems, total } = await buildOrderFromItems(items);
+    const { resolvedItems, total } = await buildOrderFromItems(items, client.route);
     const deliveryDate = calculateDeliveryDate(client.route);
 
     const orderDoc = {

@@ -11,7 +11,7 @@ export default async function handler(req, res) {
     const { clientId, items } = req.body || {};
 
     const client = await getActiveClient(clientId);
-    const { resolvedItems, total } = await buildOrderFromItems(items);
+    const { resolvedItems, total } = await buildOrderFromItems(items, client.route);
     const deliveryDate = calculateDeliveryDate(client.route);
 
     const orderDoc = {

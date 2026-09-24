@@ -4,44 +4,66 @@ import { Spinner } from "../components/Loading";
 import { apiFetch } from "../lib/apiFetch";
 import { formatDate } from "../lib/labels";
 
-const CACHE_KEY = "cachedProductCatalog";
+function cacheKey(route) {
+  return `cachedProductCatalog_${route}`;
+}
 
 // No login required — clients identify themselves with their 4-digit ID.
 // Built touch-first and connection-resilient: this page is used by the
-// general public in Sudan, often on slow or intermittent mobile data, so
-// the catalog falls back to a cached copy if the live fetch fails.
+// general public in Sudan, often on slow or intermittent mobile data.
+//
+// Each product has a different price depending on which route (car1/car2)
+// the client is on, so the catalog can't be shown until the client's
+// route is known — the flow is: enter ID → look up route → show catalog
+// priced for that route.
 export default function NewOrder() {
   const [clientId, setClientId] = useState("");
+  const [route, setRoute] = useState(null);
+  const [lookingUp, setLookingUp] = useState(false);
+  const [lookupError, setLookupError] = useState("");
+
   const [products, setProducts] = useState([]);
-  const [loadingProducts, setLoadingProducts] = useState(true);
+  const [loadingProducts, setLoadingProducts] = useState(false);
   const [usingCache, setUsingCache] = useState(false);
-  const [quantities, setQuantities] = useState({}); // productId -> qty
+  const [quantities, setQuantities] = useState({});
   const [result, setResult] = useState(null);
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
-  useEffect(() => {
-    loadCatalog();
-  }, []);
-
-  async function loadCatalog() {
-    setLoadingProducts(true);
+  async function handleLookup(e) {
+    e.preventDefault();
+    setLookupError("");
+    setLookingUp(true);
     try {
-      const res = await apiFetch("/api/products/list");
+      const res = await apiFetch(`/api/clients/lookup-route?clientId=${clientId}`);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      setRoute(data.route);
+      loadCatalog(data.route);
+    } catch (err) {
+      setLookupError(err.message);
+    } finally {
+      setLookingUp(false);
+    }
+  }
+
+  async function loadCatalog(forRoute) {
+    setLoadingProducts(true);
+    setError("");
+    try {
+      const res = await apiFetch(`/api/products/list?route=${forRoute}`);
       const data = await res.json();
       const list = data.products || [];
       setProducts(list);
       setUsingCache(false);
       try {
-        localStorage.setItem(CACHE_KEY, JSON.stringify(list));
+        localStorage.setItem(cacheKey(forRoute), JSON.stringify(list));
       } catch {
         // storage full or unavailable — not critical, just skip caching
       }
     } catch (err) {
-      // Live fetch failed (likely a connectivity issue) — fall back to
-      // whatever catalog was last successfully loaded on this device.
       try {
-        const cached = localStorage.getItem(CACHE_KEY);
+        const cached = localStorage.getItem(cacheKey(forRoute));
         if (cached) {
           setProducts(JSON.parse(cached));
           setUsingCache(true);
@@ -54,6 +76,13 @@ export default function NewOrder() {
     } finally {
       setLoadingProducts(false);
     }
+  }
+
+  function changeClient() {
+    setRoute(null);
+    setProducts([]);
+    setQuantities({});
+    setResult(null);
   }
 
   function setQty(productId, qty) {
@@ -102,94 +131,116 @@ export default function NewOrder() {
       <div className="max-w-lg mx-auto bg-white p-5 sm:p-8 rounded-lg shadow-md">
         <h1 className="text-xl font-semibold mb-6 text-gray-800">تقديم طلب</h1>
 
-        {error && (
-          <div className="text-red-600 text-sm mb-4 flex items-center gap-2">
-            <span>{error}</span>
-            <button type="button" onClick={loadCatalog} className="underline shrink-0">
-              إعادة المحاولة
-            </button>
-          </div>
-        )}
-        {usingCache && !error && (
-          <p className="text-amber-600 text-xs mb-4 bg-amber-50 rounded-lg px-3 py-2">
-            يتم عرض نسخة محفوظة من القائمة بسبب ضعف الاتصال — الأسعار قد لا تكون محدّثة.
-          </p>
-        )}
-        {result && (
-          <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-4">
-            <p className="text-green-800 font-medium">
-              تم تقديم الطلب! الرقم: <span className="tabular-ltr">{result.orderId}</span>
-            </p>
-            <p className="text-green-700 text-sm mt-1">الإجمالي: {result.total}</p>
-            {result.deliveryDate ? (
-              <p className="text-green-700 text-sm mt-1">
-                تاريخ التسليم المتوقع: {formatDate(result.deliveryDate)}
-              </p>
-            ) : (
-              <p className="text-green-700 text-sm mt-1">
-                سيتواصل معك المندوب قريبًا لتحديد موعد التسليم.
-              </p>
-            )}
-          </div>
-        )}
-
-        <form onSubmit={handleSubmit} className="space-y-5">
-          <div>
-            <label className="block text-sm text-gray-600 mb-1">رقم العميل الخاص بك</label>
-            <input
-              type="text"
-              inputMode="numeric"
-              pattern="\d{4}"
-              maxLength={4}
-              value={clientId}
-              onChange={(e) => setClientId(e.target.value)}
-              className="w-full border rounded-lg px-3 h-12 text-base font-mono tabular-ltr text-start"
-              dir="ltr"
-              placeholder="1000"
-              required
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm text-gray-600 mb-2">المنتجات</label>
-            {loadingProducts ? (
-              <div className="flex items-center gap-2 text-gray-400 text-sm py-4">
-                <Spinner className="w-4 h-4" /> جارٍ تحميل القائمة...
-              </div>
-            ) : products.length === 0 ? (
-              <p className="text-gray-400 text-sm">لا توجد منتجات متاحة حاليًا.</p>
-            ) : (
-              <div className="border rounded-lg divide-y">
-                {products.map((p) => (
-                  <div key={p.id} className="flex items-center justify-between px-3 py-3 gap-3">
-                    <div className="min-w-0">
-                      <p className="text-base text-gray-800 truncate">{p.name}</p>
-                      <p className="text-sm text-gray-400">
-                        {p.price} / {p.unit}
-                      </p>
-                    </div>
-                    <QtyStepper value={quantities[p.id] || 0} onChange={(v) => setQty(p.id, v)} />
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {selectedItems.length > 0 && (
-            <div className="text-end text-base text-gray-600">
-              الإجمالي: <span className="font-semibold text-gray-900">{total.toFixed(2)}</span>
+        {!route ? (
+          <form onSubmit={handleLookup} className="space-y-4">
+            <div>
+              <label className="block text-sm text-gray-600 mb-1">رقم العميل الخاص بك</label>
+              <input
+                type="text"
+                inputMode="numeric"
+                pattern="\d{4}"
+                maxLength={4}
+                value={clientId}
+                onChange={(e) => setClientId(e.target.value)}
+                className="w-full border rounded-lg px-3 h-12 text-base font-mono tabular-ltr text-start"
+                dir="ltr"
+                placeholder="1000"
+                required
+              />
             </div>
-          )}
+            {lookupError && <p className="text-red-600 text-sm">{lookupError}</p>}
+            <button
+              type="submit"
+              disabled={lookingUp}
+              className="w-full bg-gray-900 text-white rounded-lg h-12 text-base font-medium active:bg-gray-700 disabled:opacity-50 flex items-center justify-center gap-2"
+            >
+              {lookingUp && <Spinner className="w-4 h-4" />}
+              {lookingUp ? "جارٍ التحقق..." : "متابعة"}
+            </button>
+          </form>
+        ) : (
+          <>
+            <div className="flex items-center justify-between border rounded-lg px-3 py-3 bg-gray-50 mb-4">
+              <span className="text-base text-gray-800 tabular-ltr">#{clientId}</span>
+              <button type="button" onClick={changeClient} className="text-sm text-gray-500 min-h-[44px] px-2">
+                تغيير
+              </button>
+            </div>
 
-          <button
-            type="submit"
-            disabled={submitting}
-            className="w-full bg-gray-900 text-white rounded-lg h-12 text-base font-medium active:bg-gray-700 disabled:opacity-50 flex items-center justify-center gap-2"
-          >
-            {submitting && <Spinner className="w-4 h-4" />}
-            {submitting ? "جارٍ تقديم الطلب..." : "تقديم الطلب"}
-          </button>
-        </form>
+            {error && (
+              <div className="text-red-600 text-sm mb-4 flex items-center gap-2">
+                <span>{error}</span>
+                <button type="button" onClick={() => loadCatalog(route)} className="underline shrink-0">
+                  إعادة المحاولة
+                </button>
+              </div>
+            )}
+            {usingCache && !error && (
+              <p className="text-amber-600 text-xs mb-4 bg-amber-50 rounded-lg px-3 py-2">
+                يتم عرض نسخة محفوظة من القائمة بسبب ضعف الاتصال — الأسعار قد لا تكون محدّثة.
+              </p>
+            )}
+            {result && (
+              <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-4">
+                <p className="text-green-800 font-medium">
+                  تم تقديم الطلب! الرقم: <span className="tabular-ltr">{result.orderId}</span>
+                </p>
+                <p className="text-green-700 text-sm mt-1">الإجمالي: {result.total}</p>
+                {result.deliveryDate ? (
+                  <p className="text-green-700 text-sm mt-1">
+                    تاريخ التسليم المتوقع: {formatDate(result.deliveryDate)}
+                  </p>
+                ) : (
+                  <p className="text-green-700 text-sm mt-1">
+                    سيتواصل معك المندوب قريبًا لتحديد موعد التسليم.
+                  </p>
+                )}
+              </div>
+            )}
+
+            <form onSubmit={handleSubmit} className="space-y-5">
+              <div>
+                <label className="block text-sm text-gray-600 mb-2">المنتجات</label>
+                {loadingProducts ? (
+                  <div className="flex items-center gap-2 text-gray-400 text-sm py-4">
+                    <Spinner className="w-4 h-4" /> جارٍ تحميل القائمة...
+                  </div>
+                ) : products.length === 0 ? (
+                  <p className="text-gray-400 text-sm">لا توجد منتجات متاحة حاليًا.</p>
+                ) : (
+                  <div className="border rounded-lg divide-y">
+                    {products.map((p) => (
+                      <div key={p.id} className="flex items-center justify-between px-3 py-3 gap-3">
+                        <div className="min-w-0">
+                          <p className="text-base text-gray-800 truncate">{p.name}</p>
+                          <p className="text-sm text-gray-400">
+                            {p.price} / {p.unit}
+                          </p>
+                        </div>
+                        <QtyStepper value={quantities[p.id] || 0} onChange={(v) => setQty(p.id, v)} />
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {selectedItems.length > 0 && (
+                <div className="text-end text-base text-gray-600">
+                  الإجمالي: <span className="font-semibold text-gray-900">{total.toFixed(2)}</span>
+                </div>
+              )}
+
+              <button
+                type="submit"
+                disabled={submitting}
+                className="w-full bg-gray-900 text-white rounded-lg h-12 text-base font-medium active:bg-gray-700 disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {submitting && <Spinner className="w-4 h-4" />}
+                {submitting ? "جارٍ تقديم الطلب..." : "تقديم الطلب"}
+              </button>
+            </form>
+          </>
+        )}
       </div>
     </div>
   );

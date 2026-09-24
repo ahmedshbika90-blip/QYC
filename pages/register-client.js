@@ -142,14 +142,25 @@ export default function RegisterClient() {
 
           <div>
             <label className="block text-sm text-gray-600 mb-1">المسار</label>
-            <select
-              value={form.route}
-              onChange={(e) => setForm({ ...form, route: e.target.value })}
-              className="w-full border rounded-lg px-3 h-12 text-base"
-            >
-              <option value="car1">السيارة ١ (حسب الطلب)</option>
-              <option value="car2">السيارة ٢ (خط أسبوعي ثابت)</option>
-            </select>
+            {role === "supervisor" ? (
+              <select
+                value={form.route}
+                onChange={(e) => setForm({ ...form, route: e.target.value })}
+                className="w-full border rounded-lg px-3 h-12 text-base"
+              >
+                <option value="car1">السيارة ١ (حسب الطلب)</option>
+                <option value="car2">السيارة ٢ (خط أسبوعي ثابت)</option>
+              </select>
+            ) : (
+              <p className="w-full border rounded-lg px-3 h-12 text-base bg-gray-50 text-gray-600 flex items-center">
+                {role === "agent_car1" ? "السيارة ١ (حسب الطلب)" : "السيارة ٢ (خط أسبوعي ثابت)"}
+              </p>
+            )}
+            {role !== "supervisor" && (
+              <p className="text-xs text-gray-400 mt-1">
+                يتم تحديد المسار تلقائيًا حسب حسابك — العملاء الجدد يُسجَّلون على مسارك فقط.
+              </p>
+            )}
           </div>
 
           <button

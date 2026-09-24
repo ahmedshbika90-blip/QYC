@@ -22,7 +22,8 @@ export default function PlaceOrder() {
   const [clientDropdownOpen, setClientDropdownOpen] = useState(false);
   const clientBoxRef = useRef(null);
 
-  // Product picker + cart
+  // Product picker + cart. Each product has a different price per route,
+  // so prices only resolve once a client (and therefore a route) is picked.
   const [productQuery, setProductQuery] = useState("");
   const [productDropdownOpen, setProductDropdownOpen] = useState(false);
   const [cart, setCart] = useState([]); // [{ productId, name, price, unit, qty }]
@@ -89,11 +90,13 @@ export default function PlaceOrder() {
     setSelectedClient(c);
     setClientQuery("");
     setClientDropdownOpen(false);
+    setCart([]); // prices depend on route, so start fresh if switching clients
   }
 
   function clearClient() {
     setSelectedClient(null);
     setClientQuery("");
+    setCart([]);
   }
 
   const cartProductIds = new Set(cart.map((it) => it.productId));
@@ -105,8 +108,15 @@ export default function PlaceOrder() {
     })
     .slice(0, 8);
 
+  function priceFor(product) {
+    return selectedClient ? product.prices?.[selectedClient.route] : undefined;
+  }
+
   function addProduct(p) {
-    setCart((prev) => [...prev, { productId: p.id, name: p.name, price: p.price, unit: p.unit, qty: 1 }]);
+    setCart((prev) => [
+      ...prev,
+      { productId: p.id, name: p.name, price: priceFor(p), unit: p.unit, qty: 1 },
+    ]);
     setProductQuery("");
     setProductDropdownOpen(false);
   }
@@ -123,7 +133,7 @@ export default function PlaceOrder() {
     setCart((prev) => prev.filter((it) => it.productId !== productId));
   }
 
-  const total = cart.reduce((sum, it) => sum + it.price * it.qty, 0);
+  const total = cart.reduce((sum, it) => sum + (it.price || 0) * it.qty, 0);
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -267,40 +277,48 @@ export default function PlaceOrder() {
                 )}
               </div>
 
-              {/* Product picker */}
+              {/* Product picker — needs a client selected first, since price depends on route */}
               <div ref={productBoxRef} className="relative">
                 <label className="block text-sm text-gray-600 mb-1">إضافة منتجات</label>
-                <input
-                  type="text"
-                  value={productQuery}
-                  onChange={(e) => {
-                    setProductQuery(e.target.value);
-                    setProductDropdownOpen(true);
-                  }}
-                  onFocus={() => setProductDropdownOpen(true)}
-                  placeholder="ابحث عن منتج..."
-                  className="w-full border rounded-lg px-3 h-12 text-base"
-                />
-                {productDropdownOpen && (
-                  <div className="absolute z-10 mt-1 w-full bg-white border rounded-lg shadow-lg max-h-64 overflow-y-auto">
-                    {filteredProducts.length === 0 ? (
-                      <p className="px-3 py-3 text-sm text-gray-400">لا توجد منتجات مطابقة</p>
-                    ) : (
-                      filteredProducts.map((p) => (
-                        <button
-                          type="button"
-                          key={p.id}
-                          onClick={() => addProduct(p)}
-                          className="w-full text-start px-3 py-3 text-base active:bg-gray-100 border-b last:border-0 flex justify-between min-h-[44px]"
-                        >
-                          <span>{p.name}</span>
-                          <span className="text-gray-400">
-                            {p.price} / {p.unit}
-                          </span>
-                        </button>
-                      ))
+                {!selectedClient ? (
+                  <p className="text-sm text-gray-400 border rounded-lg px-3 py-3 bg-gray-50">
+                    اختر العميل أولاً لعرض الأسعار الصحيحة
+                  </p>
+                ) : (
+                  <>
+                    <input
+                      type="text"
+                      value={productQuery}
+                      onChange={(e) => {
+                        setProductQuery(e.target.value);
+                        setProductDropdownOpen(true);
+                      }}
+                      onFocus={() => setProductDropdownOpen(true)}
+                      placeholder="ابحث عن منتج..."
+                      className="w-full border rounded-lg px-3 h-12 text-base"
+                    />
+                    {productDropdownOpen && (
+                      <div className="absolute z-10 mt-1 w-full bg-white border rounded-lg shadow-lg max-h-64 overflow-y-auto">
+                        {filteredProducts.length === 0 ? (
+                          <p className="px-3 py-3 text-sm text-gray-400">لا توجد منتجات مطابقة</p>
+                        ) : (
+                          filteredProducts.map((p) => (
+                            <button
+                              type="button"
+                              key={p.id}
+                              onClick={() => addProduct(p)}
+                              className="w-full text-start px-3 py-3 text-base active:bg-gray-100 border-b last:border-0 flex justify-between min-h-[44px]"
+                            >
+                              <span>{p.name}</span>
+                              <span className="text-gray-400">
+                                {priceFor(p) ?? "—"} / {p.unit}
+                              </span>
+                            </button>
+                          ))
+                        )}
+                      </div>
                     )}
-                  </div>
+                  </>
                 )}
               </div>
 
@@ -312,7 +330,7 @@ export default function PlaceOrder() {
                       <div className="min-w-0">
                         <p className="text-base text-gray-800 truncate">{it.name}</p>
                         <p className="text-sm text-gray-400">
-                          {it.price} / {it.unit}
+                          {it.price ?? "—"} / {it.unit}
                         </p>
                       </div>
                       <QtyStepper value={it.qty} onChange={(v) => setCartQty(it.productId, v)} min={0} />

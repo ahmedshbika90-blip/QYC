@@ -4,7 +4,7 @@ import Nav from "../components/Nav";
 import { PageLoading, SkeletonRows, Spinner } from "../components/Loading";
 import { apiFetch } from "../lib/apiFetch";
 
-const emptyForm = { name: "", price: "", unit: "", category: "" };
+const emptyForm = { name: "", category: "", unit: "", priceCar1: "", priceCar2: "" };
 
 export default function Products() {
   const { role, token, loading, logout } = useAuth();
@@ -70,9 +70,10 @@ export default function Products() {
     setEditingId(product.id);
     setEditForm({
       name: product.name,
-      price: product.price,
-      unit: product.unit,
       category: product.category || "",
+      unit: product.unit,
+      priceCar1: product.prices?.car1 ?? "",
+      priceCar2: product.prices?.car2 ?? "",
     });
   }
 
@@ -144,7 +145,7 @@ export default function Products() {
         <h1 className="text-xl font-semibold mb-1 text-gray-800">كتالوج المنتجات</h1>
         {!isSupervisor && (
           <p className="text-sm text-gray-400 mb-6">
-            للعرض فقط — المشرف وحده يمكنه إضافة أو تعديل المنتجات.
+            للعرض فقط — المشرف وحده يمكنه إضافة أو تعديل المنتجات وأسعارها.
           </p>
         )}
 
@@ -173,27 +174,37 @@ export default function Products() {
               className="border rounded-lg px-3 h-12 text-base"
             />
             <input
-              type="number"
-              step="0.01"
-              min="0"
-              placeholder="السعر"
-              value={addForm.price}
-              onChange={(e) => setAddForm({ ...addForm, price: e.target.value })}
-              className="border rounded-lg px-3 h-12 text-base"
-              required
-            />
-            <input
               type="text"
               placeholder="الوحدة (مثال: كرتون، قطعة، كيلو)"
               value={addForm.unit}
               onChange={(e) => setAddForm({ ...addForm, unit: e.target.value })}
+              className="border rounded-lg px-3 h-12 text-base sm:col-span-2"
+              required
+            />
+            <input
+              type="number"
+              step="0.01"
+              min="0"
+              placeholder="سعر السيارة ١"
+              value={addForm.priceCar1}
+              onChange={(e) => setAddForm({ ...addForm, priceCar1: e.target.value })}
+              className="border rounded-lg px-3 h-12 text-base"
+              required
+            />
+            <input
+              type="number"
+              step="0.01"
+              min="0"
+              placeholder="سعر السيارة ٢"
+              value={addForm.priceCar2}
+              onChange={(e) => setAddForm({ ...addForm, priceCar2: e.target.value })}
               className="border rounded-lg px-3 h-12 text-base"
               required
             />
             <button
               type="submit"
               disabled={submitting}
-              className="col-span-2 bg-gray-900 text-white rounded-lg h-12 text-base font-medium active:bg-gray-700 disabled:opacity-50 flex items-center justify-center gap-2"
+              className="sm:col-span-2 bg-gray-900 text-white rounded-lg h-12 text-base font-medium active:bg-gray-700 disabled:opacity-50 flex items-center justify-center gap-2"
             >
               {submitting && <Spinner className="w-4 h-4" />}
               {submitting ? "جارٍ الإضافة..." : "+ إضافة منتج"}
@@ -225,22 +236,31 @@ export default function Products() {
                     placeholder="الفئة"
                   />
                   <input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    value={editForm.price}
-                    onChange={(e) => setEditForm({ ...editForm, price: e.target.value })}
-                    className="border rounded-lg px-3 h-12 text-base"
-                    placeholder="السعر"
-                  />
-                  <input
                     type="text"
                     value={editForm.unit}
                     onChange={(e) => setEditForm({ ...editForm, unit: e.target.value })}
-                    className="border rounded-lg px-3 h-12 text-base"
+                    className="border rounded-lg px-3 h-12 text-base sm:col-span-2"
                     placeholder="الوحدة"
                   />
-                  <div className="col-span-2 flex gap-2">
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={editForm.priceCar1}
+                    onChange={(e) => setEditForm({ ...editForm, priceCar1: e.target.value })}
+                    className="border rounded-lg px-3 h-12 text-base"
+                    placeholder="سعر السيارة ١"
+                  />
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={editForm.priceCar2}
+                    onChange={(e) => setEditForm({ ...editForm, priceCar2: e.target.value })}
+                    className="border rounded-lg px-3 h-12 text-base"
+                    placeholder="سعر السيارة ٢"
+                  />
+                  <div className="sm:col-span-2 flex gap-2">
                     <button
                       onClick={() => saveEdit(p.id)}
                       disabled={saving}
@@ -264,7 +284,12 @@ export default function Products() {
                     </p>
                     <p className="text-sm text-gray-500">
                       {p.category ? `${p.category} — ` : ""}
-                      {p.price} / {p.unit}
+                      لكل {p.unit}
+                    </p>
+                    <p className="text-sm text-gray-600 mt-0.5">
+                      السيارة ١: <span className="font-medium">{p.prices?.car1 ?? "—"}</span>
+                      {"  ·  "}
+                      السيارة ٢: <span className="font-medium">{p.prices?.car2 ?? "—"}</span>
                     </p>
                   </div>
                   {isSupervisor && (

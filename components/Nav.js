@@ -17,6 +17,7 @@ export default function Nav({ role, logout }) {
     { href: "/clients", label: "العملاء" },
     { href: "/register-client", label: "إضافة عميل" },
     { href: "/products", label: "المنتجات" },
+    { href: "/reports/sales", label: "تقرير المبيعات" },
   ].filter(Boolean);
 
   return (
