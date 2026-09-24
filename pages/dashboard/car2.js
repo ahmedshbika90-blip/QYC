@@ -86,15 +86,12 @@ export default function Car2Dashboard() {
     () => ({
       active: baseFiltered.filter((o) => o.status !== "cancelled").length,
       cancelled: baseFiltered.filter((o) => o.status === "cancelled").length,
-      all: baseFiltered.length,
     }),
     [baseFiltered]
   );
   const visible = useMemo(
     () =>
-      statusFilter === "all"
-        ? baseFiltered
-        : statusFilter === "cancelled"
+      statusFilter === "cancelled"
         ? baseFiltered.filter((o) => o.status === "cancelled")
         : baseFiltered.filter((o) => o.status !== "cancelled"),
     [baseFiltered, statusFilter]
