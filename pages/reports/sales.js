@@ -54,30 +54,29 @@ export default function SalesReport() {
     setError("");
 
     // The on-screen table scrolls horizontally when there are many product
-    // columns — capturing the live element directly only grabs whatever
-    // portion happens to be visible at that moment, cropping the rest.
-    // Instead, clone the report into an off-screen copy with no scroll
-    // clipping, sized to its full natural width, and capture that.
-    let clone;
+    // columns — capturing it as-is only grabs whatever portion happens to
+    // be visible, cropping the rest. Fixed: briefly remove the scroll
+    // clipping on the REAL element (not a copy — an off-screen clone with
+    // extreme positioning turned out to confuse html2canvas's own capture
+    // math and made things worse), take the screenshot at full width,
+    // then instantly restore it. The widen-then-restore happens inside
+    // one synchronous-ish block so any visible flash is minimal.
+    const scrollAreas = reportRef.current.querySelectorAll(".overflow-x-auto");
+    const originalStyles = [];
+
     try {
       const [{ default: html2canvas }, { jsPDF }] = await Promise.all([
         import("html2canvas"),
         import("jspdf"),
       ]);
 
-      const source = reportRef.current;
-      clone = source.cloneNode(true);
-      clone.style.position = "fixed";
-      clone.style.top = "0";
-      clone.style.insetInlineStart = "-99999px";
-      clone.style.width = "max-content";
-      clone.querySelectorAll(".overflow-x-auto").forEach((el) => {
+      scrollAreas.forEach((el) => {
+        originalStyles.push({ el, overflow: el.style.overflow, width: el.style.width });
         el.style.overflow = "visible";
         el.style.width = "max-content";
       });
-      document.body.appendChild(clone);
 
-      const canvas = await html2canvas(clone, {
+      const canvas = await html2canvas(reportRef.current, {
         scale: 2,
         backgroundColor: "#ffffff",
       });
@@ -109,7 +108,10 @@ export default function SalesReport() {
         setError("تعذر إنشاء ملف التقرير للمشاركة. حاول مرة أخرى.");
       }
     } finally {
-      if (clone) clone.remove();
+      originalStyles.forEach(({ el, overflow, width }) => {
+        el.style.overflow = overflow;
+        el.style.width = width;
+      });
       setSharing(false);
     }
   }
