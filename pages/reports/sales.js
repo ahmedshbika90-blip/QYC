@@ -55,39 +55,41 @@ export default function SalesReport() {
 
     // The on-screen table scrolls horizontally when there are many product
     // columns — capturing it as-is only grabs whatever portion happens to
-    // be visible, cropping the rest. Widening just the inner scroll area
-    // isn't enough on its own: the outer report container doesn't expand
-    // just because a descendant inside it got wider (overflow:visible
-    // children don't grow their ancestor's own box), so html2canvas can
-    // still size its capture off the outer box's original narrow width.
-    // Fix: widen BOTH the inner scroll area and the outer container to an
-    // explicit measured pixel width (not "max-content" — that conflicts
-    // with the table's own w-full class and silently fails), and also
-    // pass that width straight to html2canvas as a third safety net.
-    const outer = reportRef.current;
-    const scrollAreas = outer.querySelectorAll(".overflow-x-auto");
-    const originalStyles = [{ el: outer, overflow: outer.style.overflow, width: outer.style.width }];
+    // be visible, cropping the rest. Earlier attempts widened the REAL,
+    // visible table in place to work around that — which fixed the
+    // cropping but caused a visible layout glitch and left the page's
+    // scroll position stuck oddly, since the actual on-screen content was
+    // being resized live. Instead, this clones the report into an
+    // invisible off-screen copy, widens *that* to its full content width
+    // (measured via scrollWidth, and set as an explicit pixel value —
+    // "max-content" conflicts with the table's own w-full class and
+    // silently fails), captures the clone, then discards it. The real
+    // page is never touched, so there's nothing to glitch or restore.
+    const source = reportRef.current;
+    let fullWidth = source.scrollWidth;
+    source.querySelectorAll(".overflow-x-auto").forEach((el) => {
+      fullWidth = Math.max(fullWidth, el.scrollWidth);
+    });
 
+    let clone;
     try {
       const [{ default: html2canvas }, { jsPDF }] = await Promise.all([
         import("html2canvas"),
         import("jspdf"),
       ]);
 
-      let fullWidth = outer.scrollWidth;
-      scrollAreas.forEach((el) => {
-        originalStyles.push({ el, overflow: el.style.overflow, width: el.style.width });
-        fullWidth = Math.max(fullWidth, el.scrollWidth);
-      });
-
-      scrollAreas.forEach((el) => {
+      clone = source.cloneNode(true);
+      clone.style.position = "fixed";
+      clone.style.top = "0";
+      clone.style.insetInlineStart = "-99999px";
+      clone.style.width = `${fullWidth}px`;
+      clone.querySelectorAll(".overflow-x-auto").forEach((el) => {
         el.style.overflow = "visible";
         el.style.width = `${fullWidth}px`;
       });
-      outer.style.overflow = "visible";
-      outer.style.width = `${fullWidth}px`;
+      document.body.appendChild(clone);
 
-      const canvas = await html2canvas(outer, {
+      const canvas = await html2canvas(clone, {
         scale: 2,
         backgroundColor: "#ffffff",
         width: fullWidth,
@@ -129,10 +131,7 @@ export default function SalesReport() {
         setError("تعذر إنشاء ملف التقرير للمشاركة. حاول مرة أخرى.");
       }
     } finally {
-      originalStyles.forEach(({ el, overflow, width }) => {
-        el.style.overflow = overflow;
-        el.style.width = width;
-      });
+      if (clone) clone.remove();
       setSharing(false);
     }
   }
@@ -265,7 +264,7 @@ export default function SalesReport() {
                   <table className="w-full text-sm border-collapse">
                     <thead>
                       <tr className="border-b-2 border-gray-800">
-                        <th className="sticky start-0 bg-white text-start font-semibold text-gray-700 px-3 py-2 whitespace-nowrap">
+                        <th className="sticky start-0 z-10 bg-white text-start font-semibold text-gray-700 px-3 py-2 whitespace-nowrap">
                           العميل
                         </th>
                         {columns.map((col) => (
@@ -287,8 +286,12 @@ export default function SalesReport() {
                     </thead>
                     <tbody>
                       {rows.map(({ client: c, cells }, i) => (
-                        <tr key={c.clientId} className={i % 2 === 1 ? "bg-gray-50/50" : ""}>
-                          <td className="sticky start-0 bg-inherit px-3 py-2">
+                        <tr key={c.clientId} className={i % 2 === 1 ? "bg-gray-50" : "bg-white"}>
+                          <td
+                            className={`sticky start-0 z-10 px-3 py-2 ${
+                              i % 2 === 1 ? "bg-gray-50" : "bg-white"
+                            }`}
+                          >
                             <p className="text-gray-800 font-medium whitespace-nowrap">{c.name}</p>
                             <p className="text-xs text-gray-400 whitespace-nowrap">
                               <span className="tabular-ltr">#{c.clientId}</span> · {c.location}
@@ -310,7 +313,7 @@ export default function SalesReport() {
                     </tbody>
                     <tfoot>
                       <tr className="border-t-2 border-gray-800 font-semibold">
-                        <td className="sticky start-0 bg-white px-3 py-2 text-gray-800 whitespace-nowrap">
+                        <td className="sticky start-0 z-10 bg-white px-3 py-2 text-gray-800 whitespace-nowrap">
                           الإجمالي ({rows.length} عميل)
                         </td>
                         {columns.map((col) => (
