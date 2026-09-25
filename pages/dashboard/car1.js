@@ -17,6 +17,7 @@ export default function Car1Dashboard() {
   const [error, setError] = useState("");
 
   const [statusFilter, setStatusFilter] = useState("active");
+  const [nameQuery, setNameQuery] = useState("");
   const [locationQuery, setLocationQuery] = useState("");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
@@ -67,6 +68,10 @@ export default function Car1Dashboard() {
 
   const matchesFilters = useMemo(() => {
     return (order) => {
+      if (nameQuery) {
+        const name = clientsById[order.clientId]?.name || "";
+        if (!name.toLowerCase().includes(nameQuery.toLowerCase())) return false;
+      }
       if (locationQuery) {
         const location = clientsById[order.clientId]?.location || "";
         if (!location.toLowerCase().includes(locationQuery.toLowerCase())) return false;
@@ -79,7 +84,7 @@ export default function Car1Dashboard() {
       }
       return true;
     };
-  }, [clientsById, locationQuery, dateFrom, dateTo]);
+  }, [clientsById, nameQuery, locationQuery, dateFrom, dateTo]);
 
   const baseFiltered = useMemo(() => orders.filter(matchesFilters), [orders, matchesFilters]);
   const counts = useMemo(
@@ -117,6 +122,8 @@ export default function Car1Dashboard() {
         </div>
 
         <FilterPanel
+          nameQuery={nameQuery}
+          onNameChange={setNameQuery}
           locationQuery={locationQuery}
           onLocationChange={setLocationQuery}
           dateFrom={dateFrom}
@@ -141,6 +148,7 @@ export default function Car1Dashboard() {
               <OrderCard
                 key={order.id}
                 order={order}
+                name={clientsById[order.clientId]?.name}
                 location={clientsById[order.clientId]?.location}
                 subtitle={formatDateTime(order.createdAt)}
                 onStatusChange={updateStatus}

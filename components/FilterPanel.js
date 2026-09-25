@@ -1,8 +1,18 @@
 import { useState } from "react";
 
-export default function FilterPanel({ locationQuery, onLocationChange, dateFrom, onDateFromChange, dateTo, onDateToChange, children }) {
+export default function FilterPanel({
+  nameQuery,
+  onNameChange,
+  locationQuery,
+  onLocationChange,
+  dateFrom,
+  onDateFromChange,
+  dateTo,
+  onDateToChange,
+  children,
+}) {
   const [open, setOpen] = useState(false);
-  const activeCount = [locationQuery, dateFrom, dateTo].filter(Boolean).length;
+  const activeCount = [nameQuery, locationQuery, dateFrom, dateTo].filter(Boolean).length;
 
   return (
     <div className="mb-4">
@@ -21,7 +31,14 @@ export default function FilterPanel({ locationQuery, onLocationChange, dateFrom,
       </button>
 
       {open && (
-        <div className="bg-white rounded-lg shadow p-4 mt-2 grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <div className="bg-white rounded-lg shadow p-4 mt-2 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+          <input
+            type="text"
+            value={nameQuery}
+            onChange={(e) => onNameChange(e.target.value)}
+            placeholder="ابحث حسب اسم العميل..."
+            className="border rounded-lg px-3 h-11 text-base"
+          />
           <input
             type="text"
             value={locationQuery}

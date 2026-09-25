@@ -122,20 +122,6 @@ export default function Products() {
     }
   }
 
-  async function deleteProduct(product) {
-    if (!confirm(`حذف "${product.name}" نهائيًا؟ لا يمكن التراجع عن هذا الإجراء.`)) return;
-    try {
-      const res = await apiFetch(`/api/products/${product.id}/delete`, {
-        method: "DELETE",
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (!res.ok) throw new Error((await res.json()).error);
-      fetchProducts();
-    } catch (err) {
-      setError(err.message);
-    }
-  }
-
   if (loading) return <PageLoading />;
 
   return (
@@ -307,12 +293,6 @@ export default function Products() {
                         }`}
                       >
                         {p.active ? "إلغاء التفعيل" : "تفعيل"}
-                      </button>
-                      <button
-                        onClick={() => deleteProduct(p)}
-                        className="text-sm px-3 min-h-[44px] rounded-lg bg-red-100 text-red-700 active:bg-red-200"
-                      >
-                        حذف
                       </button>
                     </div>
                   )}

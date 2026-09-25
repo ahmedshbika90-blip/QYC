@@ -9,7 +9,7 @@ function itemsSummary(items) {
 // from. Cancelling is a deliberate one-way action (confirmed first, like
 // deleting a product), never a delete: the invoice stays on record, just
 // marked cancelled and excluded from the sales report.
-export default function OrderCard({ order, location, badge, subtitle, onStatusChange }) {
+export default function OrderCard({ order, name, location, badge, subtitle, onStatusChange }) {
   const isCancelled = order.status === "cancelled";
 
   function handleCancel() {
@@ -25,7 +25,7 @@ export default function OrderCard({ order, location, badge, subtitle, onStatusCh
           <div className="flex items-center gap-2">
             <span className={`w-2 h-2 rounded-full shrink-0 ${isCancelled ? "bg-red-400" : "bg-green-500"}`} />
             <p className="font-medium text-gray-800 truncate">
-              <span className="tabular-ltr">#{order.clientId}</span>
+              {name || <span className="tabular-ltr">#{order.clientId}</span>}
               {location && <span className="text-gray-400 font-normal"> · {location}</span>}
               {badge}
             </p>

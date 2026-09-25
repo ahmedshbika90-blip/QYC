@@ -6,6 +6,8 @@ import { PageLoading, Spinner } from "../components/Loading";
 import { apiFetch } from "../lib/apiFetch";
 import { formatDate } from "../lib/labels";
 
+const DRAFT_KEY = "pendingStaffOrderDraft";
+
 export default function PlaceOrder() {
   const { role, token, loading, logout } = useAuth();
 
@@ -15,6 +17,8 @@ export default function PlaceOrder() {
   const [error, setError] = useState("");
   const [result, setResult] = useState(null);
   const [submitting, setSubmitting] = useState(false);
+  const [draftPending, setDraftPending] = useState(null); // holds the draft's clientLabel, or null
+  const [retrying, setRetrying] = useState(false);
 
   // Client picker
   const [selectedClient, setSelectedClient] = useState(null);
@@ -34,6 +38,49 @@ export default function PlaceOrder() {
     fetchData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token]);
+
+  // If a previous submission failed purely due to a connection problem
+  // (not a real rejection), it was saved instead of lost — restore it and
+  // retry automatically once the connection returns.
+  useEffect(() => {
+    let draft;
+    try {
+      draft = JSON.parse(localStorage.getItem(DRAFT_KEY) || "null");
+    } catch {
+      draft = null;
+    }
+    if (draft) {
+      setDraftPending(draft.clientLabel || `عميل #${draft.clientId}`);
+      const goOnline = () => retryDraft();
+      window.addEventListener("online", goOnline);
+      return () => window.removeEventListener("online", goOnline);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [token]);
+
+  async function retryDraft() {
+    if (!token) return;
+    let draft;
+    try {
+      draft = JSON.parse(localStorage.getItem(DRAFT_KEY) || "null");
+    } catch {
+      draft = null;
+    }
+    if (!draft) {
+      setDraftPending(null);
+      return;
+    }
+    setRetrying(true);
+    try {
+      await submitPayload({ clientId: draft.clientId, items: draft.items });
+      localStorage.removeItem(DRAFT_KEY);
+      setDraftPending(null);
+    } catch {
+      // still failing — leave the draft in place, banner stays up
+    } finally {
+      setRetrying(false);
+    }
+  }
 
   // Close dropdowns when tapping/clicking outside them.
   useEffect(() => {
@@ -135,6 +182,21 @@ export default function PlaceOrder() {
 
   const total = cart.reduce((sum, it) => sum + (it.price || 0) * it.qty, 0);
 
+  async function submitPayload(payload) {
+    const res = await apiFetch("/api/orders/create-staff", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(payload),
+    });
+    const data = await res.json();
+    if (!res.ok) throw Object.assign(new Error(data.error || "تعذر تسجيل الفاتورة"), { isRejection: true });
+    setResult(data);
+    return data;
+  }
+
   async function handleSubmit(e) {
     e.preventDefault();
     setError("");
@@ -149,26 +211,37 @@ export default function PlaceOrder() {
       return;
     }
 
+    const payload = {
+      clientId: selectedClient.id,
+      items: cart.map((it) => ({ productId: it.productId, qty: it.qty })),
+    };
+
     setSubmitting(true);
     try {
-      const res = await apiFetch("/api/orders/create-staff", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          clientId: selectedClient.id,
-          items: cart.map((it) => ({ productId: it.productId, qty: it.qty })),
-        }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "تعذر تسجيل الفاتورة");
-      setResult(data);
+      await submitPayload(payload);
       setCart([]);
       clearClient();
     } catch (err) {
-      setError(err.message);
+      if (err.isNetworkError) {
+        // Real connection failure, not a rejection from the server — save
+        // the attempt so it isn't lost; the banner + online-event listener
+        // will retry it once the connection returns.
+        try {
+          localStorage.setItem(
+            DRAFT_KEY,
+            JSON.stringify({
+              ...payload,
+              clientLabel: `${selectedClient.name} (${selectedClient.storeName})`,
+            })
+          );
+          setDraftPending(`${selectedClient.name} (${selectedClient.storeName})`);
+          setError("تعذر الاتصال — تم حفظ الفاتورة وسيتم إرسالها تلقائيًا عند عودة الإنترنت.");
+        } catch {
+          setError(err.message);
+        }
+      } else {
+        setError(err.message);
+      }
     } finally {
       setSubmitting(false);
     }
@@ -194,6 +267,22 @@ export default function PlaceOrder() {
       <div className="max-w-lg mx-auto p-4 sm:p-8">
         <div className="bg-white p-5 sm:p-8 rounded-lg shadow-md">
           <h1 className="text-xl font-semibold mb-6 text-gray-800">تسجيل فاتورة لعميل</h1>
+
+          {draftPending && (
+            <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-4 flex items-center justify-between gap-3">
+              <p className="text-amber-700 text-sm">
+                فاتورة {draftPending} لم تُرسل بعد بسبب انقطاع الاتصال.
+              </p>
+              <button
+                type="button"
+                onClick={retryDraft}
+                disabled={retrying}
+                className="text-sm bg-amber-600 text-white rounded-lg px-3 h-9 shrink-0 disabled:opacity-50"
+              >
+                {retrying ? "جارٍ الإرسال..." : "إعادة الإرسال"}
+              </button>
+            </div>
+          )}
 
           {error && (
             <div className="text-red-600 text-sm mb-4 flex items-center gap-2">

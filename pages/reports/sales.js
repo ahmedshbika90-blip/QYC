@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useAuth } from "../../lib/useAuth";
 import Nav from "../../components/Nav";
 import { PageLoading, Spinner } from "../../components/Loading";
@@ -12,7 +12,9 @@ export default function SalesReport() {
   const [routeFilter, setRouteFilter] = useState("all");
   const [report, setReport] = useState(null);
   const [fetching, setFetching] = useState(false);
+  const [sharing, setSharing] = useState(false);
   const [error, setError] = useState("");
+  const reportRef = useRef(null);
 
   async function generate(e) {
     e.preventDefault();
@@ -37,8 +39,59 @@ export default function SalesReport() {
     }
   }
 
-  function printReport() {
-    window.print();
+  // Renders the report area to an image (via html2canvas) and embeds that
+  // image in a single-page PDF (via jsPDF) — this sidesteps Arabic text
+  // rendering entirely, since jsPDF's own text drawing doesn't shape
+  // Arabic correctly. What ends up in the PDF is a picture of exactly
+  // what's on screen, which the browser already renders correctly.
+  //
+  // The PDF is then handed straight to the phone's native share sheet
+  // (WhatsApp, etc.) via the Web Share API — one tap, no separate
+  // download-then-attach step. Falls back to a plain download on
+  // browsers/desktops that don't support sharing files.
+  async function shareReport() {
+    setSharing(true);
+    setError("");
+    try {
+      const [{ default: html2canvas }, { jsPDF }] = await Promise.all([
+        import("html2canvas"),
+        import("jspdf"),
+      ]);
+
+      const canvas = await html2canvas(reportRef.current, {
+        scale: 2,
+        backgroundColor: "#ffffff",
+      });
+      const imgData = canvas.toDataURL("image/png");
+
+      const pdf = new jsPDF({
+        orientation: canvas.width > canvas.height ? "l" : "p",
+        unit: "px",
+        format: [canvas.width, canvas.height],
+      });
+      pdf.addImage(imgData, "PNG", 0, 0, canvas.width, canvas.height);
+      const blob = pdf.output("blob");
+      const file = new File([blob], "تقرير-المبيعات.pdf", { type: "application/pdf" });
+
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        await navigator.share({ files: [file], title: "تقرير المبيعات" });
+      } else {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = "تقرير-المبيعات.pdf";
+        a.click();
+        URL.revokeObjectURL(url);
+      }
+    } catch (err) {
+      if (err.name !== "AbortError") {
+        // AbortError just means the person closed the share sheet without
+        // picking anything — not a real failure, nothing to show for it.
+        setError("تعذر إنشاء ملف التقرير للمشاركة. حاول مرة أخرى.");
+      }
+    } finally {
+      setSharing(false);
+    }
   }
 
   // Pivot: one column per distinct product across every client, one row
@@ -78,12 +131,10 @@ export default function SalesReport() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <div className="no-print">
-        <Nav role={role} logout={logout} />
-      </div>
+      <Nav role={role} logout={logout} />
 
       <div className="max-w-6xl mx-auto p-4 sm:p-8">
-        <div className="no-print bg-white rounded-lg shadow p-4 sm:p-6 mb-6">
+        <div className="bg-white rounded-lg shadow p-4 sm:p-6 mb-6">
           <h1 className="text-xl font-semibold mb-4 text-gray-800">تقرير المبيعات</h1>
 
           <form onSubmit={generate} className="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -137,9 +188,20 @@ export default function SalesReport() {
         </div>
 
         {report && (
-          <div className="bg-white rounded-lg shadow p-4 sm:p-6 print:shadow-none print:p-0">
-            <div className="flex justify-between items-start mb-4">
-              <div>
+          <div className="bg-white rounded-lg shadow p-4 sm:p-6">
+            <div className="flex justify-end mb-2">
+              <button
+                onClick={shareReport}
+                disabled={sharing}
+                className="text-sm bg-gray-900 text-white rounded-lg px-4 min-h-[44px] shrink-0 flex items-center gap-2 disabled:opacity-50"
+              >
+                {sharing && <Spinner className="w-4 h-4" />}
+                {sharing ? "جارٍ التجهيز..." : "مشاركة"}
+              </button>
+            </div>
+
+            <div ref={reportRef} className="bg-white">
+              <div className="mb-4">
                 <h2 className="text-lg font-semibold text-gray-800">تقرير المبيعات</h2>
                 <p className="text-sm text-gray-500">
                   {report.route === "all"
@@ -152,85 +214,79 @@ export default function SalesReport() {
                   {report.to ? formatDate(report.to) : "الآن"}
                 </p>
               </div>
-              <button
-                onClick={printReport}
-                className="no-print text-sm bg-gray-900 text-white rounded-lg px-4 min-h-[44px] shrink-0"
-              >
-                طباعة / حفظ PDF
-              </button>
-            </div>
 
-            {rows.length === 0 ? (
-              <p className="text-gray-400">لا توجد مبيعات مسلَّمة في هذه الفترة.</p>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm border-collapse">
-                  <thead>
-                    <tr className="border-b-2 border-gray-800">
-                      <th className="sticky start-0 bg-white text-start font-semibold text-gray-700 px-3 py-2 whitespace-nowrap print:px-2 print:py-1">
-                        العميل
-                      </th>
-                      {columns.map((col) => (
-                        <th
-                          key={col.key}
-                          className="text-center font-semibold text-gray-700 px-3 py-2 whitespace-nowrap print:px-2 print:py-1"
-                        >
-                          {col.name}
-                          {col.unit && <span className="block text-xs font-normal text-gray-400">({col.unit})</span>}
+              {rows.length === 0 ? (
+                <p className="text-gray-400">لا توجد مبيعات في هذه الفترة.</p>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm border-collapse">
+                    <thead>
+                      <tr className="border-b-2 border-gray-800">
+                        <th className="sticky start-0 bg-white text-start font-semibold text-gray-700 px-3 py-2 whitespace-nowrap">
+                          العميل
                         </th>
+                        {columns.map((col) => (
+                          <th
+                            key={col.key}
+                            className="text-center font-semibold text-gray-700 px-3 py-2 whitespace-nowrap"
+                          >
+                            {col.name}
+                            {col.unit && <span className="block text-xs font-normal text-gray-400">({col.unit})</span>}
+                          </th>
+                        ))}
+                        <th className="text-center font-semibold text-gray-700 px-3 py-2 whitespace-nowrap bg-gray-50">
+                          إجمالي الوحدات
+                        </th>
+                        <th className="text-center font-semibold text-gray-700 px-3 py-2 whitespace-nowrap bg-gray-50">
+                          إجمالي السعر
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {rows.map(({ client: c, cells }, i) => (
+                        <tr key={c.clientId} className={i % 2 === 1 ? "bg-gray-50/50" : ""}>
+                          <td className="sticky start-0 bg-inherit px-3 py-2">
+                            <p className="text-gray-800 font-medium whitespace-nowrap">{c.name}</p>
+                            <p className="text-xs text-gray-400 whitespace-nowrap">
+                              <span className="tabular-ltr">#{c.clientId}</span> · {c.location}
+                            </p>
+                          </td>
+                          {columns.map((col) => (
+                            <td key={col.key} className="text-center px-3 py-2 text-gray-700">
+                              {cells[col.key] ?? <span className="text-gray-300">—</span>}
+                            </td>
+                          ))}
+                          <td className="text-center px-3 py-2 font-medium text-gray-800 bg-gray-50/70">
+                            {c.totalUnits}
+                          </td>
+                          <td className="text-center px-3 py-2 font-medium text-gray-900 bg-gray-50/70">
+                            {c.totalPrice}
+                          </td>
+                        </tr>
                       ))}
-                      <th className="text-center font-semibold text-gray-700 px-3 py-2 whitespace-nowrap bg-gray-50 print:px-2 print:py-1">
-                        إجمالي الوحدات
-                      </th>
-                      <th className="text-center font-semibold text-gray-700 px-3 py-2 whitespace-nowrap bg-gray-50 print:px-2 print:py-1">
-                        إجمالي السعر
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {rows.map(({ client: c, cells }, i) => (
-                      <tr key={c.clientId} className={i % 2 === 1 ? "bg-gray-50/50" : ""}>
-                        <td className="sticky start-0 bg-inherit px-3 py-2 print:px-2 print:py-1">
-                          <p className="text-gray-800 font-medium whitespace-nowrap">{c.name}</p>
-                          <p className="text-xs text-gray-400 whitespace-nowrap">
-                            <span className="tabular-ltr">#{c.clientId}</span> · {c.location}
-                          </p>
+                    </tbody>
+                    <tfoot>
+                      <tr className="border-t-2 border-gray-800 font-semibold">
+                        <td className="sticky start-0 bg-white px-3 py-2 text-gray-800 whitespace-nowrap">
+                          الإجمالي ({rows.length} عميل)
                         </td>
                         {columns.map((col) => (
-                          <td key={col.key} className="text-center px-3 py-2 text-gray-700 print:px-2 print:py-1">
-                            {cells[col.key] ?? <span className="text-gray-300">—</span>}
+                          <td key={col.key} className="text-center px-3 py-2 text-gray-800">
+                            {columnTotals[col.key]}
                           </td>
                         ))}
-                        <td className="text-center px-3 py-2 font-medium text-gray-800 bg-gray-50/70 print:px-2 print:py-1">
-                          {c.totalUnits}
+                        <td className="text-center px-3 py-2 text-gray-900 bg-gray-100">
+                          {report.grandTotalUnits}
                         </td>
-                        <td className="text-center px-3 py-2 font-medium text-gray-900 bg-gray-50/70 print:px-2 print:py-1">
-                          {c.totalPrice}
+                        <td className="text-center px-3 py-2 text-gray-900 bg-gray-100">
+                          {report.grandTotalPrice}
                         </td>
                       </tr>
-                    ))}
-                  </tbody>
-                  <tfoot>
-                    <tr className="border-t-2 border-gray-800 font-semibold">
-                      <td className="sticky start-0 bg-white px-3 py-2 text-gray-800 whitespace-nowrap print:px-2 print:py-1">
-                        الإجمالي ({rows.length} عميل)
-                      </td>
-                      {columns.map((col) => (
-                        <td key={col.key} className="text-center px-3 py-2 text-gray-800 print:px-2 print:py-1">
-                          {columnTotals[col.key]}
-                        </td>
-                      ))}
-                      <td className="text-center px-3 py-2 text-gray-900 bg-gray-100 print:px-2 print:py-1">
-                        {report.grandTotalUnits}
-                      </td>
-                      <td className="text-center px-3 py-2 text-gray-900 bg-gray-100 print:px-2 print:py-1">
-                        {report.grandTotalPrice}
-                      </td>
-                    </tr>
-                  </tfoot>
-                </table>
-              </div>
-            )}
+                    </tfoot>
+                  </table>
+                </div>
+              )}
+            </div>
           </div>
         )}
       </div>

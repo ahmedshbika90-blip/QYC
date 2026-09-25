@@ -49,5 +49,11 @@ service cloud.firestore {
     match /meta/{docId} {
       allow read, write: if false;
     }
+
+    // Rate-limit tracking for the public, no-login endpoints. Only ever
+    // touched by the Admin SDK server-side.
+    match /rateLimits/{docId} {
+      allow read, write: if false;
+    }
   }
 }
