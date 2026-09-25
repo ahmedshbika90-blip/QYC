@@ -52,13 +52,32 @@ export default function SalesReport() {
   async function shareReport() {
     setSharing(true);
     setError("");
+
+    // The on-screen table scrolls horizontally when there are many product
+    // columns — capturing the live element directly only grabs whatever
+    // portion happens to be visible at that moment, cropping the rest.
+    // Instead, clone the report into an off-screen copy with no scroll
+    // clipping, sized to its full natural width, and capture that.
+    let clone;
     try {
       const [{ default: html2canvas }, { jsPDF }] = await Promise.all([
         import("html2canvas"),
         import("jspdf"),
       ]);
 
-      const canvas = await html2canvas(reportRef.current, {
+      const source = reportRef.current;
+      clone = source.cloneNode(true);
+      clone.style.position = "fixed";
+      clone.style.top = "0";
+      clone.style.insetInlineStart = "-99999px";
+      clone.style.width = "max-content";
+      clone.querySelectorAll(".overflow-x-auto").forEach((el) => {
+        el.style.overflow = "visible";
+        el.style.width = "max-content";
+      });
+      document.body.appendChild(clone);
+
+      const canvas = await html2canvas(clone, {
         scale: 2,
         backgroundColor: "#ffffff",
       });
@@ -90,6 +109,7 @@ export default function SalesReport() {
         setError("تعذر إنشاء ملف التقرير للمشاركة. حاول مرة أخرى.");
       }
     } finally {
+      if (clone) clone.remove();
       setSharing(false);
     }
   }
