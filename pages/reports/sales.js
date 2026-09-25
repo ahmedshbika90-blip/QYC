@@ -55,14 +55,18 @@ export default function SalesReport() {
 
     // The on-screen table scrolls horizontally when there are many product
     // columns — capturing it as-is only grabs whatever portion happens to
-    // be visible, cropping the rest. Fixed: briefly remove the scroll
-    // clipping on the REAL element (not a copy — an off-screen clone with
-    // extreme positioning turned out to confuse html2canvas's own capture
-    // math and made things worse), take the screenshot at full width,
-    // then instantly restore it. The widen-then-restore happens inside
-    // one synchronous-ish block so any visible flash is minimal.
-    const scrollAreas = reportRef.current.querySelectorAll(".overflow-x-auto");
-    const originalStyles = [];
+    // be visible, cropping the rest. Widening just the inner scroll area
+    // isn't enough on its own: the outer report container doesn't expand
+    // just because a descendant inside it got wider (overflow:visible
+    // children don't grow their ancestor's own box), so html2canvas can
+    // still size its capture off the outer box's original narrow width.
+    // Fix: widen BOTH the inner scroll area and the outer container to an
+    // explicit measured pixel width (not "max-content" — that conflicts
+    // with the table's own w-full class and silently fails), and also
+    // pass that width straight to html2canvas as a third safety net.
+    const outer = reportRef.current;
+    const scrollAreas = outer.querySelectorAll(".overflow-x-auto");
+    const originalStyles = [{ el: outer, overflow: outer.style.overflow, width: outer.style.width }];
 
     try {
       const [{ default: html2canvas }, { jsPDF }] = await Promise.all([
@@ -70,15 +74,24 @@ export default function SalesReport() {
         import("jspdf"),
       ]);
 
+      let fullWidth = outer.scrollWidth;
       scrollAreas.forEach((el) => {
         originalStyles.push({ el, overflow: el.style.overflow, width: el.style.width });
-        el.style.overflow = "visible";
-        el.style.width = "max-content";
+        fullWidth = Math.max(fullWidth, el.scrollWidth);
       });
 
-      const canvas = await html2canvas(reportRef.current, {
+      scrollAreas.forEach((el) => {
+        el.style.overflow = "visible";
+        el.style.width = `${fullWidth}px`;
+      });
+      outer.style.overflow = "visible";
+      outer.style.width = `${fullWidth}px`;
+
+      const canvas = await html2canvas(outer, {
         scale: 2,
         backgroundColor: "#ffffff",
+        width: fullWidth,
+        windowWidth: fullWidth,
       });
       const imgData = canvas.toDataURL("image/png");
 
