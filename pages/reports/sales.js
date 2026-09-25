@@ -95,12 +95,20 @@ export default function SalesReport() {
       });
       const imgData = canvas.toDataURL("image/png");
 
+      // The page is sized to the content plus a margin on every side —
+      // without this, the PDF page exactly matches the image and the
+      // report ends up looking like a tightly-cropped screenshot rather
+      // than a page, with the table touching the edges.
+      const margin = 80; // px, at the same 2x scale as the capture
+      const pageWidth = canvas.width + margin * 2;
+      const pageHeight = canvas.height + margin * 2;
+
       const pdf = new jsPDF({
-        orientation: canvas.width > canvas.height ? "l" : "p",
+        orientation: pageWidth > pageHeight ? "l" : "p",
         unit: "px",
-        format: [canvas.width, canvas.height],
+        format: [pageWidth, pageHeight],
       });
-      pdf.addImage(imgData, "PNG", 0, 0, canvas.width, canvas.height);
+      pdf.addImage(imgData, "PNG", margin, margin, canvas.width, canvas.height);
       const blob = pdf.output("blob");
       const file = new File([blob], "تقرير-المبيعات.pdf", { type: "application/pdf" });
 
