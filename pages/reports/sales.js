@@ -87,6 +87,16 @@ export default function SalesReport() {
         el.style.overflow = "visible";
         el.style.width = `${fullWidth}px`;
       });
+      // html2canvas doesn't reliably support position:sticky — it can
+      // render the sticky column at the wrong horizontal offset entirely,
+      // which is what was causing the broken/split-looking exports. The
+      // sticky behavior only matters for on-screen scrolling anyway; in
+      // the clone the whole table is already unclipped and fully visible,
+      // so it's simply not needed there.
+      clone.querySelectorAll(".sticky").forEach((el) => {
+        el.classList.remove("sticky", "start-0", "z-10");
+        el.style.position = "static";
+      });
       document.body.appendChild(clone);
 
       const canvas = await html2canvas(clone, {
@@ -243,18 +253,23 @@ export default function SalesReport() {
             </div>
 
             <div ref={reportRef} className="bg-white">
-              <div className="mb-4">
-                <h2 className="text-lg font-semibold text-gray-800">تقرير المبيعات</h2>
-                <p className="text-sm text-gray-500">
-                  {report.route === "all"
-                    ? "كل المسارات"
-                    : ROUTE_LABELS[report.route] || report.route}
-                </p>
-                <p className="text-sm text-gray-500">
-                  {report.from ? formatDate(report.from) : "البداية"}
-                  {" — "}
-                  {report.to ? formatDate(report.to) : "الآن"}
-                </p>
+              <div className="flex items-center justify-between mb-6 pb-4 border-b-2 border-gray-900">
+                <div>
+                  <h2 className="text-xl font-bold text-gray-900">تقرير المبيعات</h2>
+                  <p className="text-sm text-gray-500 mt-1">
+                    {report.route === "all"
+                      ? "كل المسارات"
+                      : ROUTE_LABELS[report.route] || report.route}
+                    {" · "}
+                    {report.from ? formatDate(report.from) : "البداية"}
+                    {" — "}
+                    {report.to ? formatDate(report.to) : "الآن"}
+                  </p>
+                </div>
+                <div className="text-end shrink-0">
+                  <p className="text-lg font-bold text-gray-900">مسار</p>
+                  <p className="text-xs text-gray-400">Masar</p>
+                </div>
               </div>
 
               {rows.length === 0 ? (
@@ -263,23 +278,25 @@ export default function SalesReport() {
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm border-collapse">
                     <thead>
-                      <tr className="border-b-2 border-gray-800">
-                        <th className="sticky start-0 z-10 bg-white text-start font-semibold text-gray-700 px-3 py-2 whitespace-nowrap">
+                      <tr className="border-b-2 border-gray-900 bg-gray-50">
+                        <th className="sticky start-0 z-10 bg-gray-50 text-start font-semibold text-gray-700 px-4 py-3 whitespace-nowrap">
                           العميل
                         </th>
-                        {columns.map((col) => (
+                        {columns.map((col, i) => (
                           <th
                             key={col.key}
-                            className="text-center font-semibold text-gray-700 px-3 py-2 whitespace-nowrap"
+                            className={`text-center font-semibold text-gray-700 px-4 py-3 whitespace-nowrap ${
+                              i === 0 ? "border-e border-gray-200" : ""
+                            }`}
                           >
                             {col.name}
                             {col.unit && <span className="block text-xs font-normal text-gray-400">({col.unit})</span>}
                           </th>
                         ))}
-                        <th className="text-center font-semibold text-gray-700 px-3 py-2 whitespace-nowrap bg-gray-50">
+                        <th className="text-center font-semibold text-gray-700 px-4 py-3 whitespace-nowrap bg-gray-100 border-s border-gray-200">
                           إجمالي الوحدات
                         </th>
-                        <th className="text-center font-semibold text-gray-700 px-3 py-2 whitespace-nowrap bg-gray-50">
+                        <th className="text-center font-semibold text-gray-700 px-4 py-3 whitespace-nowrap bg-gray-100">
                           إجمالي السعر
                         </th>
                       </tr>
@@ -288,7 +305,7 @@ export default function SalesReport() {
                       {rows.map(({ client: c, cells }, i) => (
                         <tr key={c.clientId} className={i % 2 === 1 ? "bg-gray-50" : "bg-white"}>
                           <td
-                            className={`sticky start-0 z-10 px-3 py-2 ${
+                            className={`sticky start-0 z-10 px-4 py-3 ${
                               i % 2 === 1 ? "bg-gray-50" : "bg-white"
                             }`}
                           >
@@ -297,34 +314,52 @@ export default function SalesReport() {
                               <span className="tabular-ltr">#{c.clientId}</span> · {c.location}
                             </p>
                           </td>
-                          {columns.map((col) => (
-                            <td key={col.key} className="text-center px-3 py-2 text-gray-700">
+                          {columns.map((col, ci) => (
+                            <td
+                              key={col.key}
+                              className={`text-center px-4 py-3 text-gray-700 ${
+                                ci === 0 ? "border-e border-gray-200" : ""
+                              }`}
+                            >
                               {cells[col.key] ?? <span className="text-gray-300">—</span>}
                             </td>
                           ))}
-                          <td className="text-center px-3 py-2 font-medium text-gray-800 bg-gray-50/70">
+                          <td
+                            className={`text-center px-4 py-3 font-medium text-gray-800 border-s border-gray-200 ${
+                              i % 2 === 1 ? "bg-gray-100" : "bg-gray-50"
+                            }`}
+                          >
                             {c.totalUnits}
                           </td>
-                          <td className="text-center px-3 py-2 font-medium text-gray-900 bg-gray-50/70">
+                          <td
+                            className={`text-center px-4 py-3 font-medium text-gray-900 ${
+                              i % 2 === 1 ? "bg-gray-100" : "bg-gray-50"
+                            }`}
+                          >
                             {c.totalPrice}
                           </td>
                         </tr>
                       ))}
                     </tbody>
                     <tfoot>
-                      <tr className="border-t-2 border-gray-800 font-semibold">
-                        <td className="sticky start-0 z-10 bg-white px-3 py-2 text-gray-800 whitespace-nowrap">
+                      <tr className="bg-gray-900 text-white">
+                        <td className="sticky start-0 z-10 bg-gray-900 px-4 py-4 font-semibold whitespace-nowrap">
                           الإجمالي ({rows.length} عميل)
                         </td>
-                        {columns.map((col) => (
-                          <td key={col.key} className="text-center px-3 py-2 text-gray-800">
+                        {columns.map((col, i) => (
+                          <td
+                            key={col.key}
+                            className={`text-center px-4 py-4 font-semibold ${
+                              i === 0 ? "border-e border-gray-700" : ""
+                            }`}
+                          >
                             {columnTotals[col.key]}
                           </td>
                         ))}
-                        <td className="text-center px-3 py-2 text-gray-900 bg-gray-100">
+                        <td className="text-center px-4 py-4 font-bold border-s border-gray-700">
                           {report.grandTotalUnits}
                         </td>
-                        <td className="text-center px-3 py-2 text-gray-900 bg-gray-100">
+                        <td className="text-center px-4 py-4 font-bold">
                           {report.grandTotalPrice}
                         </td>
                       </tr>
@@ -332,6 +367,10 @@ export default function SalesReport() {
                   </table>
                 </div>
               )}
+
+              <p className="text-xs text-gray-400 mt-6 pt-4 border-t border-gray-100">
+                تم إنشاء هذا التقرير بواسطة نظام مسار — {formatDate(new Date().toISOString())}
+              </p>
             </div>
           </div>
         )}
