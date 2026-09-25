@@ -31,7 +31,15 @@ export default async function handler(req, res) {
     }
 
     const snap = await query.get();
-    const orders = snap.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+    const orders = snap.docs.map((doc) => {
+      const data = doc.data();
+      // Edit history is supervisor-only — same rule as the single-invoice
+      // endpoint. Agents get a lightweight `edited` flag instead (just
+      // enough to show a note on the card) without the actual history.
+      const edited = Boolean(data.editHistory?.length);
+      if (decoded.role !== "supervisor") delete data.editHistory;
+      return { id: doc.id, ...data, edited };
+    });
 
     return res.status(200).json({ orders });
   } catch (err) {

@@ -171,6 +171,7 @@ export default function SupervisorDashboard() {
                 order={order}
                 name={clientsById[order.clientId]?.name}
                 location={clientsById[order.clientId]?.location}
+                edited={order.edited}
                 badge={
                   <span className="text-xs font-normal text-gray-400 ms-2">
                     {order.route === "car1" ? "السيارة ١" : "السيارة ٢"}
