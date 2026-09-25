@@ -347,6 +347,24 @@ export default function OrderDetail() {
             <p>تاريخ الفاتورة: {formatDateTime(order.createdAt)}</p>
           </div>
 
+          {role === "supervisor" && order.editHistory?.length > 0 && (
+            <details className="mb-4 text-sm">
+              <summary className="text-gray-500 cursor-pointer select-none">
+                سجل التعديلات ({order.editHistory.length})
+              </summary>
+              <div className="mt-2 space-y-2 border-s-2 border-gray-200 ps-3">
+                {order.editHistory.map((h, i) => (
+                  <div key={i} className="text-gray-500">
+                    <p className="text-xs text-gray-400">قبل التعديل — {formatDateTime(h.editedAt)}</p>
+                    <p>
+                      {h.items.map((it) => `${it.name} ×${it.qty}`).join("، ")} — الإجمالي: {h.total}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </details>
+          )}
+
           <div>
             <label className="block text-sm text-gray-600 mb-1">ملاحظات</label>
             <textarea

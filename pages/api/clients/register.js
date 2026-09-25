@@ -1,5 +1,6 @@
 const { adminDb } = require("../../../lib/firebaseAdmin");
 const { requireUser, requireRole } = require("../../../lib/apiAuth");
+const { isValidPhone } = require("../../../lib/validation");
 
 const COUNTER_DOC = adminDb.collection("meta").doc("clientIdCounter");
 
@@ -53,6 +54,12 @@ export default async function handler(req, res) {
     }
     if (!["car1", "car2"].includes(route)) {
       return res.status(400).json({ error: 'المسار يجب أن يكون السيارة ١ أو السيارة ٢' });
+    }
+    if (!isValidPhone(phone)) {
+      return res.status(400).json({ error: "رقم الهاتف يجب أن يتكون من 10 أرقام ويبدأ بصفر" });
+    }
+    if (whatsapp && !isValidPhone(whatsapp)) {
+      return res.status(400).json({ error: "رقم الواتساب يجب أن يتكون من 10 أرقام ويبدأ بصفر" });
     }
 
     const clientId = await getNextClientId();

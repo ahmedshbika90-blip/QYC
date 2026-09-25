@@ -125,11 +125,14 @@ export default function ClientDetail() {
           </div>
 
           <div>
-            <label className="block text-sm text-gray-600 mb-1">رقم الهاتف (للاتصال)</label>
+            <label className="block text-sm text-gray-600 mb-1">رقم الهاتف (للاتصال) — 10 أرقام تبدأ بصفر</label>
             <input
               type="tel"
+              inputMode="numeric"
+              maxLength={10}
+              pattern="0\d{9}"
               value={form.phone}
-              onChange={(e) => setForm({ ...form, phone: e.target.value })}
+              onChange={(e) => setForm({ ...form, phone: e.target.value.replace(/\D/g, "").slice(0, 10) })}
               className="w-full border rounded-lg px-3 h-12 text-base tabular-ltr text-start"
               dir="ltr"
               required
@@ -141,7 +144,7 @@ export default function ClientDetail() {
             <input
               type="tel"
               value={form.whatsapp}
-              onChange={(e) => setForm({ ...form, whatsapp: e.target.value })}
+              onChange={(e) => setForm({ ...form, whatsapp: e.target.value.replace(/\D/g, "").slice(0, 10) })}
               className="w-full border rounded-lg px-3 h-12 text-base tabular-ltr text-start"
               dir="ltr"
               placeholder="اتركه كما هو إذا كان نفس رقم الهاتف"

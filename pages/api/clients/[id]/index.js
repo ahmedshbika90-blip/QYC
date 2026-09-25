@@ -1,5 +1,6 @@
 const { adminDb } = require("../../../../lib/firebaseAdmin");
 const { requireUser } = require("../../../../lib/apiAuth");
+const { isValidPhone } = require("../../../../lib/validation");
 
 const ROLE_TO_ROUTE = {
   agent_car1: "car1",
@@ -48,6 +49,12 @@ export default async function handler(req, res) {
       if (!checkAccess(decoded, client.route, res)) return;
       if (route !== undefined && !["car1", "car2"].includes(route)) {
         return res.status(400).json({ error: 'المسار يجب أن يكون السيارة ١ أو السيارة ٢' });
+      }
+      if (phone !== undefined && !isValidPhone(phone)) {
+        return res.status(400).json({ error: "رقم الهاتف يجب أن يتكون من 10 أرقام ويبدأ بصفر" });
+      }
+      if (whatsapp && !isValidPhone(whatsapp)) {
+        return res.status(400).json({ error: "رقم الواتساب يجب أن يتكون من 10 أرقام ويبدأ بصفر" });
       }
 
       const updates = { updatedAt: new Date().toISOString(), updatedBy: decoded.uid };

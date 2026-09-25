@@ -1,4 +1,4 @@
-const { adminDb } = require("../../../../lib/firebaseAdmin");
+const { admin, adminDb } = require("../../../../lib/firebaseAdmin");
 const { requireUser } = require("../../../../lib/apiAuth");
 const { buildOrderFromItems } = require("../../../../lib/orderCreation");
 
@@ -43,11 +43,21 @@ export default async function handler(req, res) {
 
     const { resolvedItems, total } = await buildOrderFromItems(items, order.route);
 
+    // Preserve what the invoice looked like before this edit — otherwise
+    // a change is just an overwrite with no trace of what it replaced,
+    // which is a real integrity gap once anyone relies on these figures
+    // (a sales report, or a synced QuickBooks record).
     await orderRef.update({
       items: resolvedItems,
       total,
       updatedAt: new Date().toISOString(),
       updatedBy: decoded.uid,
+      editHistory: admin.firestore.FieldValue.arrayUnion({
+        items: order.items,
+        total: order.total,
+        editedAt: new Date().toISOString(),
+        editedBy: decoded.uid,
+      }),
     });
 
     return res.status(200).json({ ok: true, items: resolvedItems, total });

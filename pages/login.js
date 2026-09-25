@@ -12,6 +12,7 @@ export default function Login() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const router = useRouter();
+  const idleLogout = router.query.reason === "idle";
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -40,6 +41,12 @@ export default function Login() {
         className="bg-white p-6 sm:p-8 rounded-lg shadow-md w-full max-w-sm mx-4"
       >
         <h1 className="text-xl font-semibold mb-6 text-gray-800">تسجيل دخول الموظفين</h1>
+
+        {idleLogout && !error && (
+          <p className="text-amber-700 text-sm bg-amber-50 rounded-lg px-3 py-2 mb-4">
+            تم تسجيل خروجك تلقائيًا بسبب عدم النشاط لفترة طويلة، لحماية حسابك.
+          </p>
+        )}
 
         {error && (
           <p className="text-red-600 text-sm mb-4">{error}</p>

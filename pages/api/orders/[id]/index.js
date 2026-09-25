@@ -32,6 +32,13 @@ export default async function handler(req, res) {
     const clientSnap = await adminDb.collection("clients").doc(order.clientId).get();
     const client = clientSnap.exists ? clientSnap.data() : null;
 
+    // Edit history is supervisor-only — strip it from the response itself
+    // rather than just hiding it in the UI, since anything sent to the
+    // browser is visible in dev tools regardless of what the page shows.
+    if (decoded.role !== "supervisor") {
+      delete order.editHistory;
+    }
+
     return res.status(200).json({ id: snap.id, ...order, client });
   } catch (err) {
     const status = err.statusCode || 500;
