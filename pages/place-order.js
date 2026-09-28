@@ -4,12 +4,14 @@ import Nav from "../components/Nav";
 import QtyStepper from "../components/QtyStepper";
 import { PageLoading, Spinner } from "../components/Loading";
 import { apiFetch } from "../lib/apiFetch";
+import { invalidate } from "../lib/apiCache";
+import { getClients } from "../lib/clientsStore";
 import { formatDate } from "../lib/labels";
 
 const DRAFT_KEY = "pendingStaffOrderDraft";
 
 export default function PlaceOrder() {
-  const { role, token, loading, logout } = useAuth();
+  const { user, role, token, loading, logout } = useAuth();
 
   const [clients, setClients] = useState([]);
   const [products, setProducts] = useState([]);
@@ -104,15 +106,15 @@ export default function PlaceOrder() {
     setFetching(true);
     setError("");
     try {
-      const [clientsRes, productsRes] = await Promise.all([
-        apiFetch("/api/clients/list", { headers: { Authorization: `Bearer ${token}` } }),
+      // Products stay uncached on purpose: they carry live stock levels,
+      // which change with every invoice. Clients come from the version cache.
+      const [clientList, productsRes] = await Promise.all([
+        getClients(apiFetch, token, user.uid),
         apiFetch("/api/products/list", { headers: { Authorization: `Bearer ${token}` } }),
       ]);
-      const clientsData = await clientsRes.json();
       const productsData = await productsRes.json();
-      if (!clientsRes.ok) throw new Error(clientsData.error);
       if (!productsRes.ok) throw new Error(productsData.error);
-      setClients(clientsData.clients.filter((c) => c.active !== false));
+      setClients(clientList.filter((c) => c.active !== false));
       setProducts(productsData.products);
     } catch (err) {
       setError(err.message);
@@ -198,6 +200,7 @@ export default function PlaceOrder() {
     const data = await res.json();
     if (!res.ok) throw Object.assign(new Error(data.error || "تعذر تسجيل الفاتورة"), { isRejection: true });
     setResult(data);
+    invalidate("/api/orders/list");
     return data;
   }
 

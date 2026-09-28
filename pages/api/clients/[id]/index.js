@@ -1,6 +1,8 @@
 const { adminDb } = require("../../../../lib/firebaseAdmin");
 const { requireUser } = require("../../../../lib/apiAuth");
 const { isValidPhone } = require("../../../../lib/validation");
+const { bumpVersion } = require("../../../../lib/versions");
+const { STORE_CLASSES } = require("../../../../lib/labels");
 
 const ROLE_TO_ROUTE = {
   agent_car1: "car1",
@@ -41,7 +43,7 @@ export default async function handler(req, res) {
       // Reassigning route: only a supervisor may move a client between
       // routes, since it changes which agent's queue the client belongs to.
       // Agents may still edit name/store/location/active on their own route.
-      const { name, storeName, location, route, active, phone, whatsapp } = req.body || {};
+      const { name, storeName, location, route, active, phone, whatsapp, storeClass } = req.body || {};
 
       if (route !== undefined && route !== client.route && decoded.role !== "supervisor") {
         return res.status(403).json({ error: "المشرف فقط يمكنه تغيير مسار العميل" });
@@ -53,6 +55,9 @@ export default async function handler(req, res) {
       if (phone !== undefined && !isValidPhone(phone)) {
         return res.status(400).json({ error: "رقم الهاتف يجب أن يتكون من 10 أرقام ويبدأ بصفر" });
       }
+      if (storeClass !== undefined && !STORE_CLASSES.includes(storeClass)) {
+        return res.status(400).json({ error: "تصنيف المتجر يجب أن يكون A أو B أو C" });
+      }
       if (whatsapp && !isValidPhone(whatsapp)) {
         return res.status(400).json({ error: "رقم الواتساب يجب أن يتكون من 10 أرقام ويبدأ بصفر" });
       }
@@ -63,10 +68,12 @@ export default async function handler(req, res) {
       if (location !== undefined) updates.location = location;
       if (route !== undefined) updates.route = route;
       if (active !== undefined) updates.active = Boolean(active);
+      if (storeClass !== undefined) updates.storeClass = storeClass;
       if (phone !== undefined) updates.phone = phone;
       if (whatsapp !== undefined) updates.whatsapp = whatsapp || phone || client.phone;
 
       await ref.update(updates);
+      await bumpVersion("clients");
       return res.status(200).json({ ok: true });
     }
 

@@ -8,10 +8,10 @@ const ROLE_TO_ROUTE = {
 
 // Builds a sales report from every invoice that ISN'T cancelled — with
 // the active/cancelled-only model, any non-cancelled invoice represents
-// a real sale. Only equality filters are used in the Firestore query
-// (route ==) so no new composite index is ever needed; excluding
-// cancelled invoices, the date range, and per-client grouping all happen
-// in memory afterward, which is fine at this business's order volume.
+// a real sale. The date range is part of the Firestore query itself, so
+// a one-day report reads one day of invoices, not the entire history.
+// Uses the same (route, createdAt) index as the dashboards. Cancelled
+// invoices and per-client grouping are handled in memory afterward.
 export default async function handler(req, res) {
   if (req.method !== "GET") {
     return res.status(405).json({ error: "طريقة الطلب غير مسموح بها" });
@@ -38,22 +38,22 @@ export default async function handler(req, res) {
       return res.status(403).json({ error: "غير مصرح: الصلاحية غير معروفة" });
     }
 
-    const snap = await query.get();
-    let orders = snap.docs
-      .map((doc) => ({ id: doc.id, ...doc.data() }))
-      .filter((o) => o.status !== "cancelled");
-
     const { from, to } = req.query;
+    query = query.orderBy("createdAt", "desc");
     if (from) {
-      const fromDate = new Date(from);
-      orders = orders.filter((o) => new Date(o.createdAt) >= fromDate);
+      query = query.where("createdAt", ">=", new Date(from).toISOString());
     }
     if (to) {
       // Include the entire "to" day, not just up to midnight.
       const toDate = new Date(to);
       toDate.setHours(23, 59, 59, 999);
-      orders = orders.filter((o) => new Date(o.createdAt) <= toDate);
+      query = query.where("createdAt", "<=", toDate.toISOString());
     }
+
+    const snap = await query.get();
+    const orders = snap.docs
+      .map((doc) => ({ id: doc.id, ...doc.data() }))
+      .filter((o) => o.status !== "cancelled");
 
     // Group by client, merging line items for the same product across
     // that client's multiple orders in the period.

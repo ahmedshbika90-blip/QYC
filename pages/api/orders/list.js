@@ -6,6 +6,16 @@ const ROLE_TO_ROUTE = {
   agent_car2: "car2",
 };
 
+const DEFAULT_WINDOW_DAYS = 30;
+const PAGE_SIZE = 200;
+
+// Defaults to the last 30 days unless the caller explicitly asks for an
+// earlier `from` date — without this, a dashboard fetches EVERY order
+// ever placed, every single time it loads, which scales with total
+// historical data rather than actual daily activity and is the real
+// Firestore-read cost driver in this app. Reuses the existing
+// (route, createdAt) composite index — a date range on the same field
+// already used for ordering doesn't need a new index.
 export default async function handler(req, res) {
   if (req.method !== "GET") {
     return res.status(405).json({ error: "طريقة الطلب غير مسموح بها" });
@@ -25,10 +35,26 @@ export default async function handler(req, res) {
       throw err;
     }
 
-    const { status } = req.query;
+    const { status, from, to, cursor } = req.query;
     if (status) {
       query = query.where("status", "==", status);
     }
+
+    const effectiveFrom =
+      from || new Date(Date.now() - DEFAULT_WINDOW_DAYS * 24 * 60 * 60 * 1000).toISOString();
+    query = query.where("createdAt", ">=", effectiveFrom);
+
+    if (to) {
+      const toDate = new Date(to);
+      toDate.setHours(23, 59, 59, 999);
+      query = query.where("createdAt", "<=", toDate.toISOString());
+    }
+
+    if (cursor) {
+      query = query.startAfter(cursor);
+    }
+
+    query = query.limit(PAGE_SIZE);
 
     const snap = await query.get();
     const orders = snap.docs.map((doc) => {
@@ -41,7 +67,11 @@ export default async function handler(req, res) {
       return { id: doc.id, ...data, edited };
     });
 
-    return res.status(200).json({ orders });
+    // A same-size page suggests there may be more beyond it — the client
+    // passes this back as `cursor` to load the next page ("تحميل المزيد").
+    const nextCursor = orders.length === PAGE_SIZE ? orders[orders.length - 1].createdAt : null;
+
+    return res.status(200).json({ orders, nextCursor, from: effectiveFrom });
   } catch (err) {
     const status = err.statusCode || 500;
     return res.status(status).json({ error: err.message });

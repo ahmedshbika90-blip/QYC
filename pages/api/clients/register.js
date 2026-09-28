@@ -1,6 +1,8 @@
 const { adminDb } = require("../../../lib/firebaseAdmin");
 const { requireUser, requireRole } = require("../../../lib/apiAuth");
 const { isValidPhone } = require("../../../lib/validation");
+const { bumpVersion } = require("../../../lib/versions");
+const { STORE_CLASSES } = require("../../../lib/labels");
 
 const COUNTER_DOC = adminDb.collection("meta").doc("clientIdCounter");
 
@@ -35,7 +37,7 @@ export default async function handler(req, res) {
     const decoded = await requireUser(req);
     requireRole(decoded, ["agent_car1", "agent_car2", "supervisor"]);
 
-    const { name, storeName, location, phone, whatsapp } = req.body || {};
+    const { name, storeName, location, phone, whatsapp, storeClass } = req.body || {};
     let { route } = req.body || {};
 
     // An agent's own route isn't a choice — it's fixed by who they are
@@ -55,6 +57,9 @@ export default async function handler(req, res) {
     if (!["car1", "car2"].includes(route)) {
       return res.status(400).json({ error: 'المسار يجب أن يكون السيارة ١ أو السيارة ٢' });
     }
+    if (!STORE_CLASSES.includes(storeClass)) {
+      return res.status(400).json({ error: "تصنيف المتجر يجب أن يكون A أو B أو C" });
+    }
     if (!isValidPhone(phone)) {
       return res.status(400).json({ error: "رقم الهاتف يجب أن يتكون من 10 أرقام ويبدأ بصفر" });
     }
@@ -71,12 +76,14 @@ export default async function handler(req, res) {
       route,
       phone,
       whatsapp: whatsapp || phone, // defaults to the same number unless a separate one is given
+      storeClass,
       active: true,
       createdAt: new Date().toISOString(),
       createdBy: decoded.uid,
     };
 
     await adminDb.collection("clients").doc(clientId).set(clientDoc);
+    await bumpVersion("clients");
 
     return res.status(201).json({ clientId, ...clientDoc });
   } catch (err) {

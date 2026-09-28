@@ -1,33 +1,38 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useAuth } from "../../lib/useAuth";
 import Nav from "../../components/Nav";
+import FilterPanel from "../../components/FilterPanel";
 import { PageLoading, SkeletonRows } from "../../components/Loading";
 import { apiFetch } from "../../lib/apiFetch";
-import { ROUTE_LABELS } from "../../lib/labels";
+import { getClients } from "../../lib/clientsStore";
 
+// Search + filters all run in the browser on the version-cached client
+// list (see lib/clientsStore.js) — typing, filtering, or switching filters
+// costs zero Firestore reads.
 export default function ClientsList() {
-  const { role, token, loading, logout } = useAuth();
+  const { user, role, token, loading, logout } = useAuth(["agent_car1", "agent_car2", "supervisor"]);
   const [clients, setClients] = useState([]);
-  const [search, setSearch] = useState("");
   const [fetching, setFetching] = useState(true);
   const [error, setError] = useState("");
 
+  const [search, setSearch] = useState("");
+  const [nameQuery, setNameQuery] = useState("");
+  const [locationQuery, setLocationQuery] = useState("");
+  const [storeClass, setStoreClass] = useState("");
+  const [routeFilter, setRouteFilter] = useState("");
+
   useEffect(() => {
-    if (!token) return;
+    if (!token || !user) return;
     fetchClients();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [token]);
+  }, [token, user]);
 
-  async function fetchClients(q = "") {
+  async function fetchClients() {
     setFetching(true);
     setError("");
     try {
-      const url = q ? `/api/clients/list?q=${encodeURIComponent(q)}` : "/api/clients/list";
-      const res = await apiFetch(url, { headers: { Authorization: `Bearer ${token}` } });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error);
-      setClients(data.clients);
+      setClients(await getClients(apiFetch, token, user.uid));
     } catch (err) {
       setError(err.message);
     } finally {
@@ -35,11 +40,21 @@ export default function ClientsList() {
     }
   }
 
-  function handleSearchChange(e) {
-    const value = e.target.value;
-    setSearch(value);
-    fetchClients(value);
-  }
+  const visible = useMemo(() => {
+    const s = search.trim().toLowerCase();
+    return clients.filter((c) => {
+      if (s) {
+        const hay = `${c.id} ${c.name || ""} ${c.storeName || ""} ${c.phone || ""}`.toLowerCase();
+        if (!hay.includes(s)) return false;
+      }
+      if (nameQuery && !(c.name || "").toLowerCase().includes(nameQuery.toLowerCase())) return false;
+      if (locationQuery && !(c.location || "").toLowerCase().includes(locationQuery.toLowerCase()))
+        return false;
+      if (storeClass && c.storeClass !== storeClass) return false;
+      if (routeFilter && c.route !== routeFilter) return false;
+      return true;
+    });
+  }, [clients, search, nameQuery, locationQuery, storeClass, routeFilter]);
 
   if (loading) return <PageLoading />;
 
@@ -60,46 +75,76 @@ export default function ClientsList() {
         <input
           type="text"
           value={search}
-          onChange={handleSearchChange}
-          placeholder="ابحث بالاسم أو المتجر أو الموقع أو الرقم..."
-          className="w-full border rounded-lg px-3 h-12 text-base mb-6"
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="ابحث بالاسم أو المتجر أو الرقم أو الهاتف..."
+          className="w-full border rounded-lg px-3 h-12 text-base mb-3"
         />
+
+        <FilterPanel
+          nameQuery={nameQuery}
+          onNameChange={setNameQuery}
+          locationQuery={locationQuery}
+          onLocationChange={setLocationQuery}
+          storeClass={storeClass}
+          onStoreClassChange={setStoreClass}
+          extraActiveCount={routeFilter ? 1 : 0}
+        >
+          {role === "supervisor" && (
+            <select
+              value={routeFilter}
+              onChange={(e) => setRouteFilter(e.target.value)}
+              className="border rounded-lg px-3 h-11 text-base"
+            >
+              <option value="">كل المسارات</option>
+              <option value="car1">السيارة ١</option>
+              <option value="car2">السيارة ٢</option>
+            </select>
+          )}
+        </FilterPanel>
 
         {error && (
           <div className="text-red-600 text-sm mb-4 flex items-center gap-2">
             <span>{error}</span>
-            <button onClick={() => fetchClients(search)} className="underline shrink-0">
-              إعادة المحاولة
-            </button>
+            <button onClick={fetchClients} className="underline shrink-0">إعادة المحاولة</button>
           </div>
+        )}
+
+        {!fetching && (
+          <p className="text-xs text-gray-400 mb-2">{visible.length} عميل</p>
         )}
 
         {fetching ? (
           <SkeletonRows count={4} />
-        ) : clients.length === 0 ? (
-          <p className="text-gray-400">لا يوجد عملاء.</p>
+        ) : visible.length === 0 ? (
+          <p className="text-gray-400">لا يوجد عملاء مطابقون.</p>
         ) : (
           <div className="bg-white rounded-lg shadow divide-y">
-            {clients.map((c) => (
+            {visible.map((c) => (
               <Link
                 key={c.id}
                 href={`/clients/${c.id}`}
-                className="flex justify-between items-center p-4 min-h-[64px] active:bg-gray-50"
+                className="flex justify-between items-center p-4 min-h-[64px] active:bg-gray-50 gap-3"
               >
-                <div>
-                  <p className="font-medium text-gray-800">
-                    {c.name}{" "}
+                <div className="min-w-0">
+                  <p className="font-medium text-gray-800 truncate">
+                    {c.name}
                     <span className="font-mono text-xs text-gray-400 ms-2 tabular-ltr">#{c.id}</span>
-                    {c.active === false && (
-                      <span className="ms-2 text-xs text-red-500">(غير نشط)</span>
-                    )}
+                    {c.active === false && <span className="ms-2 text-xs text-red-500">(غير نشط)</span>}
                   </p>
-                  <p className="text-sm text-gray-500">
+                  <p className="text-sm text-gray-500 truncate">
                     {c.storeName} — {c.location}
                   </p>
-                  {c.phone && <p className="text-xs text-gray-400 mt-0.5 tabular-ltr text-start">{c.phone}</p>}
                 </div>
-                <span className="text-xs text-gray-400 shrink-0">{ROUTE_LABELS[c.route]}</span>
+                <div className="flex items-center gap-2 shrink-0">
+                  {c.storeClass && (
+                    <span className="text-xs font-medium bg-gray-100 text-gray-700 rounded px-2 py-0.5">
+                      {c.storeClass}
+                    </span>
+                  )}
+                  {role === "supervisor" && (
+                    <span className="text-xs text-gray-400">{c.route === "car1" ? "السيارة ١" : "السيارة ٢"}</span>
+                  )}
+                </div>
               </Link>
             ))}
           </div>

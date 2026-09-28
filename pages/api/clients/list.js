@@ -1,11 +1,20 @@
 const { adminDb } = require("../../../lib/firebaseAdmin");
 const { requireUser } = require("../../../lib/apiAuth");
+const { getVersion } = require("../../../lib/versions");
 
 const ROLE_TO_ROUTE = {
   agent_car1: "car1",
   agent_car2: "car2",
 };
 
+// Pass ?v=<version the browser already has>. If nothing has changed since,
+// this costs exactly 1 Firestore read and returns { unchanged: true } —
+// the browser keeps using its stored copy. Only when a client was actually
+// added/edited does it read and return the full list.
+//
+// Searching and filtering (name, location, class) happen in the browser on
+// the stored copy — Firestore can't do substring search anyway, and doing
+// it locally costs zero reads.
 export default async function handler(req, res) {
   if (req.method !== "GET") {
     return res.status(405).json({ error: "طريقة الطلب غير مسموح بها" });
@@ -14,35 +23,27 @@ export default async function handler(req, res) {
   try {
     const decoded = await requireUser(req);
 
-    let query = adminDb.collection("clients").orderBy("createdAt", "desc");
-
     const restrictedRoute = ROLE_TO_ROUTE[decoded.role];
-    if (restrictedRoute) {
-      query = query.where("route", "==", restrictedRoute);
-    } else if (decoded.role !== "supervisor") {
-      const err = new Error("Forbidden: unrecognized role");
-      err.statusCode = 403;
-      throw err;
+    if (!restrictedRoute && decoded.role !== "supervisor") {
+      return res.status(403).json({ error: "غير مصرح: الصلاحية غير معروفة" });
     }
+
+    const version = await getVersion("clients");
+    if (req.query.v && req.query.v === version) {
+      return res.status(200).json({ unchanged: true, version });
+    }
+
+    // Equality-only filter, sorted in memory — avoids needing a composite
+    // index on (route, createdAt) for a list that's small and fully loaded.
+    let query = adminDb.collection("clients");
+    if (restrictedRoute) query = query.where("route", "==", restrictedRoute);
 
     const snap = await query.get();
-    let clients = snap.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+    const clients = snap.docs
+      .map((doc) => ({ id: doc.id, ...doc.data() }))
+      .sort((a, b) => (b.createdAt || "").localeCompare(a.createdAt || ""));
 
-    // Simple in-memory search by name/store/location/id — fine at this scale.
-    // Move to a search service if the client list grows into the thousands.
-    const { q } = req.query;
-    if (q) {
-      const needle = q.toLowerCase();
-      clients = clients.filter(
-        (c) =>
-          c.id.includes(needle) ||
-          (c.name || "").toLowerCase().includes(needle) ||
-          (c.storeName || "").toLowerCase().includes(needle) ||
-          (c.location || "").toLowerCase().includes(needle)
-      );
-    }
-
-    return res.status(200).json({ clients });
+    return res.status(200).json({ clients, version });
   } catch (err) {
     const status = err.statusCode || 500;
     return res.status(status).json({ error: err.message });

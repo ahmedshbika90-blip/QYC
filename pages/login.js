@@ -4,8 +4,8 @@ import { signInWithEmailAndPassword } from "firebase/auth";
 import { auth } from "../lib/firebaseClient";
 import { Spinner } from "../components/Loading";
 
-// Staff/agent login. Clients never log in — they place orders with
-// their 4-digit ID via /new-order instead.
+// Staff login. Clients don't use the app directly — agents place
+// invoices on their behalf.
 export default function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");

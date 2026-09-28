@@ -1,69 +1,25 @@
 rules_version = '2';
 
+// Deny-all: no direct browser access to any data.
+//
+// Every read and write in this app goes through the server API routes,
+// which use the Firebase Admin SDK. The Admin SDK bypasses these rules
+// entirely, so the app keeps working exactly as before — this only shuts
+// the side door.
+//
+// Why this matters: the Firebase web config is public by design, so any
+// staff member with a login could otherwise skip the app and talk to
+// Firestore directly — editing an invoice total without touching stock or
+// edit history, writing unvalidated client records, or reading supplier
+// prices. With deny-all, the API (with its role checks, validation, stock
+// transactions, and field stripping) is the only way in.
+//
+// If a future feature ever needs direct browser access (e.g. real-time
+// listeners), open ONLY that specific collection with a narrow read rule
+// — never broad write rules.
 service cloud.firestore {
   match /databases/{database}/documents {
-
-    function isSignedIn() {
-      return request.auth != null;
-    }
-
-    function role() {
-      return request.auth.token.role;
-    }
-
-    function isSupervisor() {
-      return isSignedIn() && role() == 'supervisor';
-    }
-
-    function isAgentForRoute(route) {
-      return isSignedIn() &&
-        ((route == 'car1' && role() == 'agent_car1') ||
-         (route == 'car2' && role() == 'agent_car2'));
-    }
-
-    // Clients are managed by staff only. Clients themselves never sign in —
-    // they interact only via /api/orders/create and /api/clients/register,
-    // which use the Admin SDK server-side and bypass these rules entirely.
-    match /clients/{clientId} {
-      allow read: if isSupervisor() || isAgentForRoute(resource.data.route);
-      allow write: if isSupervisor() || isAgentForRoute(request.resource.data.route);
-    }
-
-    match /orders/{orderId} {
-      allow read: if isSupervisor() || isAgentForRoute(resource.data.route);
-      allow update: if isSupervisor() || isAgentForRoute(resource.data.route);
-      allow create: if false; // orders are created server-side only
-      allow delete: if false;
-    }
-
-    // Product catalog is read via the /api/products/list server route (bypasses
-    // these rules), so client-side reads aren't required, but allow signed-in
-    // staff read access for completeness; writes stay server-side only.
-    match /products/{productId} {
-      allow read: if isSignedIn();
-      allow write: if false;
-    }
-
-    // Inventory movements (goods received, loading, offloading). All
-    // reads/writes go through the Admin SDK server-side, same as orders —
-    // these rules are defense-in-depth in case client-side Firestore
-    // access is ever added later.
-    match /inventoryDocs/{docId} {
-      allow read: if isSupervisor() ||
-        role() == 'warehouse_keeper' ||
-        isAgentForRoute(resource.data.route);
-      allow write: if false;
-    }
-
-    // Internal counter used to generate sequential 4-digit client IDs.
-    // Only touched by the Admin SDK server-side — never directly by clients.
-    match /meta/{docId} {
-      allow read, write: if false;
-    }
-
-    // Rate-limit tracking for the public, no-login endpoints. Only ever
-    // touched by the Admin SDK server-side.
-    match /rateLimits/{docId} {
+    match /{document=**} {
       allow read, write: if false;
     }
   }

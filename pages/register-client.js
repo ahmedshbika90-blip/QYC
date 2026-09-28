@@ -3,6 +3,8 @@ import { useAuth } from "../lib/useAuth";
 import Nav from "../components/Nav";
 import { PageLoading, Spinner } from "../components/Loading";
 import { apiFetch } from "../lib/apiFetch";
+import { invalidateClients } from "../lib/clientsStore";
+import { STORE_CLASSES } from "../lib/labels";
 
 export default function RegisterClient() {
   const { role, token, loading, logout } = useAuth();
@@ -11,6 +13,7 @@ export default function RegisterClient() {
     storeName: "",
     location: "",
     route: "car1",
+    storeClass: "",
     phone: "",
     whatsapp: "",
   });
@@ -25,6 +28,10 @@ export default function RegisterClient() {
     e.preventDefault();
     setError("");
     setResult(null);
+    if (!form.storeClass) {
+      setError("اختر تصنيف المتجر (A أو B أو C)");
+      return;
+    }
     setSubmitting(true);
     try {
       const payload = {
@@ -42,7 +49,8 @@ export default function RegisterClient() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "تعذر تسجيل العميل");
       setResult(data);
-      setForm({ name: "", storeName: "", location: "", route: "car1", phone: "", whatsapp: "" });
+      invalidateClients();
+      setForm({ name: "", storeName: "", location: "", route: "car1", storeClass: "", phone: "", whatsapp: "" });
       setSameAsPhone(true);
     } catch (err) {
       setError(err.message);
@@ -144,6 +152,26 @@ export default function RegisterClient() {
                 placeholder="رقم الواتساب إن كان مختلفًا"
               />
             )}
+          </div>
+
+          <div>
+            <label className="block text-sm text-gray-600 mb-1">تصنيف المتجر</label>
+            <div className="grid grid-cols-3 gap-2">
+              {STORE_CLASSES.map((c) => (
+                <button
+                  type="button"
+                  key={c}
+                  onClick={() => setForm({ ...form, storeClass: c })}
+                  className={`h-12 rounded-lg text-base font-medium border ${
+                    form.storeClass === c
+                      ? "bg-gray-900 text-white border-gray-900"
+                      : "bg-white text-gray-600 active:bg-gray-50"
+                  }`}
+                >
+                  {c}
+                </button>
+              ))}
+            </div>
           </div>
 
           <div>

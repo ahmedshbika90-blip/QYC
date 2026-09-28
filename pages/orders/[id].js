@@ -5,6 +5,7 @@ import Nav from "../../components/Nav";
 import QtyStepper from "../../components/QtyStepper";
 import { PageLoading, Spinner } from "../../components/Loading";
 import { apiFetch } from "../../lib/apiFetch";
+import { invalidate } from "../../lib/apiCache";
 import { formatDate, formatDateTime } from "../../lib/labels";
 
 export default function OrderDetail() {
@@ -77,6 +78,7 @@ export default function OrderDetail() {
         body: JSON.stringify({ status: "cancelled" }),
       });
       if (!res.ok) throw new Error((await res.json()).error);
+      invalidate("/api/orders/list");
       fetchOrder();
     } catch (err) {
       setError(err.message);
@@ -160,6 +162,7 @@ export default function OrderDetail() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
       setEditing(false);
+      invalidate("/api/orders/list");
       fetchOrder();
     } catch (err) {
       setError(err.message);

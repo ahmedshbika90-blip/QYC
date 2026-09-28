@@ -31,10 +31,6 @@ would otherwise scramble delivery-date scheduling.
   on the first hiccup.
 - `components/OfflineBanner.js` shows a banner the moment the browser
   goes offline, so people aren't left guessing why nothing is loading.
-- `/new-order`'s product catalog is cached in `localStorage`; if the live
-  fetch fails, it falls back to the last successfully loaded catalog so
-  clients can still browse and place an order (with a note that prices
-  may be stale) instead of hitting a dead page.
 - Loading states use skeleton placeholders (`components/Loading.js`)
   instead of a layout jump from blank to full, which matters more on
   connections where a fetch can visibly take a couple of seconds.
@@ -106,7 +102,6 @@ would otherwise scramble delivery-date scheduling.
 - `/clients` — searchable list of all clients (route-scoped for agents)
 - `/clients/[id]` — edit a client's details, reassign route (supervisor only), deactivate
 - `/products` — manage the product catalog: add, reprice per route (car1/car2), activate/deactivate/delete (supervisor only)
-- `/new-order` — public page: client enters their ID, catalog loads priced for their route, then places the order
 - `/place-order` — agents (car1/car2 only, not supervisor) place an order on behalf of an already-registered client, e.g. for phone-in orders
 - `/orders/[id]` — full order detail: items, total, status, notes
 - `/reports/sales` — printable sales report (date range, route filter for supervisor), grouped by client with per-client and grand totals; "طباعة / حفظ PDF" uses the browser's own print-to-PDF, so Arabic/RTL renders correctly with no server-side PDF library needed
@@ -126,9 +121,7 @@ ones haven't happened yet so they're excluded too.
 Each product now has two prices — `prices.car1` and `prices.car2` — set
 independently by the supervisor on `/products`. The correct price is
 always resolved server-side from the client's actual route (never trusted
-from the browser): `/new-order` looks up the client's route first via
-`/api/clients/lookup-route`, then loads the catalog priced for that route;
-`/place-order` resolves the price once an agent selects a client, since
+from the browser): `/place-order` resolves the price once an agent selects a client, since
 the agent already knows which route they work.
 
 **If you have existing products from before this change**, they'll have
@@ -150,3 +143,37 @@ migration.
 - No email/SMS notifications when an order status changes — currently
   everything is pull-based (agent checks the dashboard).
 
+
+## Read efficiency (how data is fetched)
+- **Clients** use a version stamp (`meta/versions.clients`, bumped on every
+  client add/edit). The browser keeps the list locally; each visit costs
+  1 read to check the version, and the full list is only re-downloaded
+  when something actually changed. Search/filters run locally (0 reads).
+  Cached client data is wiped on logout and idle logout.
+- **Invoices & inventory history**: last 30 days by default, 200 per page,
+  "load more" for the rest. Pick an earlier "from" date to go further back.
+- **Pending banners** query only pending documents, never full history.
+- **Sales report**: the date range is part of the query (defaults to today).
+
+## Required Firestore indexes
+Deploy once with `firebase deploy --only firestore:indexes` (uses
+`firestore.indexes.json`), or create them from the error link the first
+time a page needs one:
+- `orders`: route ASC, createdAt DESC (you likely already have this one)
+- `inventoryDocs`: route ASC, createdAt DESC (new — needed by agents'
+  dashboards and Documents)
+
+## Store class
+Clients now have a store class (A/B/C), required at registration and
+editable later. Clients registered before this change have no class until
+edited. Invoices and clients can both be filtered by class.
+
+
+## Security model
+- **No public pages.** Every page and API route requires a staff login;
+  clients don't use the app directly — agents place invoices for them.
+- **Firestore rules are deny-all** (`firestore.rules`). All data access goes
+  through the server API routes (Admin SDK), which enforce roles, route
+  scoping, validation, and stock transactions. Deploy the rules with
+  `firebase deploy --only firestore:rules`, or paste the file into
+  Firebase console → Firestore → Rules → Publish.

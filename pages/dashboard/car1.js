@@ -6,13 +6,17 @@ import FilterPanel from "../../components/FilterPanel";
 import OrderCard from "../../components/OrderCard";
 import QuickActions from "../../components/QuickActions";
 import InventoryDocCard from "../../components/InventoryDocCard";
-import { PageLoading, SkeletonRows } from "../../components/Loading";
+import { PageLoading, SkeletonRows, Spinner } from "../../components/Loading";
 import { apiFetch } from "../../lib/apiFetch";
+import { cachedGet, invalidate } from "../../lib/apiCache";
+import { getClients } from "../../lib/clientsStore";
 import { formatDateTime } from "../../lib/labels";
 
 export default function Car1Dashboard() {
-  const { role, token, loading, logout } = useAuth(["agent_car1"]);
+  const { user, role, token, loading, logout } = useAuth(["agent_car1"]);
   const [orders, setOrders] = useState([]);
+  const [nextCursor, setNextCursor] = useState(null);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [clientsById, setClientsById] = useState({});
   const [pendingMovements, setPendingMovements] = useState([]);
   const [fetching, setFetching] = useState(true);
@@ -21,37 +25,60 @@ export default function Car1Dashboard() {
   const [statusFilter, setStatusFilter] = useState("active");
   const [nameQuery, setNameQuery] = useState("");
   const [locationQuery, setLocationQuery] = useState("");
+  const [storeClass, setStoreClass] = useState("");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
 
+  // Refetches whenever the date range changes — the range is now sent to
+  // the server (not just filtered client-side after the fact), since
+  // that's what actually bounds how much gets read from Firestore.
   useEffect(() => {
     if (!token) return;
     fetchAll();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [token]);
+  }, [token, dateFrom, dateTo]);
+
+  function ordersUrl(cursor) {
+    const params = new URLSearchParams();
+    if (dateFrom) params.set("from", dateFrom);
+    if (dateTo) params.set("to", dateTo);
+    if (cursor) params.set("cursor", cursor);
+    return `/api/orders/list?${params.toString()}`;
+  }
 
   async function fetchAll() {
     setFetching(true);
     setError("");
     try {
-      const [ordersRes, clientsRes, inventoryRes] = await Promise.all([
-        apiFetch("/api/orders/list", { headers: { Authorization: `Bearer ${token}` } }),
-        apiFetch("/api/clients/list", { headers: { Authorization: `Bearer ${token}` } }),
-        apiFetch("/api/inventory/list", { headers: { Authorization: `Bearer ${token}` } }),
+      // Pending-only query: fetches just the few documents awaiting this
+      // agent's confirmation, not the whole inventory history.
+      const [ordersData, clients, pendingData] = await Promise.all([
+        cachedGet(apiFetch, ordersUrl(), token),
+        getClients(apiFetch, token, user.uid),
+        cachedGet(apiFetch, "/api/inventory/list?status=pending", token),
       ]);
-      const ordersData = await ordersRes.json();
-      const clientsData = await clientsRes.json();
-      const inventoryData = await inventoryRes.json();
-      if (!ordersRes.ok) throw new Error(ordersData.error);
-      if (!clientsRes.ok) throw new Error(clientsData.error);
-      if (!inventoryRes.ok) throw new Error(inventoryData.error);
       setOrders(ordersData.orders);
-      setClientsById(Object.fromEntries(clientsData.clients.map((c) => [c.id, c])));
-      setPendingMovements(inventoryData.docs.filter((d) => d.status === "pending"));
+      setNextCursor(ordersData.nextCursor);
+      setClientsById(Object.fromEntries(clients.map((c) => [c.id, c])));
+      setPendingMovements(pendingData.docs);
     } catch (err) {
       setError(err.message);
     } finally {
       setFetching(false);
+    }
+  }
+
+  async function loadMore() {
+    if (!nextCursor) return;
+    setLoadingMore(true);
+    try {
+      const data = await cachedGet(apiFetch, ordersUrl(nextCursor), token);
+      setOrders((prev) => [...prev, ...data.orders]);
+      setNextCursor(data.nextCursor);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoadingMore(false);
     }
   }
 
@@ -66,6 +93,7 @@ export default function Car1Dashboard() {
         body: JSON.stringify({ status }),
       });
       if (!res.ok) throw new Error((await res.json()).error);
+      invalidate("/api/orders/list");
       fetchAll();
     } catch (err) {
       setError(err.message);
@@ -82,15 +110,10 @@ export default function Car1Dashboard() {
         const location = clientsById[order.clientId]?.location || "";
         if (!location.toLowerCase().includes(locationQuery.toLowerCase())) return false;
       }
-      if (dateFrom && new Date(order.createdAt) < new Date(dateFrom)) return false;
-      if (dateTo) {
-        const to = new Date(dateTo);
-        to.setHours(23, 59, 59, 999);
-        if (new Date(order.createdAt) > to) return false;
-      }
+      if (storeClass && clientsById[order.clientId]?.storeClass !== storeClass) return false;
       return true;
     };
-  }, [clientsById, nameQuery, locationQuery, dateFrom, dateTo]);
+  }, [clientsById, nameQuery, locationQuery, storeClass]);
 
   const baseFiltered = useMemo(() => orders.filter(matchesFilters), [orders, matchesFilters]);
   const counts = useMemo(
@@ -145,11 +168,19 @@ export default function Car1Dashboard() {
           onNameChange={setNameQuery}
           locationQuery={locationQuery}
           onLocationChange={setLocationQuery}
+          storeClass={storeClass}
+          onStoreClassChange={setStoreClass}
           dateFrom={dateFrom}
           onDateFromChange={setDateFrom}
           dateTo={dateTo}
           onDateToChange={setDateTo}
         />
+
+        {!dateFrom && (
+          <p className="text-xs text-gray-400 mb-3">
+            يعرض آخر ٣٠ يومًا افتراضيًا — لعرض فترة أقدم، حدد "من تاريخ" في التصفية.
+          </p>
+        )}
 
         {error && (
           <div className="text-red-600 text-sm mb-4 flex items-center gap-2">
@@ -173,6 +204,16 @@ export default function Car1Dashboard() {
                 onStatusChange={updateStatus}
               />
             ))}
+            {nextCursor && (
+              <button
+                onClick={loadMore}
+                disabled={loadingMore}
+                className="w-full bg-white rounded-lg shadow text-sm text-gray-600 h-11 flex items-center justify-center gap-2 disabled:opacity-50"
+              >
+                {loadingMore && <Spinner className="w-4 h-4" />}
+                {loadingMore ? "جارٍ التحميل..." : "تحميل المزيد"}
+              </button>
+            )}
           </div>
         )}
       </div>

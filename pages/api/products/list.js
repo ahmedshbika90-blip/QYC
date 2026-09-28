@@ -1,28 +1,21 @@
 const { adminDb } = require("../../../lib/firebaseAdmin");
 const { requireUser } = require("../../../lib/apiAuth");
 
-// Public on purpose — clients browse this catalog from /new-order with no login.
-// Only active products are returned by default so discontinued items disappear
-// from the ordering form without deleting their history from past orders.
-// Passing ?all=1 also returns inactive products, but that view is staff-only.
+// Staff-only product catalog (every caller must be logged in).
+// Only active products are returned by default; ?all=1 includes inactive
+// ones (used by the catalog manager and warehouse pages).
 //
-// Each product has a separate price per route (prices.car1 / prices.car2),
-// set by the supervisor. Passing ?route=car1|car2 resolves that route's
-// price into a plain `price` field (so calling code doesn't need to know
-// about the prices object at all) — used by /new-order once it knows
-// which route the entered client ID belongs to. Without ?route, the raw
-// `prices` object is returned as-is (used by the staff catalog manager,
-// which needs to see/edit both).
+// Each product has a separate price per route (prices.car1 / prices.car2).
+// Passing ?route=car1|car2 also resolves that route's price into a plain
+// `price` field, for callers that only care about one route.
 export default async function handler(req, res) {
   if (req.method !== "GET") {
     return res.status(405).json({ error: "طريقة الطلب غير مسموح بها" });
   }
 
   try {
+    const decoded = await requireUser(req);
     const includeInactive = req.query.all === "1";
-    if (includeInactive) {
-      await requireUser(req); // staff-only view of the full catalog
-    }
 
     const { route } = req.query;
     if (route && !["car1", "car2"].includes(route)) {
@@ -38,6 +31,15 @@ export default async function handler(req, res) {
 
     if (route) {
       products = products.map((p) => ({ ...p, price: p.prices?.[route] ?? null }));
+    }
+
+    // The warehouse keeper manages the depot only: no selling prices and
+    // no live car stock — just depot balances.
+    if (decoded.role === "warehouse_keeper") {
+      products = products.map(({ prices, stock, ...rest }) => ({
+        ...rest,
+        stock: { depot: stock?.depot ?? 0 },
+      }));
     }
 
     return res.status(200).json({ products });

@@ -12,15 +12,20 @@ const ROLE_HOME = {
 export default function Nav({ role, logout }) {
   const router = useRouter();
 
-  // Warehouse keeper only ever needs their one section (loading/offloading
-  // for both cars) — none of the sales-side pages (clients, products,
-  // reports) are relevant to that job, so their nav stays to just that.
+  // Warehouse keeper gets only their four working sections — none of the
+  // sales-side pages (clients, products, reports) are relevant to that job.
   const links =
     role === "warehouse_keeper"
-      ? [{ href: "/dashboard/warehouse", label: "المخزن" }]
+      ? [
+          { href: "/dashboard/warehouse", label: "الرئيسية" },
+          { href: "/warehouse/inventory", label: "المخزون" },
+          { href: "/warehouse/car1", label: "السيارة ١" },
+          { href: "/warehouse/car2", label: "السيارة ٢" },
+        ]
       : [
           role && { href: ROLE_HOME[role], label: "الرئيسية" },
           role !== "supervisor" && { href: "/place-order", label: "تسجيل فاتورة" },
+          role !== "supervisor" && { href: "/documents", label: "المستندات" },
           { href: "/register-client", label: "إضافة عميل" },
           { href: "/reports/sales", label: "تقرير المبيعات" },
           { href: "/clients", label: "العملاء" },

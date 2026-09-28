@@ -4,7 +4,8 @@ import { useAuth } from "../../lib/useAuth";
 import Nav from "../../components/Nav";
 import { PageLoading, Spinner } from "../../components/Loading";
 import { apiFetch } from "../../lib/apiFetch";
-import { formatDate } from "../../lib/labels";
+import { formatDate, STORE_CLASSES } from "../../lib/labels";
+import { invalidateClients } from "../../lib/clientsStore";
 
 export default function ClientDetail() {
   const { role, token, loading, logout } = useAuth();
@@ -38,6 +39,7 @@ export default function ClientDetail() {
         storeName: data.storeName,
         location: data.location,
         route: data.route,
+        storeClass: data.storeClass || "",
         active: data.active !== false,
         phone: data.phone || "",
         whatsapp: data.whatsapp || "",
@@ -61,11 +63,14 @@ export default function ClientDetail() {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify(form),
+        // Clients registered before store classes existed have none yet —
+        // omit it rather than sending "" (which the server rejects).
+        body: JSON.stringify({ ...form, storeClass: form.storeClass || undefined }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
       setSaved(true);
+      invalidateClients();
       fetchClient();
     } catch (err) {
       setError(err.message);
@@ -149,6 +154,26 @@ export default function ClientDetail() {
               dir="ltr"
               placeholder="اتركه كما هو إذا كان نفس رقم الهاتف"
             />
+          </div>
+
+          <div>
+            <label className="block text-sm text-gray-600 mb-1">تصنيف المتجر</label>
+            <div className="grid grid-cols-3 gap-2">
+              {STORE_CLASSES.map((c) => (
+                <button
+                  type="button"
+                  key={c}
+                  onClick={() => setForm({ ...form, storeClass: c })}
+                  className={`h-12 rounded-lg text-base font-medium border ${
+                    form.storeClass === c
+                      ? "bg-gray-900 text-white border-gray-900"
+                      : "bg-white text-gray-600 active:bg-gray-50"
+                  }`}
+                >
+                  {c}
+                </button>
+              ))}
+            </div>
           </div>
 
           <div>

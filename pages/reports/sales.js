@@ -7,8 +7,12 @@ import { ROUTE_LABELS, formatDate } from "../../lib/labels";
 
 export default function SalesReport() {
   const { role, token, loading, logout } = useAuth();
-  const [from, setFrom] = useState("");
-  const [to, setTo] = useState("");
+  // Defaults to today — the everyday use is a daily report, and a one-day
+  // range is the cheapest possible query. Either date can still be changed
+  // or cleared for a longer period.
+  const today = new Date().toLocaleDateString("en-CA"); // YYYY-MM-DD, local time
+  const [from, setFrom] = useState(today);
+  const [to, setTo] = useState(today);
   const [routeFilter, setRouteFilter] = useState("all");
   const [report, setReport] = useState(null);
   const [fetching, setFetching] = useState(false);
@@ -235,7 +239,7 @@ export default function SalesReport() {
           {error && <p className="text-red-600 text-sm mt-3">{error}</p>}
 
           <p className="text-xs text-gray-400 mt-3">
-            اترك التواريخ فارغة لعرض كل السجل. الفواتير الملغاة لا تُحتسب ضمن التقرير.
+            الافتراضي تقرير اليوم. اترك التواريخ فارغة لعرض كل السجل (أبطأ). الفواتير الملغاة لا تُحتسب.
           </p>
         </div>
 

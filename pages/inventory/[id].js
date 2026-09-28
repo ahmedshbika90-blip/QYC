@@ -4,6 +4,7 @@ import { useAuth } from "../../lib/useAuth";
 import Nav from "../../components/Nav";
 import { PageLoading, Spinner } from "../../components/Loading";
 import { apiFetch } from "../../lib/apiFetch";
+import { invalidate } from "../../lib/apiCache";
 import { formatDateTime } from "../../lib/labels";
 
 const TYPE_LABELS = {
@@ -64,6 +65,7 @@ export default function InventoryDocDetail() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
+      invalidate("/api/inventory");
       fetchDoc();
     } catch (err) {
       setError(err.message);
@@ -87,6 +89,7 @@ export default function InventoryDocDetail() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
+      invalidate("/api/inventory");
       fetchDoc();
     } catch (err) {
       setError(err.message);
@@ -109,6 +112,7 @@ export default function InventoryDocDetail() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
+      invalidate("/api/inventory");
       fetchDoc();
     } catch (err) {
       setError(err.message);
@@ -131,6 +135,7 @@ export default function InventoryDocDetail() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
+      invalidate("/api/inventory");
       fetchDoc();
     } catch (err) {
       setError(err.message);
@@ -154,6 +159,7 @@ export default function InventoryDocDetail() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
+      invalidate("/api/inventory");
       fetchDoc();
     } catch (err) {
       setError(err.message);
