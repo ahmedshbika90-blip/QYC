@@ -2,15 +2,9 @@ import { useEffect, useRef, useState } from "react";
 import { useAuth } from "../../lib/useAuth";
 import Nav from "../../components/Nav";
 import QtyStepper from "../../components/QtyStepper";
+import InventoryDocCard from "../../components/InventoryDocCard";
 import { PageLoading, SkeletonRows, Spinner } from "../../components/Loading";
 import { apiFetch } from "../../lib/apiFetch";
-import { formatDateTime } from "../../lib/labels";
-
-const TYPE_LABELS = {
-  received: "استلام بضاعة",
-  loading: "تحميل",
-  offloading: "تفريغ",
-};
 
 export default function InventoryPage() {
   const { role, token, loading, logout } = useAuth(["supervisor"]);
@@ -234,35 +228,7 @@ export default function InventoryPage() {
         ) : (
           <div className="bg-white rounded-lg shadow divide-y">
             {docs.map((d) => (
-              <div key={d.id} className="p-4">
-                <div className="flex justify-between items-start gap-2">
-                  <div>
-                    <p className="font-medium text-gray-800">
-                      {TYPE_LABELS[d.type] || d.type}
-                      {d.route && (
-                        <span className="text-xs font-normal text-gray-400 ms-2">
-                          {d.route === "car1" ? "السيارة ١" : "السيارة ٢"}
-                        </span>
-                      )}
-                    </p>
-                    <p className="text-sm text-gray-500 mt-0.5">
-                      {d.items.map((it) => `${it.name} ×${it.qty}`).join("، ")}
-                    </p>
-                    <p className="text-xs text-gray-400 mt-1">{formatDateTime(d.createdAt)}</p>
-                  </div>
-                  <span
-                    className={`text-xs px-2 py-1 rounded-lg shrink-0 ${
-                      d.status === "confirmed"
-                        ? "bg-green-50 text-green-700"
-                        : d.status === "disputed"
-                        ? "bg-red-50 text-red-600"
-                        : "bg-amber-50 text-amber-600"
-                    }`}
-                  >
-                    {d.status === "confirmed" ? "مؤكدة" : d.status === "disputed" ? "متنازع عليها" : "قيد التأكيد"}
-                  </span>
-                </div>
-              </div>
+              <InventoryDocCard key={d.id} doc={d} />
             ))}
           </div>
         )}
