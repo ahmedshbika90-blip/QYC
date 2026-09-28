@@ -11,7 +11,7 @@ export default async function handler(req, res) {
     requireRole(decoded, ["supervisor"]);
 
     const { id } = req.query;
-    const { name, unit, category, active, priceCar1, priceCar2, depotStock } = req.body || {};
+    const { name, unit, category, active, priceCar1, priceCar2, depotStock, avgCost } = req.body || {};
 
     const ref = adminDb.collection("products").doc(id);
     const snap = await ref.get();
@@ -52,6 +52,17 @@ export default async function handler(req, res) {
     // change through a confirmed Loading/Offloading document, so there's
     // always a clear record of how stock moved between the depot and a
     // car, rather than a silent manual override.
+    // Unit cost used for the operating margin. Normally maintained
+    // automatically (weighted average of approved supplier prices); set it
+    // here to give existing/opening stock a cost.
+    if (avgCost !== undefined && avgCost !== "") {
+      const n = Number(avgCost);
+      if (Number.isNaN(n) || n < 0) {
+        return res.status(400).json({ error: "تكلفة الوحدة يجب أن تكون رقمًا موجبًا" });
+      }
+      updates.avgCost = Math.round(n * 100) / 100;
+    }
+
     if (depotStock !== undefined) {
       const n = Number(depotStock);
       if (Number.isNaN(n) || n < 0) {

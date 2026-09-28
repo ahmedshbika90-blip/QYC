@@ -3,8 +3,9 @@ import { useAuth } from "../lib/useAuth";
 import Nav from "../components/Nav";
 import { PageLoading, SkeletonRows, Spinner } from "../components/Loading";
 import { apiFetch } from "../lib/apiFetch";
+import { useRequestId } from "../lib/useRequestId";
 
-const emptyForm = { name: "", category: "", unit: "", priceCar1: "", priceCar2: "", depotStock: "" };
+const emptyForm = { name: "", category: "", unit: "", priceCar1: "", priceCar2: "", depotStock: "", avgCost: "" };
 
 export default function Products() {
   const { role, token, loading, logout } = useAuth();
@@ -15,6 +16,7 @@ export default function Products() {
   const [error, setError] = useState("");
   const [addForm, setAddForm] = useState(emptyForm);
   const [submitting, setSubmitting] = useState(false);
+  const requestIds = useRequestId();
   const [editingId, setEditingId] = useState(null);
   const [editForm, setEditForm] = useState(emptyForm);
   const [saving, setSaving] = useState(false);
@@ -53,13 +55,21 @@ export default function Products() {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ ...addForm, openingStock: addForm.depotStock }),
+        body: JSON.stringify({
+          ...addForm,
+          openingStock: addForm.depotStock,
+          requestId: requestIds.idFor(addForm),
+        }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
+      requestIds.reset();
       setAddForm(emptyForm);
       fetchProducts();
     } catch (err) {
+      // Connection failure: keep the same request ID so "retry" is safe.
+      // Server rejection: a fresh ID next time.
+      if (!err.isNetworkError) requestIds.reset();
       setError(err.message);
     } finally {
       setSubmitting(false);
@@ -75,6 +85,7 @@ export default function Products() {
       priceCar1: product.prices?.car1 ?? "",
       priceCar2: product.prices?.car2 ?? "",
       depotStock: product.stock?.depot ?? 0,
+      avgCost: product.avgCost ?? "",
     });
   }
 
@@ -263,6 +274,20 @@ export default function Products() {
                     className="border rounded-lg px-3 h-12 text-base sm:col-span-2"
                     placeholder="رصيد المخزن"
                   />
+                  <div className="sm:col-span-2">
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={editForm.avgCost}
+                      onChange={(e) => setEditForm({ ...editForm, avgCost: e.target.value })}
+                      className="border rounded-lg px-3 h-12 text-base w-full"
+                      placeholder="تكلفة الوحدة من المورد (لهامش التشغيل)"
+                    />
+                    <p className="text-xs text-gray-400 mt-1">
+                      تُحدَّث تلقائيًا بمتوسط أسعار المورد عند اعتماد كل استلام. عدّلها هنا فقط لتحديد تكلفة المخزون الحالي.
+                    </p>
+                  </div>
                   <div className="sm:col-span-2 flex gap-2">
                     <button
                       onClick={() => saveEdit(p.id)}
@@ -297,6 +322,11 @@ export default function Products() {
                     <p className="text-xs text-gray-400 mt-0.5">
                       المخزن: {p.stock?.depot ?? 0} · السيارة ١: {p.stock?.car1 ?? 0} · السيارة ٢: {p.stock?.car2 ?? 0}
                     </p>
+                    {isSupervisor && (
+                      <p className="text-xs text-gray-400 mt-0.5">
+                        تكلفة الوحدة: {typeof p.avgCost === "number" ? p.avgCost : <span className="text-amber-600">غير محددة</span>}
+                      </p>
+                    )}
                   </div>
                   {isSupervisor && (
                     <div className="flex items-center gap-2">

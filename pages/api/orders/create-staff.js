@@ -2,6 +2,8 @@ const { adminDb } = require("../../../lib/firebaseAdmin");
 const { requireUser, requireRole } = require("../../../lib/apiAuth");
 const { buildOrderFromItems, getActiveClient, calculateDeliveryDate } = require("../../../lib/orderCreation");
 const { applyStockMovements } = require("../../../lib/inventory");
+const { isValidRequestId } = require("../../../lib/requestId");
+const { stripCost } = require("../../../lib/invoiceLock");
 
 const ROLE_TO_ROUTE = {
   agent_car1: "car1",
@@ -20,7 +22,10 @@ export default async function handler(req, res) {
     const decoded = await requireUser(req);
     requireRole(decoded, ["agent_car1", "agent_car2"]);
 
-    const { clientId, items } = req.body || {};
+    const { clientId, items, requestId } = req.body || {};
+    if (!isValidRequestId(requestId)) {
+      return res.status(400).json({ error: "طلب غير صالح، يرجى تحديث الصفحة والمحاولة مرة أخرى" });
+    }
 
     const client = await getActiveClient(clientId);
 
@@ -30,12 +35,22 @@ export default async function handler(req, res) {
     }
 
     const deliveryDate = calculateDeliveryDate(client.route);
-    const docRef = adminDb.collection("orders").doc();
+    // The device-generated request ID IS the invoice's document ID. If a
+    // weak connection delivers the same submission twice, the second one
+    // finds the invoice already exists and returns it — no duplicate
+    // invoice, no stock reserved twice.
+    const docRef = adminDb.collection("orders").doc(requestId);
     let resolvedItems, total;
+    let existing = null;
 
     // Stock check, stock decrement, and the order write all happen inside
     // one transaction — same reasoning as the public order-creation route.
     await adminDb.runTransaction(async (tx) => {
+      const already = await tx.get(docRef);
+      if (already.exists) {
+        existing = already.data();
+        return; // repeat of a submission that already succeeded
+      }
       const built = await buildOrderFromItems(items, client.route, tx);
       resolvedItems = built.resolvedItems;
       total = built.total;
@@ -57,11 +72,18 @@ export default async function handler(req, res) {
       });
     });
 
+    if (existing) {
+      if (existing.placedBy !== decoded.uid) {
+        return res.status(409).json({ error: "تعارض في رقم الطلب، يرجى المحاولة مرة أخرى" });
+      }
+      return res.status(200).json({ orderId: docRef.id, ...existing, items: stripCost(existing.items), duplicate: true });
+    }
+
     return res.status(201).json({
       orderId: docRef.id,
       clientId,
       route: client.route,
-      items: resolvedItems,
+      items: stripCost(resolvedItems),
       total,
       status: "active",
       deliveryDate: deliveryDate ? deliveryDate.toISOString() : null,

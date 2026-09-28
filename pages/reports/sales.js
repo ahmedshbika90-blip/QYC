@@ -3,6 +3,8 @@ import { useAuth } from "../../lib/useAuth";
 import Nav from "../../components/Nav";
 import { PageLoading, Spinner } from "../../components/Loading";
 import { apiFetch } from "../../lib/apiFetch";
+import { invalidate } from "../../lib/apiCache";
+import { useRequestId } from "../../lib/useRequestId";
 import { ROUTE_LABELS, formatDate } from "../../lib/labels";
 
 export default function SalesReport() {
@@ -17,6 +19,7 @@ export default function SalesReport() {
   const [report, setReport] = useState(null);
   const [fetching, setFetching] = useState(false);
   const [sharing, setSharing] = useState(false);
+  const lockIds = useRequestId();
   const [error, setError] = useState("");
   const reportRef = useRef(null);
 
@@ -54,8 +57,35 @@ export default function SalesReport() {
   // download-then-attach step. Falls back to a plain download on
   // browsers/desktops that don't support sharing files.
   async function shareReport() {
+    const count = report.orderCount ?? 0;
+    if (
+      !confirm(
+        `مشاركة التقرير تقفل فواتيره (${count}) من التعديل والإلغاء — أي تغيير بعدها يحتاج موافقة المشرف. متابعة؟`
+      )
+    )
+      return;
     setSharing(true);
     setError("");
+
+    // Lock first, share second: if the lock can't be confirmed (e.g. no
+    // connection), the report is NOT shared — so a report that went out can
+    // never have invoices that are still freely editable.
+    try {
+      const lockBody = { from: report.from, to: report.to, route: report.route === "all" ? "" : report.route };
+      const res = await apiFetch("/api/reports/lock", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ ...lockBody, requestId: lockIds.idFor(lockBody) }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      lockIds.reset();
+      invalidate("/api/orders/list");
+    } catch (err) {
+      setError(`لم تتم المشاركة: ${err.message}`);
+      setSharing(false);
+      return;
+    }
 
     // The on-screen table scrolls horizontally when there are many product
     // columns — capturing it as-is only grabs whatever portion happens to

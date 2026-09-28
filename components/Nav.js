@@ -31,6 +31,8 @@ export default function Nav({ role, logout }) {
           { href: "/clients", label: "العملاء" },
           { href: "/products", label: "المنتجات" },
           role === "supervisor" && { href: "/inventory", label: "المخزون" },
+          role === "supervisor" && { href: "/requests", label: "الطلبات" },
+          role === "supervisor" && { href: "/margin", label: "هامش التشغيل" },
         ].filter(Boolean);
 
   return (

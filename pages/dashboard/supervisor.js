@@ -6,6 +6,7 @@ import PeriodTabs, { periodStartISO } from "../../components/PeriodTabs";
 import FilterPanel from "../../components/FilterPanel";
 import OrderCard from "../../components/OrderCard";
 import QuickActions from "../../components/QuickActions";
+import Link from "next/link";
 import { PageLoading, SkeletonRows, Spinner } from "../../components/Loading";
 import { apiFetch } from "../../lib/apiFetch";
 import { cachedGet, invalidate } from "../../lib/apiCache";
@@ -19,6 +20,7 @@ export default function SupervisorDashboard() {
   const [loadingMore, setLoadingMore] = useState(false);
   const [clientsById, setClientsById] = useState({});
   const [routeFilter, setRouteFilter] = useState("all");
+  const [pendingRequests, setPendingRequests] = useState(0);
   const [fetching, setFetching] = useState(true);
   const [error, setError] = useState("");
 
@@ -49,10 +51,12 @@ export default function SupervisorDashboard() {
     setFetching(true);
     setError("");
     try {
-      const [ordersData, clients] = await Promise.all([
+      const [ordersData, clients, pendingData] = await Promise.all([
         cachedGet(apiFetch, ordersUrl(), token),
         getClients(apiFetch, token, user.uid),
+        cachedGet(apiFetch, "/api/requests/list?status=pending", token).catch(() => ({ requests: [] })),
       ]);
+      setPendingRequests(pendingData.requests.length);
       setOrders(ordersData.orders);
       setNextCursor(ordersData.nextCursor);
       setClientsById(Object.fromEntries(clients.map((c) => [c.id, c])));
@@ -153,9 +157,20 @@ export default function SupervisorDashboard() {
         <QuickActions
           actions={[
             { href: "/reports/sales", label: "تقرير المبيعات" },
+            { href: "/margin", label: "هامش التشغيل" },
+            { href: "/requests", label: "الطلبات" },
             { href: "/products", label: "الأسعار والمنتجات" },
           ]}
         />
+
+        {pendingRequests > 0 && (
+          <Link
+            href="/requests"
+            className="block bg-amber-50 border border-amber-200 text-amber-800 text-sm rounded-lg px-4 py-3 mb-4"
+          >
+            طلبات تعديل/إلغاء بانتظار قرارك ({pendingRequests}) ←
+          </Link>
+        )}
 
         <PeriodTabs
           value={dateFrom || dateTo ? null : period}

@@ -1,5 +1,7 @@
 const { adminDb } = require("../../../lib/firebaseAdmin");
 const { requireUser, requireRole } = require("../../../lib/apiAuth");
+const { isValidRequestId } = require("../../../lib/requestId");
+const { createOnce } = require("../../../lib/idempotentCreate");
 
 // Products carry a separate price per route (car1 / car2), set by the
 // supervisor — the same product can legitimately cost different amounts
@@ -23,7 +25,11 @@ export default async function handler(req, res) {
     const decoded = await requireUser(req);
     requireRole(decoded, ["supervisor"]);
 
-    const { name, unit, category, priceCar1, priceCar2, openingStock } = req.body || {};
+    const { name, unit, category, priceCar1, priceCar2, openingStock, requestId } = req.body || {};
+    if (!isValidRequestId(requestId)) {
+      return res.status(400).json({ error: "طلب غير صالح، يرجى تحديث الصفحة والمحاولة مرة أخرى" });
+    }
+
 
     if (!name || !unit || priceCar1 === undefined || priceCar2 === undefined) {
       return res.status(400).json({
@@ -57,8 +63,9 @@ export default async function handler(req, res) {
       createdBy: decoded.uid,
     };
 
-    const ref = await adminDb.collection("products").add(productDoc);
-    return res.status(201).json({ id: ref.id, ...productDoc });
+    const ref = adminDb.collection("products").doc(requestId);
+    const result = await createOnce(ref, productDoc, { ownerField: "createdBy", ownerId: decoded.uid });
+    return res.status(result.duplicate ? 200 : 201).json({ id: ref.id, ...result.data, duplicate: result.duplicate });
   } catch (err) {
     const status = err.statusCode || 500;
     return res.status(status).json({ error: err.message });

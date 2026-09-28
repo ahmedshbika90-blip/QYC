@@ -7,6 +7,7 @@ import { PageLoading, Spinner } from "../../components/Loading";
 import { apiFetch } from "../../lib/apiFetch";
 import { invalidate } from "../../lib/apiCache";
 import { formatDate, formatDateTime } from "../../lib/labels";
+import { useRequestId } from "../../lib/useRequestId";
 
 export default function OrderDetail() {
   const { role, token, loading, logout } = useAuth();
@@ -26,6 +27,11 @@ export default function OrderDetail() {
   const [productQuery, setProductQuery] = useState("");
   const [productDropdownOpen, setProductDropdownOpen] = useState(false);
   const [savingItems, setSavingItems] = useState(false);
+  // Change requests (for locked invoices — agents only)
+  const [reason, setReason] = useState("");
+  const [cancelRequestOpen, setCancelRequestOpen] = useState(false);
+  const [sendingRequest, setSendingRequest] = useState(false);
+  const requestIds = useRequestId();
   const productBoxRef = useRef(null);
 
   useEffect(() => {
@@ -67,6 +73,10 @@ export default function OrderDetail() {
   }
 
   async function cancelInvoice() {
+    if (needsRequest) {
+      setCancelRequestOpen(true);
+      return;
+    }
     if (!confirm("إلغاء هذه الفاتورة؟ ستبقى في السجل لكنها لن تُحتسب ضمن المبيعات.")) return;
     try {
       const res = await apiFetch(`/api/orders/${id}/status`, {
@@ -145,7 +155,46 @@ export default function OrderDetail() {
     setProductDropdownOpen(false);
   }
 
+  // Agents can't change a locked invoice directly — they ask the supervisor.
+  const needsRequest = order && role !== "supervisor" && order.locked;
+
+  async function sendChangeRequest(type, items) {
+    if (!reason.trim()) {
+      setError("اكتب سبب الطلب ليراه المشرف");
+      return;
+    }
+    setSendingRequest(true);
+    setError("");
+    const body = { orderId: id, type, reason: reason.trim(), ...(items ? { items } : {}) };
+    try {
+      const res = await apiFetch("/api/requests/create", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ ...body, requestId: requestIds.idFor(body) }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      requestIds.reset();
+      setReason("");
+      setEditing(false);
+      setCancelRequestOpen(false);
+      invalidate("/api/orders/list");
+      fetchOrder();
+    } catch (err) {
+      if (!err.isNetworkError) requestIds.reset();
+      setError(err.message);
+    } finally {
+      setSendingRequest(false);
+    }
+  }
+
   async function saveItems() {
+    if (needsRequest) {
+      return sendChangeRequest(
+        "edit",
+        cart.map((it) => ({ productId: it.productId, qty: it.qty }))
+      );
+    }
     setSavingItems(true);
     setError("");
     try {
@@ -215,27 +264,92 @@ export default function OrderDetail() {
               <span className="text-sm text-red-500 bg-red-50 rounded-lg px-3 h-11 flex items-center self-start">
                 ملغاة
               </span>
-            ) : !editing ? (
+            ) : order.pendingRequest && role !== "supervisor" ? (
+              <span className="text-sm text-amber-700 bg-amber-50 rounded-lg px-3 py-2 self-start">
+                طلب {order.pendingRequest.type === "cancel" ? "إلغاء" : "تعديل"} بانتظار موافقة المشرف
+              </span>
+            ) : !editing && !cancelRequestOpen ? (
               <div className="flex gap-2 self-start">
                 <button
                   type="button"
                   onClick={startEditing}
                   className="text-sm text-gray-700 bg-gray-100 active:bg-gray-200 rounded-lg px-4 h-11"
                 >
-                  تعديل
+                  {needsRequest ? "طلب تعديل" : "تعديل"}
                 </button>
                 <button
                   type="button"
                   onClick={cancelInvoice}
                   className="text-sm text-red-600 bg-red-50 active:bg-red-100 rounded-lg px-4 h-11"
                 >
-                  إلغاء الفاتورة
+                  {needsRequest ? "طلب إلغاء" : "إلغاء الفاتورة"}
                 </button>
               </div>
             ) : null}
           </div>
 
           {error && <p className="text-red-600 text-sm mb-4">{error}</p>}
+
+          {!isCancelled && (
+            <p className={`text-xs mb-3 ${order.locked ? "text-gray-600" : "text-gray-400"}`}>
+              {order.locked
+                ? `🔒 مقفلة — ${
+                    order.lockReason === "reported" ? "ضمن تقرير تمت مشاركته" : "مرّ أكثر من ٩ ساعات على إنشائها"
+                  }${role !== "supervisor" ? ". أي تعديل أو إلغاء يحتاج موافقة المشرف." : "."}`
+                : order.editableUntil
+                ? `يمكن التعديل أو الإلغاء حتى ${formatDateTime(order.editableUntil)}، أو حتى مشاركة تقرير يشملها.`
+                : ""}
+            </p>
+          )}
+
+          {role === "supervisor" && order.pendingRequest && (
+            <a
+              href={`/requests/${order.pendingRequest.id}`}
+              className="block text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mb-3"
+            >
+              يوجد طلب {order.pendingRequest.type === "cancel" ? "إلغاء" : "تعديل"} بانتظار قرارك ←
+            </a>
+          )}
+
+          {order.lastRequest && !order.pendingRequest && (
+            <div
+              className={`text-sm rounded-lg px-3 py-2 mb-3 ${
+                order.lastRequest.status === "approved" ? "bg-green-50 text-green-700" : "bg-red-50 text-red-600"
+              }`}
+            >
+              {order.lastRequest.status === "approved" ? "تمت الموافقة على" : "رُفض"} طلب
+              {order.lastRequest.type === "cancel" ? " الإلغاء" : " التعديل"} — {formatDateTime(order.lastRequest.decidedAt)}
+              {order.lastRequest.note && <span className="block text-xs mt-0.5">ملاحظة المشرف: {order.lastRequest.note}</span>}
+            </div>
+          )}
+
+          {cancelRequestOpen && (
+            <div className="border border-red-200 bg-red-50 rounded-lg p-3 mb-4 space-y-2">
+              <p className="text-sm text-red-700">طلب إلغاء الفاتورة — سيراجعه المشرف قبل التنفيذ.</p>
+              <textarea
+                value={reason}
+                onChange={(e) => setReason(e.target.value)}
+                rows={2}
+                maxLength={500}
+                placeholder="سبب الإلغاء (مطلوب)"
+                className="w-full border rounded-lg px-3 py-2 text-base bg-white"
+              />
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => sendChangeRequest("cancel")}
+                  disabled={sendingRequest}
+                  className="flex-1 bg-red-600 text-white rounded-lg h-11 text-base disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  {sendingRequest && <Spinner className="w-4 h-4" />}
+                  إرسال طلب الإلغاء
+                </button>
+                <button type="button" onClick={() => setCancelRequestOpen(false)} className="text-gray-500 px-4 h-11">
+                  تراجع
+                </button>
+              </div>
+            </div>
+          )}
 
           {editing ? (
             <div className="space-y-4 mb-4">
@@ -296,15 +410,32 @@ export default function OrderDetail() {
                 الإجمالي: <span className="font-semibold text-gray-900">{cartTotal.toFixed(2)}</span>
               </div>
 
+              {needsRequest && (
+                <textarea
+                  value={reason}
+                  onChange={(e) => setReason(e.target.value)}
+                  rows={2}
+                  maxLength={500}
+                  placeholder="سبب التعديل (مطلوب) — سيراجعه المشرف قبل التنفيذ"
+                  className="w-full border rounded-lg px-3 py-2 text-base"
+                />
+              )}
+
               <div className="flex gap-2">
                 <button
                   type="button"
                   onClick={saveItems}
-                  disabled={savingItems || cart.length === 0}
+                  disabled={savingItems || sendingRequest || cart.length === 0}
                   className="flex-1 bg-gray-900 text-white rounded-lg h-12 text-base font-medium active:bg-gray-700 disabled:opacity-50 flex items-center justify-center gap-2"
                 >
-                  {savingItems && <Spinner className="w-4 h-4" />}
-                  {savingItems ? "جارٍ الحفظ..." : "حفظ التعديلات"}
+                  {(savingItems || sendingRequest) && <Spinner className="w-4 h-4" />}
+                  {needsRequest
+                    ? sendingRequest
+                      ? "جارٍ الإرسال..."
+                      : "إرسال طلب التعديل"
+                    : savingItems
+                    ? "جارٍ الحفظ..."
+                    : "حفظ التعديلات"}
                 </button>
                 <button
                   type="button"

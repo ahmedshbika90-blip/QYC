@@ -4,6 +4,7 @@ import Nav from "../components/Nav";
 import { PageLoading, Spinner } from "../components/Loading";
 import { apiFetch } from "../lib/apiFetch";
 import { invalidateClients } from "../lib/clientsStore";
+import { useRequestId } from "../lib/useRequestId";
 import { STORE_CLASSES } from "../lib/labels";
 
 export default function RegisterClient() {
@@ -21,6 +22,7 @@ export default function RegisterClient() {
   const [result, setResult] = useState(null);
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const requestIds = useRequestId();
 
   if (loading) return <PageLoading />;
 
@@ -38,6 +40,7 @@ export default function RegisterClient() {
         ...form,
         whatsapp: sameAsPhone ? form.phone : form.whatsapp,
       };
+      payload.requestId = requestIds.idFor(payload);
       const res = await apiFetch("/api/clients/register", {
         method: "POST",
         headers: {
@@ -49,10 +52,14 @@ export default function RegisterClient() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "تعذر تسجيل العميل");
       setResult(data);
+      requestIds.reset();
       invalidateClients();
       setForm({ name: "", storeName: "", location: "", route: "car1", storeClass: "", phone: "", whatsapp: "" });
       setSameAsPhone(true);
     } catch (err) {
+      // Connection failure: keep the same request ID so "retry" is safe.
+      // Server rejection: a fresh ID next time.
+      if (!err.isNetworkError) requestIds.reset();
       setError(err.message);
     } finally {
       setSubmitting(false);

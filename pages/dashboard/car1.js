@@ -213,6 +213,7 @@ export default function Car1Dashboard() {
                 location={clientsById[order.clientId]?.location}
                 subtitle={formatDateTime(order.createdAt)}
                 onStatusChange={updateStatus}
+                canCancel={!order.locked}
               />
             ))}
             {nextCursor && (

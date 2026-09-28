@@ -32,6 +32,9 @@ export default async function handler(req, res) {
     if (doc.type !== "received") {
       return res.status(400).json({ error: "هذا الإجراء خاص بمستندات استلام البضاعة فقط" });
     }
+    // Repeat of an already-completed decision (weak-connection retry) succeeds quietly.
+    if (action === "approve" && doc.status === "confirmed") return res.status(200).json({ ok: true });
+    if (action === "reject" && doc.status === "rejected") return res.status(200).json({ ok: true });
     if (doc.status !== "pending") {
       return res.status(400).json({ error: "تم اتخاذ إجراء بشأن هذا المستند مسبقًا" });
     }
@@ -60,11 +63,38 @@ export default async function handler(req, res) {
           : null,
     }));
 
+    // Re-checked inside the transaction so a double submission can never
+    // add the same delivery to depot stock twice.
     await adminDb.runTransaction(async (tx) => {
+      const fresh = await tx.get(docRef);
+      if (fresh.data().status !== "pending") return;
+
+      // Weighted-average cost: blend the new supplier price with the cost
+      // of stock already on hand (depot + both cars), weighted by quantity.
+      // Read BEFORE stock moves, so "on hand" is the pre-delivery amount.
+      const costUpdates = [];
+      const byProduct = new Map();
+      for (const it of pricedItems) {
+        if (it.costPrice == null) continue;
+        const cur = byProduct.get(it.productId) || { qty: 0, value: 0 };
+        cur.qty += it.qty;
+        cur.value += it.qty * it.costPrice;
+        byProduct.set(it.productId, cur);
+      }
+      for (const [productId, inc] of byProduct) {
+        const ref = adminDb.collection("products").doc(productId);
+        const p = (await tx.get(ref)).data() || {};
+        const onHand = Math.max(0, (p.stock?.depot || 0) + (p.stock?.car1 || 0) + (p.stock?.car2 || 0));
+        const oldAvg = typeof p.avgCost === "number" ? p.avgCost : inc.value / inc.qty;
+        const newAvg = (onHand * oldAvg + inc.value) / (onHand + inc.qty);
+        costUpdates.push({ ref, avgCost: Math.round(newAvg * 100) / 100 });
+      }
+
       await applyStockMovements(
         tx,
         doc.items.map((it) => ({ productId: it.productId, field: "depot", delta: it.qty }))
       );
+      costUpdates.forEach(({ ref, avgCost }) => tx.update(ref, { avgCost }));
       tx.update(docRef, {
         items: pricedItems,
         status: "confirmed",

@@ -1,5 +1,6 @@
 const { adminDb } = require("../../../lib/firebaseAdmin");
 const { requireUser } = require("../../../lib/apiAuth");
+const { presentOrder } = require("../../../lib/invoiceLock");
 
 const ROLE_TO_ROUTE = {
   agent_car1: "car1",
@@ -65,15 +66,9 @@ export default async function handler(req, res) {
     query = query.limit(PAGE_SIZE);
 
     const snap = await query.get();
-    const orders = snap.docs.map((doc) => {
-      const data = doc.data();
-      // Edit history is supervisor-only — same rule as the single-invoice
-      // endpoint. Agents get a lightweight `edited` flag instead (just
-      // enough to show a note on the card) without the actual history.
-      const edited = Boolean(data.editHistory?.length);
-      if (decoded.role !== "supervisor") delete data.editHistory;
-      return { id: doc.id, ...data, edited };
-    });
+    // presentOrder: lock state from the server clock; edit history and
+    // cost data removed for everyone but the supervisor.
+    const orders = snap.docs.map((doc) => presentOrder(doc.id, doc.data(), decoded.role));
 
     // A same-size page suggests there may be more beyond it — the client
     // passes this back as `cursor` to load the next page ("تحميل المزيد").

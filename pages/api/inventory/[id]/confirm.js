@@ -36,6 +36,7 @@ export default async function handler(req, res) {
 
     if (action === "cancel") {
       requireSupervisor(decoded);
+      if (doc.status === "cancelled") return res.status(200).json({ ok: true }); // repeat — already done
       if (doc.status === "confirmed") {
         return res.status(400).json({ error: "لا يمكن إلغاء حركة تمت بالفعل" });
       }
@@ -50,6 +51,12 @@ export default async function handler(req, res) {
     const requiredRoute = ROLE_TO_ROUTE[decoded.role];
     if (!requiredRoute || requiredRoute !== doc.route) {
       return res.status(403).json({ error: "غير مصرح: هذا خارج مسارك" });
+    }
+    // A repeat of an action this agent already completed (e.g. a retry on a
+    // weak connection) succeeds quietly instead of showing a false error.
+    if (doc.agentConfirmedBy === decoded.uid) {
+      if (action === "confirm" && doc.status === "confirmed") return res.status(200).json({ ok: true });
+      if (action === "dispute" && doc.status === "disputed") return res.status(200).json({ ok: true });
     }
     if (doc.status !== "pending") {
       return res.status(400).json({ error: "تم اتخاذ إجراء بشأن هذا المستند مسبقًا" });
@@ -67,7 +74,12 @@ export default async function handler(req, res) {
 
     // Confirm: move the stock. Loading = depot -> car; offloading = car -> depot.
     const direction = doc.type === "loading" ? 1 : -1;
+    // Status is re-checked INSIDE the transaction: two near-simultaneous
+    // confirms (e.g. a retry landing while the first is still processing)
+    // must never move stock twice.
     await adminDb.runTransaction(async (tx) => {
+      const fresh = await tx.get(docRef);
+      if (fresh.data().status !== "pending") return; // the other attempt already did it
       await applyStockMovements(
         tx,
         doc.items.flatMap((it) => [

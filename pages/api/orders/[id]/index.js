@@ -1,5 +1,6 @@
 const { adminDb } = require("../../../../lib/firebaseAdmin");
 const { requireUser } = require("../../../../lib/apiAuth");
+const { presentOrder } = require("../../../../lib/invoiceLock");
 
 const ROLE_TO_ROUTE = {
   agent_car1: "car1",
@@ -32,14 +33,8 @@ export default async function handler(req, res) {
     const clientSnap = await adminDb.collection("clients").doc(order.clientId).get();
     const client = clientSnap.exists ? clientSnap.data() : null;
 
-    // Edit history is supervisor-only — strip it from the response itself
-    // rather than just hiding it in the UI, since anything sent to the
-    // browser is visible in dev tools regardless of what the page shows.
-    if (decoded.role !== "supervisor") {
-      delete order.editHistory;
-    }
-
-    return res.status(200).json({ id: snap.id, ...order, client });
+    // Lock state from the server clock; supervisor-only fields removed for others.
+    return res.status(200).json({ ...presentOrder(snap.id, order, decoded.role), client });
   } catch (err) {
     const status = err.statusCode || 500;
     return res.status(status).json({ error: err.message });

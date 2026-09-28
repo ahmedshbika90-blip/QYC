@@ -33,6 +33,11 @@ export default async function handler(req, res) {
       products = products.map((p) => ({ ...p, price: p.prices?.[route] ?? null }));
     }
 
+    // Average supplier cost is supervisor-only.
+    if (decoded.role !== "supervisor") {
+      products = products.map(({ avgCost, ...rest }) => rest);
+    }
+
     // The warehouse keeper manages the depot only: no selling prices and
     // no live car stock — just depot balances.
     if (decoded.role === "warehouse_keeper") {

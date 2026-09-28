@@ -9,7 +9,9 @@ function itemsSummary(items) {
 // from. Cancelling is a deliberate one-way action (confirmed first, like
 // deleting a product), never a delete: the invoice stays on record, just
 // marked cancelled and excluded from the sales report.
-export default function OrderCard({ order, name, location, badge, subtitle, edited, onStatusChange }) {
+// canCancel: false for an agent viewing a locked invoice — they must open
+// it and send a request instead, so no button that would only be refused.
+export default function OrderCard({ order, name, location, badge, subtitle, edited, onStatusChange, canCancel = true }) {
   const isCancelled = order.status === "cancelled";
 
   function handleCancel() {
@@ -33,6 +35,7 @@ export default function OrderCard({ order, name, location, badge, subtitle, edit
           <p className={`text-sm text-gray-500 truncate mt-0.5 ${isCancelled ? "line-through" : ""}`}>
             {itemsSummary(order.items)}
             {edited && <span className="text-amber-600 text-xs"> · معدّلة</span>}
+            {order.pendingRequest && <span className="text-amber-600 text-xs"> · طلب بانتظار الموافقة</span>}
           </p>
           {subtitle && <p className="text-xs text-gray-400 mt-0.5">{subtitle}</p>}
         </Link>
@@ -40,6 +43,10 @@ export default function OrderCard({ order, name, location, badge, subtitle, edit
           <span className="text-sm font-medium text-gray-800">{order.total ?? "—"}</span>
           {isCancelled ? (
             <span className="text-xs text-red-500 px-2 h-9 flex items-center">ملغاة</span>
+          ) : !canCancel || order.pendingRequest ? (
+            <span className="text-xs text-gray-400 px-2 h-9 flex items-center" title="مقفلة">
+              🔒
+            </span>
           ) : (
             <button
               type="button"

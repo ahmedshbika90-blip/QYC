@@ -5,7 +5,8 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start"
+    "start": "next start",
+    "test": "node tests/run.js && node tests/run2.js"
   },
   "dependencies": {
     "dotenv": "^16.4.5",

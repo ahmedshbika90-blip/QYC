@@ -1,10 +1,6 @@
 const { adminDb } = require("../../../lib/firebaseAdmin");
 const { requireUser } = require("../../../lib/apiAuth");
-
-const ROLE_TO_ROUTE = {
-  agent_car1: "car1",
-  agent_car2: "car2",
-};
+const { fetchReportOrders } = require("../../../lib/reportQuery");
 
 // Builds a sales report from every invoice that ISN'T cancelled — with
 // the active/cancelled-only model, any non-cancelled invoice represents
@@ -20,40 +16,9 @@ export default async function handler(req, res) {
   try {
     const decoded = await requireUser(req);
 
-    let query = adminDb.collection("orders");
-
-    const restrictedRoute = ROLE_TO_ROUTE[decoded.role];
-    if (restrictedRoute) {
-      query = query.where("route", "==", restrictedRoute);
-    } else if (decoded.role === "supervisor") {
-      const { route } = req.query;
-      if (route) {
-        if (!["car1", "car2"].includes(route)) {
-          return res.status(400).json({ error: 'route يجب أن يكون "car1" أو "car2"' });
-        }
-        query = query.where("route", "==", route);
-      }
-      // no route filter → both routes combined
-    } else {
-      return res.status(403).json({ error: "غير مصرح: الصلاحية غير معروفة" });
-    }
-
     const { from, to } = req.query;
-    query = query.orderBy("createdAt", "desc");
-    if (from) {
-      query = query.where("createdAt", ">=", new Date(from).toISOString());
-    }
-    if (to) {
-      // Include the entire "to" day, not just up to midnight.
-      const toDate = new Date(to);
-      toDate.setHours(23, 59, 59, 999);
-      query = query.where("createdAt", "<=", toDate.toISOString());
-    }
-
-    const snap = await query.get();
-    const orders = snap.docs
-      .map((doc) => ({ id: doc.id, ...doc.data() }))
-      .filter((o) => o.status !== "cancelled");
+    const { route: reportRoute, orders: all } = await fetchReportOrders(decoded, req.query);
+    const orders = all.filter((o) => o.status !== "cancelled");
 
     // Group by client, merging line items for the same product across
     // that client's multiple orders in the period.
@@ -120,7 +85,7 @@ export default async function handler(req, res) {
     return res.status(200).json({
       from: from || null,
       to: to || null,
-      route: restrictedRoute || req.query.route || "all",
+      route: reportRoute,
       clients,
       grandTotalUnits,
       grandTotalPrice,

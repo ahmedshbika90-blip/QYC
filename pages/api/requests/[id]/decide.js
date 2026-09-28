@@ -1,0 +1,84 @@
+const { admin, adminDb } = require("../../../../lib/firebaseAdmin");
+const { requireUser, requireRole } = require("../../../../lib/apiAuth");
+const { editItemsTx, cancelTx } = require("../../../../lib/invoiceChanges");
+
+const MAX_NOTE = 500;
+
+function fail(status, message) {
+  const err = new Error(message);
+  err.statusCode = status;
+  throw err;
+}
+
+// Supervisor approves or rejects a change request. On approval the change
+// is applied with the SAME logic as a direct edit/cancel (stock moves by
+// the net difference, edit history recorded, current prices, live stock
+// check) — all in one transaction with the request's status update, so the
+// invoice can never change without the request being marked, or the other
+// way round. Re-checked inside the transaction: a double tap never applies
+// a change twice.
+export default async function handler(req, res) {
+  if (req.method !== "PATCH") {
+    return res.status(405).json({ error: "طريقة الطلب غير مسموح بها" });
+  }
+
+  try {
+    const decoded = await requireUser(req);
+    requireRole(decoded, ["supervisor"]);
+
+    const { id } = req.query;
+    const { action, note } = req.body || {};
+    if (!["approve", "reject"].includes(action)) fail(400, "إجراء غير صالح");
+    if (note !== undefined && (typeof note !== "string" || note.length > MAX_NOTE)) {
+      fail(400, `الملاحظة يجب ألا تتجاوز ${MAX_NOTE} حرف`);
+    }
+
+    const requestRef = adminDb.collection("changeRequests").doc(id);
+    let outcome = null;
+
+    await adminDb.runTransaction(async (tx) => {
+      const snap = await tx.get(requestRef);
+      if (!snap.exists) fail(404, "الطلب غير موجود");
+      const request = snap.data();
+
+      const target = action === "approve" ? "approved" : "rejected";
+      if (request.status === target) {
+        outcome = "repeat";
+        return; // already done (e.g. double tap on a weak connection)
+      }
+      if (request.status !== "pending") fail(400, "تم اتخاذ قرار بشأن هذا الطلب مسبقًا");
+
+      const now = new Date().toISOString();
+      const orderRef = adminDb.collection("orders").doc(request.orderId);
+      const orderUpdate = {
+        pendingRequest: admin.firestore.FieldValue.delete(),
+        lastRequest: { id, type: request.type, status: target, decidedAt: now, note: note || "" },
+      };
+
+      if (action === "approve") {
+        if (request.type === "edit") {
+          const items = request.proposedItems.map((it) => ({ productId: it.productId, qty: it.qty }));
+          await editItemsTx(tx, orderRef, items, decoded.uid, orderUpdate);
+        } else {
+          await cancelTx(tx, orderRef, decoded.uid, orderUpdate);
+        }
+      } else {
+        const order = await tx.get(orderRef);
+        if (order.exists) tx.update(orderRef, orderUpdate);
+      }
+
+      tx.update(requestRef, {
+        status: target,
+        decidedBy: decoded.uid,
+        decidedAt: now,
+        decisionNote: note || "",
+      });
+      outcome = target;
+    });
+
+    return res.status(200).json({ ok: true, status: outcome });
+  } catch (err) {
+    const status = err.statusCode || 500;
+    return res.status(status).json({ error: err.message });
+  }
+}

@@ -1,0 +1,193 @@
+import { useEffect, useState } from "react";
+import { useAuth } from "../lib/useAuth";
+import Nav from "../components/Nav";
+import FilterPanel from "../components/FilterPanel";
+import PeriodTabs, { periodStartISO } from "../components/PeriodTabs";
+import { PageLoading, SkeletonRows } from "../components/Loading";
+import { apiFetch } from "../lib/apiFetch";
+import { cachedGet } from "../lib/apiCache";
+
+const fmt = (n) => (n == null ? "—" : Number(n).toLocaleString("en-US", { maximumFractionDigits: 2 }));
+const pct = (n) => (n == null ? "—" : `${n}%`);
+
+function Stat({ label, value, strong }) {
+  return (
+    <div className="bg-white rounded-lg shadow p-3">
+      <p className="text-xs text-gray-500">{label}</p>
+      <p className={`mt-1 ${strong ? "text-lg font-bold text-gray-900" : "text-base font-medium text-gray-800"}`}>{value}</p>
+    </div>
+  );
+}
+
+// Supervisor-only: selling price minus supplier cost, from finalized
+// (locked, not cancelled) invoices, by car and period.
+export default function MarginPage() {
+  const { role, token, loading, logout } = useAuth(["supervisor"]);
+  const [data, setData] = useState(null);
+  const [fetching, setFetching] = useState(true);
+  const [error, setError] = useState("");
+  const [route, setRoute] = useState("");
+  const [period, setPeriod] = useState(7);
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
+
+  useEffect(() => {
+    if (!token) return;
+    load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [token, route, period, dateFrom, dateTo]);
+
+  async function load() {
+    setFetching(true);
+    setError("");
+    try {
+      const p = new URLSearchParams();
+      p.set("from", dateFrom || periodStartISO(period));
+      if (dateTo) p.set("to", dateTo);
+      if (route) p.set("route", route);
+      setData(await cachedGet(apiFetch, `/api/reports/margin?${p.toString()}`, token));
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setFetching(false);
+    }
+  }
+
+  if (loading) return <PageLoading />;
+  const t = data?.totals;
+
+  return (
+    <div className="min-h-screen bg-gray-50">
+      <Nav role={role} logout={logout} />
+      <div className="max-w-4xl mx-auto p-4 sm:p-8">
+        <h1 className="text-xl font-semibold mb-1 text-gray-800">هامش التشغيل</h1>
+        <p className="text-xs text-gray-400 mb-3">
+          سعر البيع − سعر المورد، من الفواتير المقفلة فقط (ضمن تقرير تمت مشاركته أو مضى عليها ٩ ساعات)، بدون الملغاة.
+        </p>
+
+        <PeriodTabs
+          value={dateFrom || dateTo ? null : period}
+          onChange={(d) => {
+            setPeriod(d);
+            setDateFrom("");
+            setDateTo("");
+          }}
+        />
+        <FilterPanel
+          dateFrom={dateFrom}
+          onDateFromChange={setDateFrom}
+          dateTo={dateTo}
+          onDateToChange={setDateTo}
+          extraActiveCount={route ? 1 : 0}
+        >
+          <select value={route} onChange={(e) => setRoute(e.target.value)} className="border rounded-lg px-3 h-11 text-base">
+            <option value="">كل السيارات</option>
+            <option value="car1">السيارة ١</option>
+            <option value="car2">السيارة ٢</option>
+          </select>
+        </FilterPanel>
+
+        {error && (
+          <div className="text-red-600 text-sm mb-4 flex items-center gap-2">
+            <span>{error}</span>
+            <button onClick={load} className="underline shrink-0">إعادة المحاولة</button>
+          </div>
+        )}
+
+        {fetching || !data ? (
+          <SkeletonRows count={4} />
+        ) : (
+          <>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-3">
+              <Stat label="المبيعات" value={fmt(t.revenue)} />
+              <Stat label="تكلفة المورد" value={fmt(t.cost)} />
+              <Stat label="هامش التشغيل" value={fmt(t.margin)} strong />
+              <Stat label="نسبة الهامش" value={pct(t.marginPct)} strong />
+            </div>
+
+            {!route && Object.keys(data.byRoute).length > 1 && (
+              <div className="grid grid-cols-2 gap-2 mb-3">
+                {["car1", "car2"].map(
+                  (k) =>
+                    data.byRoute[k] && (
+                      <div key={k} className="bg-white rounded-lg shadow p-3">
+                        <p className="text-xs text-gray-500">{k === "car1" ? "السيارة ١" : "السيارة ٢"}</p>
+                        <p className="text-base font-medium text-gray-800 mt-1">
+                          {fmt(data.byRoute[k].margin)} <span className="text-xs text-gray-400">({pct(data.byRoute[k].marginPct)})</span>
+                        </p>
+                      </div>
+                    )
+                )}
+              </div>
+            )}
+
+            <div className="space-y-1 mb-4">
+              <p className="text-xs text-gray-500">محسوب من {data.invoiceCount} فاتورة مقفلة.</p>
+              {data.notFinalizedCount > 0 && (
+                <p className="text-xs text-gray-500">
+                  {data.notFinalizedCount} فاتورة في هذه الفترة لم تُقفل بعد، فهي غير محتسبة حتى تُقفل.
+                </p>
+              )}
+              {t.uncostedRevenue > 0 && (
+                <p className="text-xs text-amber-700">
+                  مبيعات بقيمة {fmt(t.uncostedRevenue)} بدون سعر مورد مسجل، فهي غير داخلة في الهامش. حدّد تكلفة الوحدة من صفحة المنتجات.
+                </p>
+              )}
+              {t.estimatedUnits > 0 && (
+                <p className="text-xs text-amber-700">
+                  {t.estimatedUnits} وحدة من فواتير قديمة حُسبت تكلفتها تقديريًا بمتوسط التكلفة الحالي.
+                </p>
+              )}
+            </div>
+
+            {data.products.length === 0 ? (
+              <p className="text-gray-400">لا توجد فواتير مقفلة في هذه الفترة.</p>
+            ) : (
+              <div className="bg-white rounded-lg shadow overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead className="bg-gray-50 text-gray-600">
+                    <tr>
+                      <th className="text-start px-3 py-2 font-medium">المنتج</th>
+                      <th className="text-center px-3 py-2 font-medium">الكمية</th>
+                      <th className="text-center px-3 py-2 font-medium">المبيعات</th>
+                      <th className="text-center px-3 py-2 font-medium">التكلفة</th>
+                      <th className="text-center px-3 py-2 font-medium">الهامش</th>
+                      <th className="text-center px-3 py-2 font-medium">النسبة</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y">
+                    {data.products.map((p) => (
+                      <tr key={p.productId}>
+                        <td className="px-3 py-2 text-gray-800 whitespace-nowrap">
+                          {p.name}
+                          {p.uncostedQty > 0 && <span className="block text-xs text-amber-600">{p.uncostedQty} بدون تكلفة</span>}
+                        </td>
+                        <td className="text-center px-3 py-2 text-gray-600">{p.qty}</td>
+                        <td className="text-center px-3 py-2 text-gray-700">{fmt(p.revenue)}</td>
+                        <td className="text-center px-3 py-2 text-gray-700">{fmt(p.cost)}</td>
+                        <td className={`text-center px-3 py-2 font-medium ${p.margin < 0 ? "text-red-600" : "text-gray-900"}`}>
+                          {fmt(p.margin)}
+                        </td>
+                        <td className="text-center px-3 py-2 text-gray-600">{pct(p.marginPct)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                  <tfoot className="bg-gray-900 text-white">
+                    <tr>
+                      <td className="px-3 py-2 font-medium">الإجمالي</td>
+                      <td className="text-center px-3 py-2">{data.products.reduce((s, p) => s + p.qty, 0)}</td>
+                      <td className="text-center px-3 py-2">{fmt(t.revenue)}</td>
+                      <td className="text-center px-3 py-2">{fmt(t.cost)}</td>
+                      <td className="text-center px-3 py-2 font-bold">{fmt(t.margin)}</td>
+                      <td className="text-center px-3 py-2">{pct(t.marginPct)}</td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+            )}
+          </>
+        )}
+      </div>
+    </div>
+  );
+}

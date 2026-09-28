@@ -1,5 +1,7 @@
 const { adminDb } = require("../../../lib/firebaseAdmin");
 const { requireUser, requireRole } = require("../../../lib/apiAuth");
+const { isValidRequestId } = require("../../../lib/requestId");
+const { createOnce } = require("../../../lib/idempotentCreate");
 
 // Goods Received: factory/supplier deliveries into the depot. The
 // warehouse keeper logs what physically arrived (product + quantity)
@@ -19,7 +21,11 @@ export default async function handler(req, res) {
     const decoded = await requireUser(req);
     requireRole(decoded, ["warehouse_keeper"]);
 
-    const { items, note } = req.body || {};
+    const { items, note, requestId } = req.body || {};
+    if (!isValidRequestId(requestId)) {
+      return res.status(400).json({ error: "طلب غير صالح، يرجى تحديث الصفحة والمحاولة مرة أخرى" });
+    }
+
     if (!Array.isArray(items) || items.length === 0) {
       return res.status(400).json({ error: "يجب إضافة منتج واحد على الأقل" });
     }
@@ -49,22 +55,28 @@ export default async function handler(req, res) {
       };
     });
 
-    const docRef = adminDb.collection("inventoryDocs").doc();
+    // Request ID as document ID: a repeated submission returns the
+    // original instead of creating a duplicate document.
+    const docRef = adminDb.collection("inventoryDocs").doc(requestId);
     const now = new Date().toISOString();
 
-    await docRef.set({
-      type: "received",
-      route: null,
-      items: resolvedItems,
-      status: "pending",
-      createdBy: decoded.uid,
-      createdByRole: "warehouse_keeper",
-      createdAt: now,
-      warehouseKeeperNote: note || "",
-      finalizedAt: null,
-    });
+    const result = await createOnce(
+      docRef,
+      {
+        type: "received",
+        route: null,
+        items: resolvedItems,
+        status: "pending",
+        createdBy: decoded.uid,
+        createdByRole: "warehouse_keeper",
+        createdAt: now,
+        warehouseKeeperNote: note || "",
+        finalizedAt: null,
+      },
+      { ownerField: "createdBy", ownerId: decoded.uid }
+    );
 
-    return res.status(201).json({ id: docRef.id });
+    return res.status(result.duplicate ? 200 : 201).json({ id: docRef.id, duplicate: result.duplicate });
   } catch (err) {
     const status = err.statusCode || 500;
     return res.status(status).json({ error: err.message });

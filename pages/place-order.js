@@ -6,9 +6,32 @@ import { PageLoading, Spinner } from "../components/Loading";
 import { apiFetch } from "../lib/apiFetch";
 import { invalidate } from "../lib/apiCache";
 import { getClients } from "../lib/clientsStore";
+import { newRequestId } from "../lib/requestId";
 import { formatDate } from "../lib/labels";
 
-const DRAFT_KEY = "pendingStaffOrderDraft";
+// Invoices that couldn't be sent (no connection) are queued on the device,
+// per agent, and sent automatically when the connection returns. Each keeps
+// its request ID, so resending can never create a duplicate even if an
+// earlier attempt actually reached the server.
+const QUEUE_PREFIX = "unsentInvoices:";
+const PRODUCTS_PREFIX = "productsCache:";
+const RETRY_INTERVAL_MS = 30 * 1000;
+
+function readJSON(key, fallback) {
+  try {
+    return JSON.parse(localStorage.getItem(key) || "null") ?? fallback;
+  } catch {
+    return fallback;
+  }
+}
+function writeJSON(key, value) {
+  try {
+    localStorage.setItem(key, JSON.stringify(value));
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 export default function PlaceOrder() {
   const { user, role, token, loading, logout } = useAuth();
@@ -19,7 +42,8 @@ export default function PlaceOrder() {
   const [error, setError] = useState("");
   const [result, setResult] = useState(null);
   const [submitting, setSubmitting] = useState(false);
-  const [draftPending, setDraftPending] = useState(null); // holds the draft's clientLabel, or null
+  const [queue, setQueue] = useState([]); // unsent invoices saved on this device
+  const [productsStale, setProductsStale] = useState(false);
   const [retrying, setRetrying] = useState(false);
 
   // Client picker
@@ -41,47 +65,68 @@ export default function PlaceOrder() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token]);
 
-  // If a previous submission failed purely due to a connection problem
-  // (not a real rejection), it was saved instead of lost — restore it and
-  // retry automatically once the connection returns.
-  useEffect(() => {
-    let draft;
-    try {
-      draft = JSON.parse(localStorage.getItem(DRAFT_KEY) || "null");
-    } catch {
-      draft = null;
-    }
-    if (draft) {
-      setDraftPending(draft.clientLabel || `عميل #${draft.clientId}`);
-      const goOnline = () => retryDraft();
-      window.addEventListener("online", goOnline);
-      return () => window.removeEventListener("online", goOnline);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [token]);
+  const queueKey = user ? `${QUEUE_PREFIX}${user.uid}` : null;
 
-  async function retryDraft() {
-    if (!token) return;
-    let draft;
-    try {
-      draft = JSON.parse(localStorage.getItem(DRAFT_KEY) || "null");
-    } catch {
-      draft = null;
-    }
-    if (!draft) {
-      setDraftPending(null);
-      return;
-    }
+  // Load this agent's unsent invoices, send them as soon as possible, and
+  // keep retrying while any remain: on reconnect, on return to the app,
+  // and every 30 seconds (the "online" event alone is unreliable — a
+  // phone can report "online" while nothing actually gets through).
+  useEffect(() => {
+    if (!token || !queueKey) return;
+    setQueue(readJSON(queueKey, []));
+    flushQueue();
+    const onBack = () => flushQueue();
+    const onVisible = () => document.visibilityState === "visible" && flushQueue();
+    const interval = setInterval(() => {
+      if (readJSON(queueKey, []).some((q) => !q.rejected)) flushQueue();
+    }, RETRY_INTERVAL_MS);
+    window.addEventListener("online", onBack);
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener("online", onBack);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [token, queueKey]);
+
+  const flushing = useRef(false);
+  async function flushQueue() {
+    if (!queueKey || flushing.current) return;
+    const pending = readJSON(queueKey, []).filter((q) => !q.rejected);
+    if (pending.length === 0) return;
+    flushing.current = true;
     setRetrying(true);
     try {
-      await submitPayload({ clientId: draft.clientId, items: draft.items });
-      localStorage.removeItem(DRAFT_KEY);
-      setDraftPending(null);
-    } catch {
-      // still failing — leave the draft in place, banner stays up
+      for (const item of pending) {
+        try {
+          await submitPayload({ clientId: item.clientId, items: item.items, requestId: item.requestId });
+          updateQueue((list) => list.filter((q) => q.requestId !== item.requestId));
+        } catch (err) {
+          if (err.isNetworkError || err.isAuthError) break; // temporary — try again later
+          // The server refused it (e.g. stock no longer enough). Resending
+          // won't help, so keep it visible with the reason instead of
+          // retrying forever or silently dropping it.
+          updateQueue((list) =>
+            list.map((q) => (q.requestId === item.requestId ? { ...q, rejected: err.message } : q))
+          );
+        }
+      }
     } finally {
+      flushing.current = false;
       setRetrying(false);
     }
+  }
+
+  function updateQueue(fn) {
+    const next = fn(readJSON(queueKey, []));
+    writeJSON(queueKey, next);
+    setQueue(next);
+  }
+
+  function discardQueued(requestId) {
+    if (!confirm("حذف هذه الفاتورة غير المرسلة؟ لن تُسجَّل.")) return;
+    updateQueue((list) => list.filter((q) => q.requestId !== requestId));
   }
 
   // Close dropdowns when tapping/clicking outside them.
@@ -108,14 +153,33 @@ export default function PlaceOrder() {
     try {
       // Products stay uncached on purpose: they carry live stock levels,
       // which change with every invoice. Clients come from the version cache.
-      const [clientList, productsRes] = await Promise.all([
+      const productsKey = `${PRODUCTS_PREFIX}${user.uid}`;
+      const loadProducts = async () => {
+        try {
+          const res = await apiFetch("/api/products/list", { headers: { Authorization: `Bearer ${token}` } });
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.error);
+          writeJSON(productsKey, data.products);
+          setProductsStale(false);
+          return data.products;
+        } catch (err) {
+          // Offline: use the catalog saved on this device so the agent can
+          // still prepare an invoice. Stock shown may be outdated — the
+          // server re-checks real stock when the invoice is actually sent.
+          const saved = readJSON(productsKey, null);
+          if (err.isNetworkError && saved) {
+            setProductsStale(true);
+            return saved;
+          }
+          throw err;
+        }
+      };
+      const [clientList, productList] = await Promise.all([
         getClients(apiFetch, token, user.uid),
-        apiFetch("/api/products/list", { headers: { Authorization: `Bearer ${token}` } }),
+        loadProducts(),
       ]);
-      const productsData = await productsRes.json();
-      if (!productsRes.ok) throw new Error(productsData.error);
       setClients(clientList.filter((c) => c.active !== false));
-      setProducts(productsData.products);
+      setProducts(productList);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -188,18 +252,24 @@ export default function PlaceOrder() {
 
   const total = cart.reduce((sum, it) => sum + (it.price || 0) * it.qty, 0);
 
+  // Background resends run from timers set up earlier, so they read the
+  // CURRENT login token through a ref rather than the one captured then.
+  const tokenRef = useRef(token);
+  tokenRef.current = token;
+
   async function submitPayload(payload) {
     const res = await apiFetch("/api/orders/create-staff", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
+        Authorization: `Bearer ${tokenRef.current}`,
       },
       body: JSON.stringify(payload),
     });
+    // Expired/renewing login is temporary, not a rejection of the invoice.
+    if (res.status === 401) throw Object.assign(new Error("انتهت صلاحية الجلسة مؤقتًا"), { isAuthError: true });
     const data = await res.json();
     if (!res.ok) throw Object.assign(new Error(data.error || "تعذر تسجيل الفاتورة"), { isRejection: true });
-    setResult(data);
     invalidate("/api/orders/list");
     return data;
   }
@@ -221,29 +291,37 @@ export default function PlaceOrder() {
     const payload = {
       clientId: selectedClient.id,
       items: cart.map((it) => ({ productId: it.productId, qty: it.qty })),
+      requestId: newRequestId(), // one ID per invoice — resends reuse it
     };
 
     setSubmitting(true);
     try {
-      await submitPayload(payload);
+      const data = await submitPayload(payload);
+      setResult(data);
       setCart([]);
       clearClient();
     } catch (err) {
-      if (err.isNetworkError) {
-        // Real connection failure, not a rejection from the server — save
-        // the attempt so it isn't lost; the banner + online-event listener
-        // will retry it once the connection returns.
-        try {
-          localStorage.setItem(
-            DRAFT_KEY,
-            JSON.stringify({
-              ...payload,
-              clientLabel: `${selectedClient.name} (${selectedClient.storeName})`,
-            })
-          );
-          setDraftPending(`${selectedClient.name} (${selectedClient.storeName})`);
-          setError("تعذر الاتصال — تم حفظ الفاتورة وسيتم إرسالها تلقائيًا عند عودة الإنترنت.");
-        } catch {
+      if (err.isNetworkError || err.isAuthError) {
+        // Connection failure (not a rejection): queue it on the device so
+        // it isn't lost, and clear the form — the invoice is now safely
+        // waiting to send, so the agent can move on without re-entering or
+        // accidentally submitting it twice.
+        const saved = writeJSON(queueKey, [
+          ...readJSON(queueKey, []),
+          {
+            ...payload,
+            clientLabel: `${selectedClient.name} (${selectedClient.storeName})`,
+            total,
+            savedAt: new Date().toISOString(),
+          },
+        ]);
+        if (saved) {
+          setQueue(readJSON(queueKey, []));
+          setCart([]);
+          clearClient();
+          setError("");
+          setResult({ queued: true });
+        } else {
           setError(err.message);
         }
       } else {
@@ -275,20 +353,55 @@ export default function PlaceOrder() {
         <div className="bg-white p-5 sm:p-8 rounded-lg shadow-md">
           <h1 className="text-xl font-semibold mb-6 text-gray-800">تسجيل فاتورة لعميل</h1>
 
-          {draftPending && (
-            <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-4 flex items-center justify-between gap-3">
-              <p className="text-amber-700 text-sm">
-                فاتورة {draftPending} لم تُرسل بعد بسبب انقطاع الاتصال.
+          {queue.length > 0 && (
+            <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-4">
+              <div className="flex items-center justify-between gap-3 mb-2">
+                <p className="text-amber-800 text-sm font-medium">
+                  فواتير لم تُرسل بعد ({queue.length}) — محفوظة على هذا الجهاز
+                </p>
+                <button
+                  type="button"
+                  onClick={flushQueue}
+                  disabled={retrying}
+                  className="text-sm bg-amber-600 text-white rounded-lg px-3 h-9 shrink-0 disabled:opacity-50 flex items-center gap-1"
+                >
+                  {retrying && <Spinner className="w-3 h-3" />}
+                  {retrying ? "جارٍ الإرسال..." : "إرسال الآن"}
+                </button>
+              </div>
+              <p className="text-xs text-amber-700 mb-2">
+                تُرسل تلقائيًا عند عودة الاتصال. لن تتكرر أي فاتورة حتى لو أُعيد إرسالها.
               </p>
-              <button
-                type="button"
-                onClick={retryDraft}
-                disabled={retrying}
-                className="text-sm bg-amber-600 text-white rounded-lg px-3 h-9 shrink-0 disabled:opacity-50"
-              >
-                {retrying ? "جارٍ الإرسال..." : "إعادة الإرسال"}
-              </button>
+              <div className="divide-y divide-amber-200">
+                {queue.map((q) => (
+                  <div key={q.requestId} className="py-2 flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="text-sm text-gray-800 truncate">{q.clientLabel}</p>
+                      <p className="text-xs text-gray-500">الإجمالي: {Number(q.total || 0).toFixed(2)}</p>
+                      {q.rejected && (
+                        <p className="text-xs text-red-600 mt-0.5">رُفضت: {q.rejected}</p>
+                      )}
+                    </div>
+                    {q.rejected && (
+                      <button
+                        type="button"
+                        onClick={() => discardQueued(q.requestId)}
+                        className="text-xs text-red-600 bg-red-50 rounded px-2 h-8 shrink-0"
+                      >
+                        حذف
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
             </div>
+          )}
+
+          {productsStale && (
+            <p className="text-xs text-amber-700 bg-amber-50 rounded-lg px-3 py-2 mb-4">
+              بدون اتصال — تُعرض قائمة المنتجات المحفوظة، وقد لا تكون الكميات المتاحة محدّثة.
+              تُراجع الكميات الفعلية عند إرسال الفاتورة.
+            </p>
           )}
 
           {error && (
@@ -299,7 +412,15 @@ export default function PlaceOrder() {
               </button>
             </div>
           )}
-          {result && (
+          {result?.queued && (
+            <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-4">
+              <p className="text-amber-800 font-medium">لم تُرسل الفاتورة بعد — لا يوجد اتصال</p>
+              <p className="text-amber-700 text-sm mt-1">
+                تم حفظها على هذا الجهاز وستُرسل تلقائيًا عند عودة الاتصال. يمكنك متابعة تسجيل فواتير أخرى.
+              </p>
+            </div>
+          )}
+          {result && !result.queued && (
             <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-4">
               <p className="text-green-800 font-medium">
                 تم إنشاء الفاتورة! الرقم: <span className="tabular-ltr">{result.orderId}</span>

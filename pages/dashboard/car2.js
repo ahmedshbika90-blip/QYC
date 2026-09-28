@@ -223,6 +223,7 @@ export default function Car2Dashboard() {
                       name={clientsById[order.clientId]?.name}
                       location={clientsById[order.clientId]?.location}
                       onStatusChange={updateStatus}
+                canCancel={!order.locked}
                     />
                   ))}
                 </div>

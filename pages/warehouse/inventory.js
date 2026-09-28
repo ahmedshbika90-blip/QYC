@@ -6,6 +6,7 @@ import InventoryHistory from "../../components/InventoryHistory";
 import { PageLoading, SkeletonRows, Spinner } from "../../components/Loading";
 import { apiFetch } from "../../lib/apiFetch";
 import { invalidate } from "../../lib/apiCache";
+import { useRequestId } from "../../lib/useRequestId";
 
 // Warehouse keeper's depot section: current depot balances (depot only —
 // no car stock, no prices), logging goods received from the supplier
@@ -22,6 +23,7 @@ export default function WarehouseInventory() {
   const [success, setSuccess] = useState("");
   const [reloadKey, setReloadKey] = useState(0);
   const [tab, setTab] = useState("stock");
+  const requestIds = useRequestId();
 
   useEffect(() => {
     if (!token) return;
@@ -61,16 +63,25 @@ export default function WarehouseInventory() {
       const res = await apiFetch("/api/inventory/received", {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ items: cart.map((it) => ({ productId: it.productId, qty: it.qty })), note }),
+        body: JSON.stringify(
+          (() => {
+            const payload = { items: cart.map((it) => ({ productId: it.productId, qty: it.qty })), note };
+            return { ...payload, requestId: requestIds.idFor(payload) };
+          })()
+        ),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
+      requestIds.reset();
       setCart([]);
       setNote("");
       setSuccess("تم التسجيل — بانتظار اعتماد المشرف.");
       invalidate("/api/inventory");
       setReloadKey((k) => k + 1);
     } catch (err) {
+      // Connection failure: keep the same request ID so "retry" is safe.
+      // Server rejection: a fresh ID next time.
+      if (!err.isNetworkError) requestIds.reset();
       setError(err.message);
     } finally {
       setSubmitting(false);

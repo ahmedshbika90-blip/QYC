@@ -31,7 +31,16 @@ export default function Login() {
       else if (role === "warehouse_keeper") router.push("/dashboard/warehouse");
       else setError("لا توجد صلاحية مرتبطة بهذا الحساب. يرجى التواصل مع الإدارة.");
     } catch (err) {
-      setError("البريد الإلكتروني أو كلمة المرور غير صحيحة");
+      // Only say "wrong password" when that's actually the reason — on a
+      // weak connection, blaming the password sends people chasing the
+      // wrong problem.
+      if (err.code === "auth/network-request-failed" || !navigator.onLine) {
+        setError("تعذر الاتصال بالإنترنت — تحقق من الاتصال ثم حاول مرة أخرى.");
+      } else if (err.code === "auth/too-many-requests") {
+        setError("محاولات كثيرة — انتظر قليلًا ثم حاول مرة أخرى.");
+      } else {
+        setError("البريد الإلكتروني أو كلمة المرور غير صحيحة");
+      }
     } finally {
       setLoading(false);
     }

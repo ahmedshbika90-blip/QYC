@@ -1,5 +1,7 @@
 const { adminDb } = require("../../../lib/firebaseAdmin");
 const { requireUser, requireRole } = require("../../../lib/apiAuth");
+const { isValidRequestId } = require("../../../lib/requestId");
+const { createOnce } = require("../../../lib/idempotentCreate");
 
 // Loading: depot -> car (a van heading out for the day/trip).
 // Offloading: car -> depot (unsold stock coming back).
@@ -18,7 +20,11 @@ export default async function handler(req, res) {
     const decoded = await requireUser(req);
     requireRole(decoded, ["warehouse_keeper"]);
 
-    const { type, route, items, note } = req.body || {};
+    const { type, route, items, note, requestId } = req.body || {};
+    if (!isValidRequestId(requestId)) {
+      return res.status(400).json({ error: "طلب غير صالح، يرجى تحديث الصفحة والمحاولة مرة أخرى" });
+    }
+
     if (!["loading", "offloading"].includes(type)) {
       return res.status(400).json({ error: "نوع الحركة يجب أن يكون تحميل أو تفريغ" });
     }
@@ -51,26 +57,32 @@ export default async function handler(req, res) {
       };
     });
 
-    const docRef = adminDb.collection("inventoryDocs").doc();
+    // Request ID as document ID: a repeated submission returns the
+    // original instead of creating a duplicate document.
+    const docRef = adminDb.collection("inventoryDocs").doc(requestId);
     const now = new Date().toISOString();
 
-    await docRef.set({
-      type,
-      route,
-      items: resolvedItems,
-      status: "pending",
-      createdBy: decoded.uid,
-      createdByRole: "warehouse_keeper",
-      createdAt: now,
-      warehouseKeeperNote: note || "",
-      agentConfirmed: false,
-      agentConfirmedAt: null,
-      agentConfirmedBy: null,
-      disputeReason: null,
-      finalizedAt: null,
-    });
+    const result = await createOnce(
+      docRef,
+      {
+        type,
+        route,
+        items: resolvedItems,
+        status: "pending",
+        createdBy: decoded.uid,
+        createdByRole: "warehouse_keeper",
+        createdAt: now,
+        warehouseKeeperNote: note || "",
+        agentConfirmed: false,
+        agentConfirmedAt: null,
+        agentConfirmedBy: null,
+        disputeReason: null,
+        finalizedAt: null,
+      },
+      { ownerField: "createdBy", ownerId: decoded.uid }
+    );
 
-    return res.status(201).json({ id: docRef.id });
+    return res.status(result.duplicate ? 200 : 201).json({ id: docRef.id, duplicate: result.duplicate });
   } catch (err) {
     const status = err.statusCode || 500;
     return res.status(status).json({ error: err.message });

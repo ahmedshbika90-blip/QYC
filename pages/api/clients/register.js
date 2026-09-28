@@ -3,23 +3,42 @@ const { requireUser, requireRole } = require("../../../lib/apiAuth");
 const { isValidPhone } = require("../../../lib/validation");
 const { bumpVersion } = require("../../../lib/versions");
 const { STORE_CLASSES } = require("../../../lib/labels");
+const { isValidRequestId } = require("../../../lib/requestId");
 
 const COUNTER_DOC = adminDb.collection("meta").doc("clientIdCounter");
 
-// Generates the next sequential 4-digit client ID, e.g. "1000", "1001", ...
-// Uses a transaction so concurrent registrations never collide.
-async function getNextClientId() {
+// Assigns the next sequential 4-digit client ID ("1000", "1001", ...) and
+// writes the client in ONE transaction, together with a record of the
+// device's request ID. If a weak connection delivers the same registration
+// twice, the second attempt finds its request ID already recorded and
+// returns the client created the first time — no duplicate client, no
+// wasted ID. Concurrent registrations can never get the same number.
+async function registerOnce(requestId, clientDoc) {
+  const requestRef = adminDb.collection("clientRequests").doc(requestId);
   return adminDb.runTransaction(async (tx) => {
-    const snap = await tx.get(COUNTER_DOC);
-    const current = snap.exists ? snap.data().value : 999; // first ID will be 1000
-    const next = current + 1;
-
-    if (next > 9999) {
-      throw new Error("Client ID space exhausted (4 digits max, 9999 reached)");
+    const [reqSnap, counterSnap] = await Promise.all([tx.get(requestRef), tx.get(COUNTER_DOC)]);
+    if (reqSnap.exists) {
+      const { clientId, createdBy } = reqSnap.data();
+      if (createdBy !== clientDoc.createdBy) {
+        const err = new Error("تعارض في رقم الطلب، يرجى المحاولة مرة أخرى");
+        err.statusCode = 409;
+        throw err;
+      }
+      const existing = await tx.get(adminDb.collection("clients").doc(clientId));
+      return { clientId, data: existing.data(), duplicate: true };
     }
 
+    const current = counterSnap.exists ? counterSnap.data().value : 999; // first ID will be 1000
+    const next = current + 1;
+    if (next > 9999) {
+      throw new Error("تم استنفاد أرقام العملاء (الحد الأقصى 9999)");
+    }
+    const clientId = String(next);
+
     tx.set(COUNTER_DOC, { value: next }, { merge: true });
-    return String(next);
+    tx.set(adminDb.collection("clients").doc(clientId), clientDoc);
+    tx.set(requestRef, { clientId, createdBy: clientDoc.createdBy, createdAt: clientDoc.createdAt });
+    return { clientId, data: clientDoc, duplicate: false };
   });
 }
 
@@ -37,7 +56,10 @@ export default async function handler(req, res) {
     const decoded = await requireUser(req);
     requireRole(decoded, ["agent_car1", "agent_car2", "supervisor"]);
 
-    const { name, storeName, location, phone, whatsapp, storeClass } = req.body || {};
+    const { name, storeName, location, phone, whatsapp, storeClass, requestId } = req.body || {};
+    if (!isValidRequestId(requestId)) {
+      return res.status(400).json({ error: "طلب غير صالح، يرجى تحديث الصفحة والمحاولة مرة أخرى" });
+    }
     let { route } = req.body || {};
 
     // An agent's own route isn't a choice — it's fixed by who they are
@@ -67,8 +89,6 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: "رقم الواتساب يجب أن يتكون من 10 أرقام ويبدأ بصفر" });
     }
 
-    const clientId = await getNextClientId();
-
     const clientDoc = {
       name,
       storeName,
@@ -82,10 +102,12 @@ export default async function handler(req, res) {
       createdBy: decoded.uid,
     };
 
-    await adminDb.collection("clients").doc(clientId).set(clientDoc);
-    await bumpVersion("clients");
+    const result = await registerOnce(requestId, clientDoc);
+    if (!result.duplicate) await bumpVersion("clients");
 
-    return res.status(201).json({ clientId, ...clientDoc });
+    return res
+      .status(result.duplicate ? 200 : 201)
+      .json({ clientId: result.clientId, ...result.data, duplicate: result.duplicate });
   } catch (err) {
     const status = err.statusCode || 500;
     return res.status(status).json({ error: err.message });

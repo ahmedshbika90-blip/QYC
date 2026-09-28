@@ -187,3 +187,48 @@ the device (lib/session.js), so the timeout also applies after the phone
 was locked or the app was closed: reopening after more than 10 minutes
 requires signing in again. Change `IDLE_TIMEOUT_MS` in lib/session.js to
 adjust.
+
+## Weak and lost connections
+- **Retries:** every request waits up to 15s and retries twice. Server
+  rejections (e.g. not enough stock) are never retried.
+- **No duplicates:** every create (invoice, client, product, inventory
+  document) carries a device-generated request ID; a repeat returns the
+  original. Confirm/approve/cancel re-check status inside the transaction,
+  so a double submission can never move stock twice.
+- **Unsent invoices** are queued on the device per agent and sent
+  automatically (on reconnect, on returning to the app, every 30s). The
+  form clears once queued. If the server later refuses one (e.g. stock ran
+  out meanwhile), it stays visible with the reason and can be deleted.
+- **Offline data:** clients and the product catalog are saved on the device
+  (wiped on logout); pages viewed this session show their last copy. The
+  connection banner says when data may be outdated.
+- **Offline app shell:** `public/sw.js` caches only the app's code and page
+  shells (never API data), so previously opened pages open without
+  internet. Unvisited pages show `public/offline.html`.
+- **Limit:** login tokens last 1 hour. After ~1 hour fully offline, opening
+  a new page waits for the connection (already-open pages keep working).
+
+## Invoice locking & change requests
+An invoice is **locked** 9 hours after creation, or as soon as a sales
+report including it is shared (sharing asks for confirmation, locks first,
+and doesn't share if the lock fails). Locked invoices can't be edited or
+cancelled by agents; they send a **change request** (edit or cancel, with a
+reason) that the supervisor approves or rejects in **الطلبات**. Approval
+applies the change with the same logic as a direct edit (current prices,
+live stock check, edit history linked to the request), in one transaction.
+The supervisor can still change locked invoices directly (recorded in edit
+history). Notes stay editable. Shared reports are recorded in `sentReports`.
+
+## Operating margin (هامش التشغيل)
+Selling price − supplier cost, from locked, non-cancelled invoices, by car
+and period. Supplier cost is a **weighted average**: each approved goods
+receipt blends its supplier price with the cost of stock on hand. Each
+invoice line saves the cost at the moment of sale, so margins stay stable
+and need no extra reads. Set a product's unit cost on the Products page to
+give existing stock a cost. Missing costs are reported, never guessed;
+older invoices without a saved cost use the current average (flagged as an
+estimate). Cost data is supervisor-only in every API response.
+
+## Tests
+`npm test` runs the real API handlers against an in-memory database that
+enforces Firestore's transaction rules (tests/). No Firebase needed.
