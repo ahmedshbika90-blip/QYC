@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "../../lib/useAuth";
 import Nav from "../../components/Nav";
 import StatusTabs from "../../components/StatusTabs";
+import PeriodTabs, { periodStartISO } from "../../components/PeriodTabs";
 import FilterPanel from "../../components/FilterPanel";
 import OrderCard from "../../components/OrderCard";
 import QuickActions from "../../components/QuickActions";
@@ -28,6 +29,7 @@ export default function Car1Dashboard() {
   const [storeClass, setStoreClass] = useState("");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
+  const [period, setPeriod] = useState(7); // days; ignored when a custom date range is set
 
   // Refetches whenever the date range changes — the range is now sent to
   // the server (not just filtered client-side after the fact), since
@@ -36,11 +38,11 @@ export default function Car1Dashboard() {
     if (!token) return;
     fetchAll();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [token, dateFrom, dateTo]);
+  }, [token, dateFrom, dateTo, period]);
 
   function ordersUrl(cursor) {
     const params = new URLSearchParams();
-    if (dateFrom) params.set("from", dateFrom);
+    params.set("from", dateFrom || periodStartISO(period));
     if (dateTo) params.set("to", dateTo);
     if (cursor) params.set("cursor", cursor);
     return `/api/orders/list?${params.toString()}`;
@@ -159,6 +161,15 @@ export default function Car1Dashboard() {
           </div>
         )}
 
+        <PeriodTabs
+          value={dateFrom || dateTo ? null : period}
+          onChange={(days) => {
+            setPeriod(days);
+            setDateFrom("");
+            setDateTo("");
+          }}
+        />
+
         <div className="mb-3">
           <StatusTabs value={statusFilter} onChange={setStatusFilter} counts={counts} />
         </div>
@@ -176,9 +187,9 @@ export default function Car1Dashboard() {
           onDateToChange={setDateTo}
         />
 
-        {!dateFrom && (
-          <p className="text-xs text-gray-400 mb-3">
-            يعرض آخر ٣٠ يومًا افتراضيًا — لعرض فترة أقدم، حدد "من تاريخ" في التصفية.
+        {(nameQuery || locationQuery || storeClass) && nextCursor && (
+          <p className="text-xs text-amber-600 mb-3">
+            البحث يشمل الفواتير المحمّلة فقط — اضغط "تحميل المزيد" أو حدد فترة لنتائج أشمل.
           </p>
         )}
 

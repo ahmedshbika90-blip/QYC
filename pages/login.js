@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useRouter } from "next/router";
 import { signInWithEmailAndPassword } from "firebase/auth";
 import { auth } from "../lib/firebaseClient";
+import { markActivity } from "../lib/session";
 import { Spinner } from "../components/Loading";
 
 // Staff login. Clients don't use the app directly — agents place
@@ -20,6 +21,7 @@ export default function Login() {
     setLoading(true);
     try {
       const cred = await signInWithEmailAndPassword(auth, email, password);
+      markActivity(); // starts this device's idle session
       const tokenResult = await cred.user.getIdTokenResult();
       const role = tokenResult.claims.role;
 

@@ -150,7 +150,10 @@ migration.
   1 read to check the version, and the full list is only re-downloaded
   when something actually changed. Search/filters run locally (0 reads).
   Cached client data is wiped on logout and idle logout.
-- **Invoices & inventory history**: last 30 days by default, 200 per page,
+- **Invoices**: last 7 days by default, with quick switches for 2 weeks and
+  a month (or a custom range in the filter). Capped at 100 per page inside
+  the period, with "load more" for the rest. **Inventory history**: last
+  30 days by default, 200 per page,
   "load more" for the rest. Pick an earlier "from" date to go further back.
 - **Pending banners** query only pending documents, never full history.
 - **Sales report**: the date range is part of the query (defaults to today).
@@ -177,3 +180,10 @@ edited. Invoices and clients can both be filtered by class.
   scoping, validation, and stock transactions. Deploy the rules with
   `firebase deploy --only firestore:rules`, or paste the file into
   Firebase console → Firestore → Rules → Publish.
+
+## Session timeout
+10 minutes of inactivity per device. The last-activity time is stored on
+the device (lib/session.js), so the timeout also applies after the phone
+was locked or the app was closed: reopening after more than 10 minutes
+requires signing in again. Change `IDLE_TIMEOUT_MS` in lib/session.js to
+adjust.

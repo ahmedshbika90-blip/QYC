@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "../../lib/useAuth";
 import Nav from "../../components/Nav";
 import StatusTabs from "../../components/StatusTabs";
+import PeriodTabs, { periodStartISO } from "../../components/PeriodTabs";
 import FilterPanel from "../../components/FilterPanel";
 import OrderCard from "../../components/OrderCard";
 import QuickActions from "../../components/QuickActions";
@@ -27,17 +28,19 @@ export default function SupervisorDashboard() {
   const [storeClass, setStoreClass] = useState("");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
+  const [period, setPeriod] = useState(7); // days; ignored when a custom date range is set
 
   useEffect(() => {
     if (!token) return;
     fetchAll();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [token, dateFrom, dateTo]);
+  }, [token, dateFrom, dateTo, period, routeFilter]);
 
   function ordersUrl(cursor) {
     const params = new URLSearchParams();
-    if (dateFrom) params.set("from", dateFrom);
+    params.set("from", dateFrom || periodStartISO(period));
     if (dateTo) params.set("to", dateTo);
+    if (routeFilter !== "all") params.set("route", routeFilter);
     if (cursor) params.set("cursor", cursor);
     return `/api/orders/list?${params.toString()}`;
   }
@@ -154,6 +157,15 @@ export default function SupervisorDashboard() {
           ]}
         />
 
+        <PeriodTabs
+          value={dateFrom || dateTo ? null : period}
+          onChange={(days) => {
+            setPeriod(days);
+            setDateFrom("");
+            setDateTo("");
+          }}
+        />
+
         <div className="mb-3">
           <StatusTabs value={statusFilter} onChange={setStatusFilter} counts={counts} />
         </div>
@@ -171,14 +183,14 @@ export default function SupervisorDashboard() {
           onDateToChange={setDateTo}
         />
 
-        {!dateFrom && (
-          <p className="text-xs text-gray-400 mb-3">
-            يعرض آخر ٣٠ يومًا افتراضيًا — لعرض فترة أقدم، حدد "من تاريخ" في التصفية.
+        {(nameQuery || locationQuery || storeClass) && nextCursor && (
+          <p className="text-xs text-amber-600 mb-3">
+            البحث يشمل الفواتير المحمّلة فقط — اضغط "تحميل المزيد" أو حدد فترة لنتائج أشمل.
           </p>
         )}
 
         <p className="text-sm text-gray-500 mb-3">
-          {visible.length} فاتورة — الإجمالي {totalRevenue.toFixed(2)} (باستثناء الملغاة)
+          {visible.length} فاتورة معروضة — الإجمالي {totalRevenue.toFixed(2)} (باستثناء الملغاة){nextCursor ? " · توجد فواتير أخرى لم تُحمَّل" : ""}
         </p>
 
         {error && (

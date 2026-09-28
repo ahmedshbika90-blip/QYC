@@ -6,16 +6,14 @@ const ROLE_TO_ROUTE = {
   agent_car2: "car2",
 };
 
-const DEFAULT_WINDOW_DAYS = 30;
-const PAGE_SIZE = 200;
+const DEFAULT_WINDOW_DAYS = 7;
+const PAGE_SIZE = 100;
 
-// Defaults to the last 30 days unless the caller explicitly asks for an
-// earlier `from` date — without this, a dashboard fetches EVERY order
-// ever placed, every single time it loads, which scales with total
-// historical data rather than actual daily activity and is the real
-// Firestore-read cost driver in this app. Reuses the existing
-// (route, createdAt) composite index — a date range on the same field
-// already used for ordering doesn't need a new index.
+// Invoices within a date period: the last 7 days by default (the app also
+// offers 2 weeks and a month), newest first. PAGE_SIZE is a safety cap
+// inside the period — "load more" fetches the rest — so one unusually busy
+// stretch can never turn a single dashboard load into thousands of reads.
+// Uses the existing (route, createdAt) index.
 export default async function handler(req, res) {
   if (req.method !== "GET") {
     return res.status(405).json({ error: "طريقة الطلب غير مسموح بها" });
@@ -35,13 +33,23 @@ export default async function handler(req, res) {
       throw err;
     }
 
-    const { status, from, to, cursor } = req.query;
+    const { status, from, to, cursor, route } = req.query;
     if (status) {
       query = query.where("status", "==", status);
     }
 
-    const effectiveFrom =
-      from || new Date(Date.now() - DEFAULT_WINDOW_DAYS * 24 * 60 * 60 * 1000).toISOString();
+    // Supervisor can narrow to one route server-side, so "30 invoices"
+    // means 30 of that route — not 30 mixed, then filtered down.
+    if (!restrictedRoute && route) {
+      if (!["car1", "car2"].includes(route)) {
+        return res.status(400).json({ error: "المسار غير صالح" });
+      }
+      query = query.where("route", "==", route);
+    }
+
+    const effectiveFrom = from
+      ? new Date(from).toISOString()
+      : new Date(Date.now() - DEFAULT_WINDOW_DAYS * 24 * 60 * 60 * 1000).toISOString();
     query = query.where("createdAt", ">=", effectiveFrom);
 
     if (to) {
@@ -71,7 +79,7 @@ export default async function handler(req, res) {
     // passes this back as `cursor` to load the next page ("تحميل المزيد").
     const nextCursor = orders.length === PAGE_SIZE ? orders[orders.length - 1].createdAt : null;
 
-    return res.status(200).json({ orders, nextCursor, from: effectiveFrom });
+    return res.status(200).json({ orders, nextCursor });
   } catch (err) {
     const status = err.statusCode || 500;
     return res.status(status).json({ error: err.message });
