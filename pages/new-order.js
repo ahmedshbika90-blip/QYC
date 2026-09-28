@@ -293,17 +293,28 @@ export default function NewOrder() {
                   <p className="text-gray-400 text-sm">لا توجد منتجات متاحة حاليًا.</p>
                 ) : (
                   <div className="border rounded-lg divide-y">
-                    {products.map((p) => (
-                      <div key={p.id} className="flex items-center justify-between px-3 py-3 gap-3">
-                        <div className="min-w-0">
-                          <p className="text-base text-gray-800 truncate">{p.name}</p>
-                          <p className="text-sm text-gray-400">
-                            {p.price} / {p.unit}
-                          </p>
+                    {products.map((p) => {
+                      const available = p.stock?.[route] ?? 0;
+                      return (
+                        <div key={p.id} className="flex items-center justify-between px-3 py-3 gap-3">
+                          <div className="min-w-0">
+                            <p className="text-base text-gray-800 truncate">{p.name}</p>
+                            <p className="text-sm text-gray-400">
+                              {p.price} / {p.unit}
+                              {" · "}
+                              <span className={available > 0 ? "" : "text-red-500"}>
+                                المتاح: {available}
+                              </span>
+                            </p>
+                          </div>
+                          <QtyStepper
+                            value={quantities[p.id] || 0}
+                            onChange={(v) => setQty(p.id, v)}
+                            max={available}
+                          />
                         </div>
-                        <QtyStepper value={quantities[p.id] || 0} onChange={(v) => setQty(p.id, v)} />
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
               </div>

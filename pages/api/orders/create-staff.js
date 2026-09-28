@@ -1,6 +1,7 @@
 const { adminDb } = require("../../../lib/firebaseAdmin");
 const { requireUser, requireRole } = require("../../../lib/apiAuth");
 const { buildOrderFromItems, getActiveClient, calculateDeliveryDate } = require("../../../lib/orderCreation");
+const { applyStockMovements } = require("../../../lib/inventory");
 
 const ROLE_TO_ROUTE = {
   agent_car1: "car1",
@@ -28,23 +29,43 @@ export default async function handler(req, res) {
       return res.status(403).json({ error: "هذا العميل ليس ضمن مسارك" });
     }
 
-    const { resolvedItems, total } = await buildOrderFromItems(items, client.route);
     const deliveryDate = calculateDeliveryDate(client.route);
+    const docRef = adminDb.collection("orders").doc();
+    let resolvedItems, total;
 
-    const orderDoc = {
+    // Stock check, stock decrement, and the order write all happen inside
+    // one transaction — same reasoning as the public order-creation route.
+    await adminDb.runTransaction(async (tx) => {
+      const built = await buildOrderFromItems(items, client.route, tx);
+      resolvedItems = built.resolvedItems;
+      total = built.total;
+
+      await applyStockMovements(
+        tx,
+        resolvedItems.map((it) => ({ productId: it.productId, field: client.route, delta: -it.qty }))
+      );
+
+      tx.set(docRef, {
+        clientId,
+        route: client.route,
+        items: resolvedItems,
+        total,
+        status: "active",
+        deliveryDate: deliveryDate ? deliveryDate.toISOString() : null,
+        createdAt: new Date().toISOString(),
+        placedBy: decoded.uid,
+      });
+    });
+
+    return res.status(201).json({
+      orderId: docRef.id,
       clientId,
       route: client.route,
       items: resolvedItems,
       total,
       status: "active",
       deliveryDate: deliveryDate ? deliveryDate.toISOString() : null,
-      createdAt: new Date().toISOString(),
-      placedBy: decoded.uid,
-    };
-
-    const ref = await adminDb.collection("orders").add(orderDoc);
-
-    return res.status(201).json({ orderId: ref.id, ...orderDoc });
+    });
   } catch (err) {
     const status = err.statusCode || 500;
     return res.status(status).json({ error: err.message });

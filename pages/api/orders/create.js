@@ -1,5 +1,6 @@
 const { adminDb } = require("../../../lib/firebaseAdmin");
 const { buildOrderFromItems, getActiveClient, calculateDeliveryDate } = require("../../../lib/orderCreation");
+const { applyStockMovements } = require("../../../lib/inventory");
 const { checkRateLimit, getClientIp } = require("../../../lib/rateLimit");
 
 // Public — clients place their own orders here with no login, using their 4-digit ID.
@@ -32,23 +33,46 @@ export default async function handler(req, res) {
     }
 
     const client = await getActiveClient(clientId);
-    const { resolvedItems, total } = await buildOrderFromItems(items, client.route);
     const deliveryDate = calculateDeliveryDate(client.route);
 
-    const orderDoc = {
+    const docRef = adminDb.collection("orders").doc();
+    let resolvedItems, total;
+
+    // Stock check, stock decrement, and the order write all happen inside
+    // one transaction — without that, two people placing an order for the
+    // last few units at the same moment could both pass the "enough
+    // stock?" check before either write lands, and both succeed.
+    await adminDb.runTransaction(async (tx) => {
+      const built = await buildOrderFromItems(items, client.route, tx);
+      resolvedItems = built.resolvedItems;
+      total = built.total;
+
+      await applyStockMovements(
+        tx,
+        resolvedItems.map((it) => ({ productId: it.productId, field: client.route, delta: -it.qty }))
+      );
+
+      tx.set(docRef, {
+        clientId,
+        route: client.route,
+        items: resolvedItems,
+        total,
+        status: "active",
+        deliveryDate: deliveryDate ? deliveryDate.toISOString() : null,
+        createdAt: new Date().toISOString(),
+        placedBy: "client",
+      });
+    });
+
+    return res.status(201).json({
+      orderId: docRef.id,
       clientId,
       route: client.route,
       items: resolvedItems,
       total,
       status: "active",
       deliveryDate: deliveryDate ? deliveryDate.toISOString() : null,
-      createdAt: new Date().toISOString(),
-      placedBy: "client",
-    };
-
-    const ref = await adminDb.collection("orders").add(orderDoc);
-
-    return res.status(201).json({ orderId: ref.id, ...orderDoc });
+    });
   } catch (err) {
     const status = err.statusCode || 500;
     return res.status(status).json({ error: err.message });

@@ -38,12 +38,18 @@ export default function InventoryDocCard({ doc }) {
           className={`text-xs px-2 py-1 rounded-lg shrink-0 ${
             doc.status === "confirmed"
               ? "bg-green-50 text-green-700"
-              : doc.status === "disputed"
+              : doc.status === "rejected" || doc.status === "disputed"
               ? "bg-red-50 text-red-600"
               : "bg-amber-50 text-amber-600"
           }`}
         >
-          {doc.status === "confirmed" ? "مؤكدة" : doc.status === "disputed" ? "متنازع عليها" : "قيد التأكيد"}
+          {doc.status === "confirmed"
+            ? "مؤكدة"
+            : doc.status === "rejected"
+            ? "مرفوضة"
+            : doc.status === "disputed"
+            ? "متنازع عليها"
+            : "بانتظار الاعتماد"}
         </span>
       </div>
     </Link>

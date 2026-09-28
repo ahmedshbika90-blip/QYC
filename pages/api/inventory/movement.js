@@ -1,15 +1,14 @@
 const { adminDb } = require("../../../lib/firebaseAdmin");
 const { requireUser, requireRole } = require("../../../lib/apiAuth");
 
-// Goods Received: factory/supplier deliveries into the depot. The
-// warehouse keeper logs what physically arrived (product + quantity)
-// along with their own note — but NOT a price; pricing is supervisor-only
-// information the warehouse keeper never sees. This just records the
-// receipt as "pending" — stock doesn't move yet. The supervisor reviews
-// it, adds the supplier price per unit, and approves it separately
-// (see /api/inventory/[id]/approve.js) — only that approval step actually
-// updates depot stock, which is what "the supervisor can't add inventory,
-// only approve it" means in practice: they control the gate, not the entry.
+// Loading: depot -> car (a van heading out for the day/trip).
+// Offloading: car -> depot (unsold stock coming back).
+// The warehouse keeper enters the quantities either way — submitting this
+// form IS their side of the confirmation. Stock doesn't actually move
+// until the relevant car agent ALSO confirms (see [id]/confirm.js) — if
+// the agent's own count doesn't match, they dispute instead, and nothing
+// moves. No cost/price concept here at all; that's specific to goods
+// received from a supplier.
 export default async function handler(req, res) {
   if (req.method !== "POST") {
     return res.status(405).json({ error: "طريقة الطلب غير مسموح بها" });
@@ -19,7 +18,13 @@ export default async function handler(req, res) {
     const decoded = await requireUser(req);
     requireRole(decoded, ["warehouse_keeper"]);
 
-    const { items, note } = req.body || {};
+    const { type, route, items, note } = req.body || {};
+    if (!["loading", "offloading"].includes(type)) {
+      return res.status(400).json({ error: "نوع الحركة يجب أن يكون تحميل أو تفريغ" });
+    }
+    if (!["car1", "car2"].includes(route)) {
+      return res.status(400).json({ error: 'المسار يجب أن يكون السيارة ١ أو السيارة ٢' });
+    }
     if (!Array.isArray(items) || items.length === 0) {
       return res.status(400).json({ error: "يجب إضافة منتج واحد على الأقل" });
     }
@@ -29,8 +34,6 @@ export default async function handler(req, res) {
       }
     }
 
-    // Snapshot each product's name/unit onto the document itself, so the
-    // receipt still reads correctly even if a product is later renamed.
     const productRefs = items.map((it) => adminDb.collection("products").doc(it.productId));
     const productSnaps = await adminDb.getAll(...productRefs);
     const resolvedItems = items.map((it, i) => {
@@ -45,7 +48,6 @@ export default async function handler(req, res) {
         name: snap.data().name,
         unit: snap.data().unit,
         qty: Number(it.qty),
-        costPrice: null, // set later by the supervisor on approval, never by the warehouse keeper
       };
     });
 
@@ -53,14 +55,18 @@ export default async function handler(req, res) {
     const now = new Date().toISOString();
 
     await docRef.set({
-      type: "received",
-      route: null,
+      type,
+      route,
       items: resolvedItems,
       status: "pending",
       createdBy: decoded.uid,
       createdByRole: "warehouse_keeper",
       createdAt: now,
       warehouseKeeperNote: note || "",
+      agentConfirmed: false,
+      agentConfirmedAt: null,
+      agentConfirmedBy: null,
+      disputeReason: null,
       finalizedAt: null,
     });
 

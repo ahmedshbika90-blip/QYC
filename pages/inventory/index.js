@@ -1,61 +1,37 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { useAuth } from "../../lib/useAuth";
 import Nav from "../../components/Nav";
-import QtyStepper from "../../components/QtyStepper";
 import InventoryDocCard from "../../components/InventoryDocCard";
-import { PageLoading, SkeletonRows, Spinner } from "../../components/Loading";
+import { PageLoading, SkeletonRows } from "../../components/Loading";
 import { apiFetch } from "../../lib/apiFetch";
 
+// The supervisor doesn't create inventory here — only the warehouse
+// keeper logs what physically came in (from /dashboard/warehouse). This
+// page is purely oversight: the full history of every movement, and
+// tapping a pending "goods received" card is where approval happens
+// (see /inventory/[id]).
 export default function InventoryPage() {
   const { role, token, loading, logout } = useAuth(["supervisor"]);
-
-  const [products, setProducts] = useState([]);
   const [docs, setDocs] = useState([]);
   const [fetching, setFetching] = useState(true);
   const [error, setError] = useState("");
-  const [submitting, setSubmitting] = useState(false);
-
-  // Goods-received cart
-  const [cart, setCart] = useState([]); // [{ productId, name, unit, qty, costPrice }]
-  const [productQuery, setProductQuery] = useState("");
-  const [productDropdownOpen, setProductDropdownOpen] = useState(false);
-  const [notes, setNotes] = useState("");
-  const productBoxRef = useRef(null);
 
   useEffect(() => {
     if (!token) return;
-    fetchAll();
+    fetchDocs();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token]);
 
-  useEffect(() => {
-    function handleClickOutside(e) {
-      if (productBoxRef.current && !productBoxRef.current.contains(e.target)) {
-        setProductDropdownOpen(false);
-      }
-    }
-    document.addEventListener("mousedown", handleClickOutside);
-    document.addEventListener("touchstart", handleClickOutside);
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-      document.removeEventListener("touchstart", handleClickOutside);
-    };
-  }, []);
-
-  async function fetchAll() {
+  async function fetchDocs() {
     setFetching(true);
     setError("");
     try {
-      const [productsRes, docsRes] = await Promise.all([
-        apiFetch("/api/products/list?all=1", { headers: { Authorization: `Bearer ${token}` } }),
-        apiFetch("/api/inventory/list", { headers: { Authorization: `Bearer ${token}` } }),
-      ]);
-      const productsData = await productsRes.json();
-      const docsData = await docsRes.json();
-      if (!productsRes.ok) throw new Error(productsData.error);
-      if (!docsRes.ok) throw new Error(docsData.error);
-      setProducts(productsData.products);
-      setDocs(docsData.docs);
+      const res = await apiFetch("/api/inventory/list", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      setDocs(data.docs);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -63,65 +39,7 @@ export default function InventoryPage() {
     }
   }
 
-  const cartProductIds = new Set(cart.map((it) => it.productId));
-  const filteredProducts = products
-    .filter((p) => !cartProductIds.has(p.id))
-    .filter((p) => !productQuery || p.name.toLowerCase().includes(productQuery.toLowerCase()))
-    .slice(0, 8);
-
-  function addProduct(p) {
-    setCart((prev) => [...prev, { productId: p.id, name: p.name, unit: p.unit, qty: 1, costPrice: "" }]);
-    setProductQuery("");
-    setProductDropdownOpen(false);
-  }
-
-  function setCartQty(productId, qty) {
-    if (qty <= 0) {
-      setCart((prev) => prev.filter((it) => it.productId !== productId));
-      return;
-    }
-    setCart((prev) => prev.map((it) => (it.productId === productId ? { ...it, qty } : it)));
-  }
-
-  function setCartCost(productId, costPrice) {
-    setCart((prev) => prev.map((it) => (it.productId === productId ? { ...it, costPrice } : it)));
-  }
-
-  async function submitReceived(e) {
-    e.preventDefault();
-    setError("");
-    if (cart.length === 0) {
-      setError("أضف منتجًا واحدًا على الأقل");
-      return;
-    }
-    setSubmitting(true);
-    try {
-      const res = await apiFetch("/api/inventory/received", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          items: cart.map((it) => ({
-            productId: it.productId,
-            qty: it.qty,
-            costPrice: it.costPrice,
-          })),
-          notes,
-        }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error);
-      setCart([]);
-      setNotes("");
-      fetchAll();
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setSubmitting(false);
-    }
-  }
+  const pendingCount = docs.filter((d) => d.status === "pending").length;
 
   if (loading) return <PageLoading />;
 
@@ -131,96 +49,18 @@ export default function InventoryPage() {
       <div className="max-w-3xl mx-auto p-4 sm:p-8">
         <h1 className="text-xl font-semibold mb-1 text-gray-800">المخزون</h1>
         <p className="text-sm text-gray-400 mb-6">
-          استلام البضاعة من المصنع يزيد رصيد المخزن مباشرة. حركات التحميل والتفريغ بين
-          المخزن والسيارات تظهر هنا بعد تأكيدها من أمين المخزن والمندوب.
+          {pendingCount > 0
+            ? `${pendingCount} بانتظار الاعتماد — اضغط على أي منها لمراجعتها.`
+            : "سجل جميع حركات المخزون: استلام، تحميل، وتفريغ."}
         </p>
 
         {error && (
           <div className="text-red-600 text-sm mb-4 flex items-center gap-2">
             <span>{error}</span>
-            <button onClick={fetchAll} className="underline shrink-0">إعادة المحاولة</button>
+            <button onClick={fetchDocs} className="underline shrink-0">إعادة المحاولة</button>
           </div>
         )}
 
-        <form onSubmit={submitReceived} className="bg-white rounded-lg shadow p-4 mb-6 space-y-4">
-          <h2 className="font-medium text-gray-800">استلام بضاعة جديدة</h2>
-
-          <div ref={productBoxRef} className="relative">
-            <input
-              type="text"
-              value={productQuery}
-              onChange={(e) => {
-                setProductQuery(e.target.value);
-                setProductDropdownOpen(true);
-              }}
-              onFocus={() => setProductDropdownOpen(true)}
-              placeholder="أضف منتجًا..."
-              className="w-full border rounded-lg px-3 h-12 text-base"
-            />
-            {productDropdownOpen && (
-              <div className="absolute z-10 mt-1 w-full bg-white border rounded-lg shadow-lg max-h-64 overflow-y-auto">
-                {filteredProducts.length === 0 ? (
-                  <p className="px-3 py-3 text-sm text-gray-400">لا توجد منتجات مطابقة</p>
-                ) : (
-                  filteredProducts.map((p) => (
-                    <button
-                      type="button"
-                      key={p.id}
-                      onClick={() => addProduct(p)}
-                      className="w-full text-start px-3 py-3 text-base active:bg-gray-100 border-b last:border-0 flex justify-between min-h-[44px]"
-                    >
-                      <span>{p.name}</span>
-                      <span className="text-gray-400 text-sm">
-                        المخزن: {p.stock?.depot ?? 0} {p.unit}
-                      </span>
-                    </button>
-                  ))
-                )}
-              </div>
-            )}
-          </div>
-
-          {cart.length > 0 && (
-            <div className="border rounded-lg divide-y">
-              {cart.map((it) => (
-                <div key={it.productId} className="flex items-center justify-between px-3 py-3 gap-3">
-                  <div className="min-w-0 flex-1">
-                    <p className="text-base text-gray-800 truncate">{it.name}</p>
-                    <input
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      value={it.costPrice}
-                      onChange={(e) => setCartCost(it.productId, e.target.value)}
-                      placeholder="تكلفة الوحدة (اختياري)"
-                      className="mt-1 w-40 border rounded-lg px-2 h-9 text-sm"
-                    />
-                  </div>
-                  <QtyStepper value={it.qty} onChange={(v) => setCartQty(it.productId, v)} min={0} />
-                </div>
-              ))}
-            </div>
-          )}
-
-          <textarea
-            value={notes}
-            onChange={(e) => setNotes(e.target.value)}
-            rows={2}
-            placeholder="ملاحظات (اختياري)"
-            className="w-full border rounded-lg px-3 py-2 text-base"
-          />
-
-          <button
-            type="submit"
-            disabled={submitting}
-            className="w-full bg-gray-900 text-white rounded-lg h-12 text-base font-medium active:bg-gray-700 disabled:opacity-50 flex items-center justify-center gap-2"
-          >
-            {submitting && <Spinner className="w-4 h-4" />}
-            {submitting ? "جارٍ الحفظ..." : "تسجيل الاستلام"}
-          </button>
-        </form>
-
-        <h2 className="font-medium text-gray-800 mb-3">سجل حركات المخزون</h2>
         {fetching ? (
           <SkeletonRows count={4} />
         ) : docs.length === 0 ? (

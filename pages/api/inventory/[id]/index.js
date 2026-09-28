@@ -29,6 +29,12 @@ export default async function handler(req, res) {
       return res.status(403).json({ error: "غير مصرح: الصلاحية غير معروفة" });
     }
 
+    // Supplier price is supervisor-only information — the warehouse
+    // keeper never enters it and never sees it, even after approval.
+    if (decoded.role === "warehouse_keeper") {
+      doc.items = doc.items.map(({ costPrice, ...rest }) => rest);
+    }
+
     return res.status(200).json({ id: snap.id, ...doc });
   } catch (err) {
     const status = err.statusCode || 500;

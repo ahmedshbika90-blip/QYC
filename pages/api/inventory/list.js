@@ -32,7 +32,15 @@ export default async function handler(req, res) {
     }
 
     const snap = await query.get();
-    const docs = snap.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+    const docs = snap.docs.map((doc) => {
+      const data = doc.data();
+      // Supplier price is supervisor-only — never sent to the warehouse
+      // keeper, even in the list view.
+      if (decoded.role === "warehouse_keeper") {
+        data.items = data.items.map(({ costPrice, ...rest }) => rest);
+      }
+      return { id: doc.id, ...data };
+    });
 
     return res.status(200).json({ docs });
   } catch (err) {

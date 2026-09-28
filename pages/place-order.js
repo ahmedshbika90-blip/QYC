@@ -159,10 +159,14 @@ export default function PlaceOrder() {
     return selectedClient ? product.prices?.[selectedClient.route] : undefined;
   }
 
+  function stockFor(product) {
+    return selectedClient ? product.stock?.[selectedClient.route] ?? 0 : 0;
+  }
+
   function addProduct(p) {
     setCart((prev) => [
       ...prev,
-      { productId: p.id, name: p.name, price: priceFor(p), unit: p.unit, qty: 1 },
+      { productId: p.id, name: p.name, price: priceFor(p), unit: p.unit, qty: 1, available: stockFor(p) },
     ]);
     setProductQuery("");
     setProductDropdownOpen(false);
@@ -399,8 +403,8 @@ export default function PlaceOrder() {
                               className="w-full text-start px-3 py-3 text-base active:bg-gray-100 border-b last:border-0 flex justify-between min-h-[44px]"
                             >
                               <span>{p.name}</span>
-                              <span className="text-gray-400">
-                                {priceFor(p) ?? "—"} / {p.unit}
+                              <span className="text-gray-400 text-sm">
+                                {priceFor(p) ?? "—"} / {p.unit} · المتاح: {stockFor(p)}
                               </span>
                             </button>
                           ))
@@ -419,10 +423,15 @@ export default function PlaceOrder() {
                       <div className="min-w-0">
                         <p className="text-base text-gray-800 truncate">{it.name}</p>
                         <p className="text-sm text-gray-400">
-                          {it.price ?? "—"} / {it.unit}
+                          {it.price ?? "—"} / {it.unit} · المتاح: {it.available}
                         </p>
                       </div>
-                      <QtyStepper value={it.qty} onChange={(v) => setCartQty(it.productId, v)} min={0} />
+                      <QtyStepper
+                        value={it.qty}
+                        onChange={(v) => setCartQty(it.productId, v)}
+                        min={0}
+                        max={it.available}
+                      />
                     </div>
                   ))}
                 </div>

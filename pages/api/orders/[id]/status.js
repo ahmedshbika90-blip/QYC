@@ -1,5 +1,6 @@
 const { adminDb } = require("../../../../lib/firebaseAdmin");
 const { requireUser } = require("../../../../lib/apiAuth");
+const { applyStockMovements } = require("../../../../lib/inventory");
 
 const ROLE_TO_ROUTE = {
   agent_car1: "car1",
@@ -44,7 +45,22 @@ export default async function handler(req, res) {
     if (status !== undefined) updates.status = status;
     if (notes !== undefined) updates.notes = notes;
 
-    await orderRef.update(updates);
+    // Cancelling releases the stock this invoice had reserved back onto
+    // the car — only on the actual pending->cancelled transition, so
+    // cancelling an already-cancelled invoice (which shouldn't normally
+    // happen, but isn't impossible with a stale page) never double-credits
+    // stock that was already given back once.
+    if (status === "cancelled" && order.status !== "cancelled") {
+      await adminDb.runTransaction(async (tx) => {
+        await applyStockMovements(
+          tx,
+          order.items.map((it) => ({ productId: it.productId, field: order.route, delta: it.qty }))
+        );
+        tx.update(orderRef, updates);
+      });
+    } else {
+      await orderRef.update(updates);
+    }
 
     return res.status(200).json({ ok: true });
   } catch (err) {

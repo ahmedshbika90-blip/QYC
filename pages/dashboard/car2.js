@@ -5,6 +5,7 @@ import StatusTabs from "../../components/StatusTabs";
 import FilterPanel from "../../components/FilterPanel";
 import OrderCard from "../../components/OrderCard";
 import QuickActions from "../../components/QuickActions";
+import InventoryDocCard from "../../components/InventoryDocCard";
 import { PageLoading, SkeletonRows } from "../../components/Loading";
 import { apiFetch } from "../../lib/apiFetch";
 import { formatDate } from "../../lib/labels";
@@ -13,6 +14,7 @@ export default function Car2Dashboard() {
   const { role, token, loading, logout } = useAuth(["agent_car2"]);
   const [orders, setOrders] = useState([]);
   const [clientsById, setClientsById] = useState({});
+  const [pendingMovements, setPendingMovements] = useState([]);
   const [fetching, setFetching] = useState(true);
   const [error, setError] = useState("");
 
@@ -32,16 +34,20 @@ export default function Car2Dashboard() {
     setFetching(true);
     setError("");
     try {
-      const [ordersRes, clientsRes] = await Promise.all([
+      const [ordersRes, clientsRes, inventoryRes] = await Promise.all([
         apiFetch("/api/orders/list", { headers: { Authorization: `Bearer ${token}` } }),
         apiFetch("/api/clients/list", { headers: { Authorization: `Bearer ${token}` } }),
+        apiFetch("/api/inventory/list", { headers: { Authorization: `Bearer ${token}` } }),
       ]);
       const ordersData = await ordersRes.json();
       const clientsData = await clientsRes.json();
+      const inventoryData = await inventoryRes.json();
       if (!ordersRes.ok) throw new Error(ordersData.error);
       if (!clientsRes.ok) throw new Error(clientsData.error);
+      if (!inventoryRes.ok) throw new Error(inventoryData.error);
       setOrders(ordersData.orders);
       setClientsById(Object.fromEntries(clientsData.clients.map((c) => [c.id, c])));
+      setPendingMovements(inventoryData.docs.filter((d) => d.status === "pending"));
     } catch (err) {
       setError(err.message);
     } finally {
@@ -125,6 +131,19 @@ export default function Car2Dashboard() {
             { href: "/register-client", label: "إضافة عميل" },
           ]}
         />
+
+        {pendingMovements.length > 0 && (
+          <div className="mb-4">
+            <p className="text-sm font-medium text-amber-700 mb-2">
+              بانتظار تأكيدك ({pendingMovements.length})
+            </p>
+            <div className="bg-white rounded-lg shadow divide-y border border-amber-200">
+              {pendingMovements.map((d) => (
+                <InventoryDocCard key={d.id} doc={d} />
+              ))}
+            </div>
+          </div>
+        )}
 
         <div className="mb-3">
           <StatusTabs value={statusFilter} onChange={setStatusFilter} counts={counts} />
