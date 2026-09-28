@@ -2,6 +2,7 @@ const { adminDb } = require("../../../lib/firebaseAdmin");
 const { requireUser, requireRole } = require("../../../lib/apiAuth");
 const { isValidRequestId } = require("../../../lib/requestId");
 const { createOnce } = require("../../../lib/idempotentCreate");
+const { bumpVersions } = require("../../../lib/versions");
 
 // Goods Received: factory/supplier deliveries into the depot. The
 // warehouse keeper logs what physically arrived (product + quantity)
@@ -76,6 +77,7 @@ export default async function handler(req, res) {
       { ownerField: "createdBy", ownerId: decoded.uid }
     );
 
+    if (!result.duplicate) await bumpVersions(["inventory"]);
     return res.status(result.duplicate ? 200 : 201).json({ id: docRef.id, duplicate: result.duplicate });
   } catch (err) {
     const status = err.statusCode || 500;

@@ -6,7 +6,8 @@ import PeriodTabs, { periodStartISO } from "../../components/PeriodTabs";
 import RequestCard from "../../components/RequestCard";
 import { PageLoading, SkeletonRows, Spinner } from "../../components/Loading";
 import { apiFetch } from "../../lib/apiFetch";
-import { cachedGet } from "../../lib/apiCache";
+import { cachedGet, invalidate } from "../../lib/apiCache";
+import { useLiveRefresh } from "../../lib/useLiveRefresh";
 
 const TABS = [
   ["pending", "بانتظار القرار"],
@@ -74,6 +75,11 @@ export default function RequestsPage() {
       setLoadingMore(false);
     }
   }
+
+  useLiveRefresh(token, ["requests"], () => {
+    invalidate("/api/requests");
+    load();
+  });
 
   if (loading) return <PageLoading />;
 

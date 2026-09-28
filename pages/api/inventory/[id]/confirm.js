@@ -1,6 +1,7 @@
 const { adminDb } = require("../../../../lib/firebaseAdmin");
 const { requireUser } = require("../../../../lib/apiAuth");
 const { applyStockMovements } = require("../../../../lib/inventory");
+const { bumpVersions } = require("../../../../lib/versions");
 
 const ROLE_TO_ROUTE = {
   agent_car1: "car1",
@@ -41,6 +42,7 @@ export default async function handler(req, res) {
         return res.status(400).json({ error: "لا يمكن إلغاء حركة تمت بالفعل" });
       }
       await docRef.update({ status: "cancelled", finalizedAt: now, cancelledBy: decoded.uid });
+      await bumpVersions(["inventory"]);
       return res.status(200).json({ ok: true });
     }
 
@@ -69,6 +71,7 @@ export default async function handler(req, res) {
         agentConfirmedBy: decoded.uid,
         finalizedAt: now,
       });
+      await bumpVersions(["inventory"]);
       return res.status(200).json({ ok: true });
     }
 
@@ -96,6 +99,7 @@ export default async function handler(req, res) {
       });
     });
 
+    await bumpVersions(["inventory"]);
     return res.status(200).json({ ok: true });
   } catch (err) {
     const status = err.statusCode || 500;

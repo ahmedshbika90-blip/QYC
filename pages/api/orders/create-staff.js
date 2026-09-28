@@ -4,6 +4,7 @@ const { buildOrderFromItems, getActiveClient, calculateDeliveryDate } = require(
 const { applyStockMovements } = require("../../../lib/inventory");
 const { isValidRequestId } = require("../../../lib/requestId");
 const { stripCost } = require("../../../lib/invoiceLock");
+const { bumpVersions, ordersKey } = require("../../../lib/versions");
 
 const ROLE_TO_ROUTE = {
   agent_car1: "car1",
@@ -79,6 +80,7 @@ export default async function handler(req, res) {
       return res.status(200).json({ orderId: docRef.id, ...existing, items: stripCost(existing.items), duplicate: true });
     }
 
+    await bumpVersions([ordersKey(client.route)]);
     return res.status(201).json({
       orderId: docRef.id,
       clientId,

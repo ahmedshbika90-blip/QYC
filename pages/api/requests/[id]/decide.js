@@ -1,6 +1,7 @@
 const { admin, adminDb } = require("../../../../lib/firebaseAdmin");
 const { requireUser, requireRole } = require("../../../../lib/apiAuth");
 const { editItemsTx, cancelTx } = require("../../../../lib/invoiceChanges");
+const { bumpVersions, ordersKey } = require("../../../../lib/versions");
 
 const MAX_NOTE = 500;
 
@@ -35,11 +36,13 @@ export default async function handler(req, res) {
 
     const requestRef = adminDb.collection("changeRequests").doc(id);
     let outcome = null;
+    let route = null;
 
     await adminDb.runTransaction(async (tx) => {
       const snap = await tx.get(requestRef);
       if (!snap.exists) fail(404, "الطلب غير موجود");
       const request = snap.data();
+      route = request.route;
 
       const target = action === "approve" ? "approved" : "rejected";
       if (request.status === target) {
@@ -76,6 +79,7 @@ export default async function handler(req, res) {
       outcome = target;
     });
 
+    if (outcome !== "repeat") await bumpVersions(["requests", ordersKey(route)]);
     return res.status(200).json({ ok: true, status: outcome });
   } catch (err) {
     const status = err.statusCode || 500;

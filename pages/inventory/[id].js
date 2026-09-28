@@ -1,10 +1,12 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/router";
 import { useAuth } from "../../lib/useAuth";
 import Nav from "../../components/Nav";
 import { PageLoading, Spinner } from "../../components/Loading";
 import { apiFetch } from "../../lib/apiFetch";
 import { invalidate } from "../../lib/apiCache";
+import { useLiveRefresh } from "../../lib/useLiveRefresh";
+import { shareElementAsPdf } from "../../lib/sharePdf";
 import { formatDateTime } from "../../lib/labels";
 
 const TYPE_LABELS = {
@@ -27,6 +29,8 @@ export default function InventoryDocDetail() {
   const [disputeReason, setDisputeReason] = useState("");
   const [showDisputeBox, setShowDisputeBox] = useState(false);
   const [acting, setActing] = useState(false);
+  const [sharing, setSharing] = useState(false);
+  const docRef = useRef(null);
 
   useEffect(() => {
     if (!token || !id) return;
@@ -168,6 +172,21 @@ export default function InventoryDocDetail() {
     }
   }
 
+  useLiveRefresh(token, ["inventory"], fetchDoc);
+
+  async function shareDoc() {
+    setSharing(true);
+    setError("");
+    try {
+      const label = TYPE_LABELS[doc.type] || doc.type;
+      await shareElementAsPdf(docRef.current, { fileName: `${label}.pdf`, title: label });
+    } catch {
+      setError("تعذر إنشاء ملف المستند للمشاركة. حاول مرة أخرى.");
+    } finally {
+      setSharing(false);
+    }
+  }
+
   if (loading || fetching) return <PageLoading />;
 
   if (error && !doc) {
@@ -187,11 +206,29 @@ export default function InventoryDocDetail() {
   const canCancelMovement =
     role === "supervisor" && isMovement && ["pending", "disputed"].includes(doc.status);
 
+  const seqLabel = { 1: "الأول", 2: "الثاني", 3: "الثالث", 4: "الرابع", 5: "الخامس" };
+  const seqText =
+    isMovement && doc.dailySeq
+      ? `${doc.type === "loading" ? "التحميل" : "التفريغ"} ${seqLabel[doc.dailySeq] || `رقم ${doc.dailySeq}`} اليوم`
+      : null;
+
   return (
     <div className="min-h-screen bg-gray-50">
       <Nav role={role} logout={logout} />
       <div className="max-w-2xl mx-auto p-4 sm:p-8">
         <div className="bg-white rounded-lg shadow p-5 sm:p-6">
+          <div className="flex justify-end mb-2 no-pdf">
+            <button
+              onClick={shareDoc}
+              disabled={sharing}
+              className="text-sm bg-gray-900 text-white rounded-lg px-4 min-h-[44px] flex items-center gap-2 disabled:opacity-50"
+            >
+              {sharing && <Spinner className="w-4 h-4" />}
+              {sharing ? "جارٍ التجهيز..." : "مشاركة"}
+            </button>
+          </div>
+
+          <div ref={docRef} className="bg-white">
           <div className="flex justify-between items-start gap-2 mb-4">
             <div>
               <h1 className="text-xl font-semibold text-gray-800">
@@ -207,6 +244,7 @@ export default function InventoryDocDetail() {
                   {doc.type === "loading" ? "من المخزن إلى السيارة" : "من السيارة إلى المخزن"}
                 </p>
               )}
+              {seqText && <p className="text-xs text-gray-500 mt-0.5 font-medium">{seqText}</p>}
               <p className="text-xs text-gray-400 mt-1">{formatDateTime(doc.createdAt)}</p>
             </div>
             <span
@@ -264,9 +302,11 @@ export default function InventoryDocDetail() {
             </div>
           )}
 
+          </div>
+
           {/* Goods received approval — supervisor only */}
           {canReviewReceived && (
-            <div className="mt-6 border-t pt-4">
+            <div className="mt-6 border-t pt-4 no-pdf">
               <p className="text-sm text-gray-600 mb-3">
                 أدخل سعر المورد للوحدة قبل الاعتماد (اختياري لكل منتج):
               </p>
@@ -310,7 +350,7 @@ export default function InventoryDocDetail() {
 
           {/* Loading/offloading confirmation — the matching car agent only */}
           {canConfirmMovement && (
-            <div className="mt-6 border-t pt-4">
+            <div className="mt-6 border-t pt-4 no-pdf">
               <p className="text-sm text-gray-600 mb-3">
                 تأكد من مطابقة الكميات أعلاه لما استلمته/سلّمته فعليًا.
               </p>
@@ -364,7 +404,7 @@ export default function InventoryDocDetail() {
 
           {/* Supervisor can cancel a stuck pending/disputed movement */}
           {canCancelMovement && (
-            <div className="mt-6 border-t pt-4">
+            <div className="mt-6 border-t pt-4 no-pdf">
               <button
                 onClick={handleCancelMovement}
                 disabled={acting}

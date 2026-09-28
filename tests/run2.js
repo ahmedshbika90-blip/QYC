@@ -24,6 +24,45 @@ eval(header + `
   assert.strictEqual(Object.keys(db._data.clients).length, 1);
   assert.strictEqual((await get("meta", "clientIdCounter")).value, 1000);
   ok("client registration: repeat returns same client " + a.json.clientId + ", no wasted ID");
+  // 3. Daily sequence numbering: independent per car, per type, per day.
+  // Reads the actual starting point first — an earlier test in this file
+  // already created one car1/loading document, so the counter isn't
+  // necessarily at zero; what matters is that it counts up correctly and
+  // stays independent per (car, type) from wherever it currently is.
+  const car1LoadStart = (await call("pages/api/inventory/next-seq.js", { ...WK, query: { route: "car1", type: "loading" } })).json.next;
+  const car1OffStart = (await call("pages/api/inventory/next-seq.js", { ...WK, query: { route: "car1", type: "offloading" } })).json.next;
+  const car2LoadStart = (await call("pages/api/inventory/next-seq.js", { ...WK, query: { route: "car2", type: "loading" } })).json.next;
+
+  const l1 = await call("pages/api/inventory/movement.js", { method: "POST", ...WK, body: { type: "loading", route: "car1", items: [{ productId: "p1", qty: 1 }], requestId: "req-seq-00000001" } });
+  const l2 = await call("pages/api/inventory/movement.js", { method: "POST", ...WK, body: { type: "loading", route: "car1", items: [{ productId: "p1", qty: 1 }], requestId: "req-seq-00000002" } });
+  const off1 = await call("pages/api/inventory/movement.js", { method: "POST", ...WK, body: { type: "offloading", route: "car1", items: [{ productId: "p1", qty: 1 }], requestId: "req-seq-00000003" } });
+  const otherCar = await call("pages/api/inventory/movement.js", { method: "POST", ...WK, body: { type: "loading", route: "car2", items: [{ productId: "p1", qty: 1 }], requestId: "req-seq-00000004" } });
+  assert.deepStrictEqual([l1.json.dailySeq, l2.json.dailySeq], [car1LoadStart, car1LoadStart + 1]);
+  assert.strictEqual(off1.json.dailySeq, car1OffStart); // offloading counted separately from loading
+  assert.strictEqual(otherCar.json.dailySeq, car2LoadStart); // car2 counted separately from car1
+  const dup = await call("pages/api/inventory/movement.js", { method: "POST", ...WK, body: { type: "loading", route: "car1", items: [{ productId: "p1", qty: 1 }], requestId: "req-seq-00000001" } });
+  assert.strictEqual(dup.json.dailySeq, car1LoadStart); // repeat returns the original number, doesn't consume a new one
+  const nxt = await call("pages/api/inventory/next-seq.js", { ...WK, query: { route: "car1", type: "loading" } });
+  assert.strictEqual(nxt.json.next, car1LoadStart + 2);
+  ok("daily sequence counts up correctly, stays independent per car+type, repeat doesn't burn a number");
+
+  // 4. Version counters bump on real changes only — this is what drives
+  // near-live updates (lib/useLiveRefresh.js) without opening Firestore to
+  // the browser.
+  const v0 = (await call("pages/api/versions.js", SUP)).json.versions;
+  // Reuses the client "a" registered earlier in this file (route car1) —
+  // client "1000" doesn't exist in THIS file's database (it belongs to
+  // run.js's separate one), so using it here would silently 404.
+  const ord = await call("pages/api/orders/create-staff.js", { method: "POST", ...A1, body: { clientId: a.json.clientId, items: [{ productId: "p1", qty: 1 }], requestId: "req-ver-00000001" } });
+  assert.strictEqual(ord.status, 201, JSON.stringify(ord.json));
+  const v1 = (await call("pages/api/versions.js", SUP)).json.versions;
+  assert.strictEqual(v1.orders_car1, v0.orders_car1 + 1);
+  assert.strictEqual(v1.requests, v0.requests); // unrelated area untouched
+  await call("pages/api/inventory/movement.js", { method: "POST", ...WK, body: { type: "loading", route: "car1", items: [{ productId: "p1", qty: 1 }], requestId: "req-ver-00000002" } });
+  const v2 = (await call("pages/api/versions.js", SUP)).json.versions;
+  assert.strictEqual(v2.inventory, v0.inventory + 1);
+  ok("version counters bump only their own area, so polling clients refetch only what actually changed");
+
   console.log("ALL EXTRA SCENARIOS PASSED");
 })().catch((e) => { console.error("FAIL:", e.message); process.exit(1); });
 `);

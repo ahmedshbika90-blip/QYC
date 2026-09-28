@@ -1,7 +1,8 @@
 const { adminDb } = require("../../../lib/firebaseAdmin");
 const { requireUser, requireRole } = require("../../../lib/apiAuth");
 const { isValidRequestId } = require("../../../lib/requestId");
-const { createOnce } = require("../../../lib/idempotentCreate");
+const { businessDay } = require("../../../lib/businessDay");
+const { bumpVersions } = require("../../../lib/versions");
 
 // Loading: depot -> car (a van heading out for the day/trip).
 // Offloading: car -> depot (unsold stock coming back).
@@ -62,9 +63,27 @@ export default async function handler(req, res) {
     const docRef = adminDb.collection("inventoryDocs").doc(requestId);
     const now = new Date().toISOString();
 
-    const result = await createOnce(
-      docRef,
-      {
+    // Daily number ("first / second / third loading of the day") per car
+    // and type, assigned in the same transaction that creates the document
+    // — two documents created at the same moment can never share a number.
+    // A repeated submission (weak connection) returns the original.
+    const day = businessDay();
+    const counterRef = adminDb.collection("dailyCounters").doc(`${route}_${type}_${day}`);
+    let result;
+    await adminDb.runTransaction(async (tx) => {
+      const [existing, counter] = await Promise.all([tx.get(docRef), tx.get(counterRef)]);
+      if (existing.exists) {
+        if (existing.data().createdBy !== decoded.uid) {
+          const err = new Error("تعارض في رقم الطلب، يرجى المحاولة مرة أخرى");
+          err.statusCode = 409;
+          throw err;
+        }
+        result = { duplicate: true, dailySeq: existing.data().dailySeq };
+        return;
+      }
+      const dailySeq = (counter.exists ? counter.data().value : 0) + 1;
+      tx.set(counterRef, { value: dailySeq, route, type, day });
+      tx.set(docRef, {
         type,
         route,
         items: resolvedItems,
@@ -72,17 +91,22 @@ export default async function handler(req, res) {
         createdBy: decoded.uid,
         createdByRole: "warehouse_keeper",
         createdAt: now,
+        businessDay: day,
+        dailySeq,
         warehouseKeeperNote: note || "",
         agentConfirmed: false,
         agentConfirmedAt: null,
         agentConfirmedBy: null,
         disputeReason: null,
         finalizedAt: null,
-      },
-      { ownerField: "createdBy", ownerId: decoded.uid }
-    );
+      });
+      result = { duplicate: false, dailySeq };
+    });
 
-    return res.status(result.duplicate ? 200 : 201).json({ id: docRef.id, duplicate: result.duplicate });
+    if (!result.duplicate) await bumpVersions(["inventory"]);
+    return res
+      .status(result.duplicate ? 200 : 201)
+      .json({ id: docRef.id, dailySeq: result.dailySeq, duplicate: result.duplicate });
   } catch (err) {
     const status = err.statusCode || 500;
     return res.status(status).json({ error: err.message });

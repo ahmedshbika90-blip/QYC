@@ -6,6 +6,7 @@ import InventoryHistory from "../../components/InventoryHistory";
 import { PageLoading } from "../../components/Loading";
 import { apiFetch } from "../../lib/apiFetch";
 import { cachedGet } from "../../lib/apiCache";
+import { useLiveRefresh } from "../../lib/useLiveRefresh";
 
 // Supervisor oversight: everything awaiting action on top (goods received
 // needing approval, loading/offloading awaiting an agent), then the full
@@ -20,6 +21,10 @@ export default function InventoryPage() {
       .then((d) => setPending(d.docs))
       .catch(() => {});
   }, [token]);
+
+  useLiveRefresh(token, ["inventory"], () => {
+    cachedGet(apiFetch, "/api/inventory/list?status=pending", token).then((d) => setPending(d.docs)).catch(() => {});
+  });
 
   if (loading) return <PageLoading />;
 

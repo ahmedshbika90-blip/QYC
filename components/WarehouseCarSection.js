@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { useAuth } from "../lib/useAuth";
 import Nav from "./Nav";
 import ProductCartPicker from "./ProductCartPicker";
@@ -9,6 +10,8 @@ import { invalidate } from "../lib/apiCache";
 import { useRequestId } from "../lib/useRequestId";
 
 const CAR_LABEL = { car1: "السيارة ١", car2: "السيارة ٢" };
+const ORDINAL = { 1: "الأول", 2: "الثاني", 3: "الثالث", 4: "الرابع", 5: "الخامس" };
+const ordinal = (n) => ORDINAL[n] || `رقم ${n}`;
 
 // One car's section for the warehouse keeper: create a loading/offloading
 // document for this car, and see this car's movement history. Stock only
@@ -23,7 +26,21 @@ export default function WarehouseCarSection({ route }) {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [reloadKey, setReloadKey] = useState(0);
+  const [nextSeq, setNextSeq] = useState(null);
+  const [justCreated, setJustCreated] = useState(null); // { id, dailySeq }
   const requestIds = useRequestId();
+
+  // "This will be the Nth loading/offloading today" — one small read,
+  // refreshed whenever the type toggle changes or a document is created.
+  useEffect(() => {
+    if (!token) return;
+    apiFetch(`/api/inventory/next-seq?route=${route}&type=${type}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then((r) => r.json())
+      .then((d) => setNextSeq(d.next))
+      .catch(() => setNextSeq(null));
+  }, [token, route, type, reloadKey]);
 
   useEffect(() => {
     if (!token) return;
@@ -63,7 +80,10 @@ export default function WarehouseCarSection({ route }) {
       requestIds.reset();
       setCart([]);
       setNote("");
-      setSuccess("تم الإرسال — بانتظار تأكيد المندوب.");
+      setSuccess(
+        `تم الإرسال (${data.type === "loading" ? "التحميل" : "التفريغ"} ${ordinal(data.dailySeq)} اليوم) — بانتظار تأكيد المندوب.`
+      );
+      setJustCreated({ id: data.id, dailySeq: data.dailySeq });
       invalidate("/api/inventory");
       setReloadKey((k) => k + 1);
     } catch (err) {
@@ -104,6 +124,12 @@ export default function WarehouseCarSection({ route }) {
             ))}
           </div>
 
+          {nextSeq != null && (
+            <p className="text-xs text-gray-500">
+              سيكون هذا {type === "loading" ? "التحميل" : "التفريغ"} {ordinal(nextSeq)} لهذه السيارة اليوم.
+            </p>
+          )}
+
           <ProductCartPicker
             products={products}
             cart={cart}
@@ -120,7 +146,16 @@ export default function WarehouseCarSection({ route }) {
           />
 
           {error && <p className="text-red-600 text-sm">{error}</p>}
-          {success && <p className="text-green-700 text-sm">{success}</p>}
+          {success && (
+            <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+              <p className="text-green-700 text-sm">{success}</p>
+              {justCreated && (
+                <Link href={`/inventory/${justCreated.id}`} className="text-sm text-green-800 underline">
+                  فتح المستند ومشاركته ←
+                </Link>
+              )}
+            </div>
+          )}
 
           <button
             type="submit"

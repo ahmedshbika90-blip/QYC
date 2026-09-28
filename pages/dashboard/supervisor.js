@@ -10,6 +10,7 @@ import Link from "next/link";
 import { PageLoading, SkeletonRows, Spinner } from "../../components/Loading";
 import { apiFetch } from "../../lib/apiFetch";
 import { cachedGet, invalidate } from "../../lib/apiCache";
+import { useLiveRefresh } from "../../lib/useLiveRefresh";
 import { getClients } from "../../lib/clientsStore";
 import { formatDate } from "../../lib/labels";
 
@@ -134,6 +135,11 @@ export default function SupervisorDashboard() {
   const totalRevenue = visible
     .filter((o) => o.status !== "cancelled")
     .reduce((sum, o) => sum + (o.total || 0), 0);
+
+  useLiveRefresh(token, ["orders_car1", "orders_car2", "requests"], () => {
+    invalidate("/api/orders/list");
+    fetchAll();
+  });
 
   if (loading) return <PageLoading />;
 

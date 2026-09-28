@@ -14,13 +14,25 @@ rules_version = '2';
 // prices. With deny-all, the API (with its role checks, validation, stock
 // transactions, and field stripping) is the only way in.
 //
-// If a future feature ever needs direct browser access (e.g. real-time
-// listeners), open ONLY that specific collection with a narrow read rule
-// — never broad write rules.
+// Real-time listeners follow that rule: ONLY meta/versions is readable,
+// read-only (see below). Any future exception must be just as narrow —
+// never broad write rules, never business data.
 service cloud.firestore {
   match /databases/{database}/documents {
     match /{document=**} {
       allow read, write: if false;
+    }
+
+    // The single exception: live change counters for real-time refresh
+    // (lib/liveVersions.js). Holds plain numbers only — "orders_car1: 42" —
+    // no names, prices, or order data; the same values GET /api/versions
+    // already returns to any signed-in staff member.
+    //   - get only: no list (can't enumerate /meta, which also holds
+    //     clientIdCounter), and never write — only the Admin SDK bumps these.
+    //   - signed in AND holding a staff role claim, same bar as the API.
+    match /meta/versions {
+      allow get: if request.auth != null
+        && request.auth.token.role in ['agent_car1', 'agent_car2', 'supervisor', 'warehouse_keeper'];
     }
   }
 }

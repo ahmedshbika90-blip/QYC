@@ -10,6 +10,7 @@ import InventoryDocCard from "../../components/InventoryDocCard";
 import { PageLoading, SkeletonRows, Spinner } from "../../components/Loading";
 import { apiFetch } from "../../lib/apiFetch";
 import { cachedGet, invalidate } from "../../lib/apiCache";
+import { useLiveRefresh } from "../../lib/useLiveRefresh";
 import { getClients } from "../../lib/clientsStore";
 import { formatDateTime } from "../../lib/labels";
 
@@ -132,6 +133,12 @@ export default function Car1Dashboard() {
         : baseFiltered.filter((o) => o.status !== "cancelled"),
     [baseFiltered, statusFilter]
   );
+
+  useLiveRefresh(token, ["orders_car1", "inventory"], () => {
+    invalidate("/api/orders/list");
+    invalidate("/api/inventory");
+    fetchAll();
+  });
 
   if (loading) return <PageLoading />;
 

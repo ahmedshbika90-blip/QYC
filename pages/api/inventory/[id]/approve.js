@@ -1,6 +1,7 @@
 const { adminDb } = require("../../../../lib/firebaseAdmin");
 const { requireUser, requireRole } = require("../../../../lib/apiAuth");
 const { applyStockMovements } = require("../../../../lib/inventory");
+const { bumpVersions } = require("../../../../lib/versions");
 
 // Only the supervisor can approve a Goods Received document — this is
 // the actual gate that moves stock. Quantities are never re-trusted from
@@ -48,6 +49,7 @@ export default async function handler(req, res) {
         confirmedBy: decoded.uid,
         finalizedAt: now,
       });
+      await bumpVersions(["inventory"]);
       return res.status(200).json({ ok: true });
     }
 
@@ -103,6 +105,7 @@ export default async function handler(req, res) {
       });
     });
 
+    await bumpVersions(["inventory"]);
     return res.status(200).json({ ok: true });
   } catch (err) {
     const status = err.statusCode || 500;

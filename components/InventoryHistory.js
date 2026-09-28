@@ -4,6 +4,7 @@ import FilterPanel from "./FilterPanel";
 import { SkeletonRows, Spinner } from "./Loading";
 import { apiFetch } from "../lib/apiFetch";
 import { cachedGet } from "../lib/apiCache";
+import { useLiveRefresh } from "../lib/useLiveRefresh";
 
 // Filterable, date-windowed, paginated inventory history. Used by several
 // pages with different fixed scopes:
@@ -48,6 +49,8 @@ export default function InventoryHistory({
     if (cursor) p.set("cursor", cursor);
     return `/api/inventory/list?${p.toString()}`;
   }
+
+  useLiveRefresh(token, ["inventory"], load);
 
   useEffect(() => {
     if (!token) return;

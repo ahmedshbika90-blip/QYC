@@ -3,6 +3,7 @@ const { requireUser, requireRole } = require("../../../lib/apiAuth");
 const { buildOrderFromItems } = require("../../../lib/orderCreation");
 const { isLocked } = require("../../../lib/invoiceLock");
 const { isValidRequestId } = require("../../../lib/requestId");
+const { bumpVersions, ordersKey } = require("../../../lib/versions");
 
 const ROLE_TO_ROUTE = { agent_car1: "car1", agent_car2: "car2" };
 const MAX_REASON = 500;
@@ -98,6 +99,7 @@ export default async function handler(req, res) {
       tx.update(orderRef, { pendingRequest: { id: requestId, type, requestedAt: now } });
     });
 
+    await bumpVersions(["requests", ordersKey(order.route)]);
     return res.status(201).json({ id: requestId });
   } catch (err) {
     const status = err.statusCode || 500;

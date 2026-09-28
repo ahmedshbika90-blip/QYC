@@ -2,6 +2,7 @@ const { adminDb } = require("../../../lib/firebaseAdmin");
 const { requireUser } = require("../../../lib/apiAuth");
 const { fetchReportOrders } = require("../../../lib/reportQuery");
 const { isValidRequestId } = require("../../../lib/requestId");
+const { bumpVersions, ordersKey } = require("../../../lib/versions");
 
 const BATCH_LIMIT = 400; // Firestore allows 500 writes per batch
 
@@ -51,6 +52,7 @@ export default async function handler(req, res) {
       newlyLocked: toLock.length,
     });
 
+    await bumpVersions([...new Set(toLock.map((o) => o.route))].map(ordersKey));
     return res.status(200).json({ locked: toLock.length });
   } catch (err) {
     const status = err.statusCode || 500;

@@ -232,3 +232,25 @@ estimate). Cost data is supervisor-only in every API response.
 ## Tests
 `npm test` runs the real API handlers against an in-memory database that
 enforces Firestore's transaction rules (tests/). No Firebase needed.
+
+## Near-live updates (no reload needed)
+Open screens ask "did anything change?" every 20 seconds (and the moment
+the tab regains focus) — one small read via `/api/versions`, regardless of
+how much data exists. Only when the answer is yes does the screen
+re-download its real data. This is deliberately NOT a live Firestore
+listener: that would mean the browser reading the database directly,
+which the deny-all security rules exist specifically to prevent. Areas:
+`orders_car1`, `orders_car2`, `requests`, `inventory`, `clients` — each
+bumped only by the actions that actually touch it (see lib/versions.js).
+
+## Warehouse: sharing & daily numbering
+Every inventory document (goods received, loading, offloading) can be
+shared as a PDF from its detail page — same underlying capture logic as
+the sales report (lib/sharePdf.js), with action buttons excluded from the
+image. Loading and offloading are numbered per car per day in Sudan's time
+zone ("this will be the 3rd loading today"), shown on the creation form
+before submitting and after, on the document itself, and on its card in
+every list. Numbering is assigned inside the same transaction that creates
+the document, so two near-simultaneous submissions can never receive the
+same number, and a retried (duplicate) submission returns its original
+number rather than consuming a new one.

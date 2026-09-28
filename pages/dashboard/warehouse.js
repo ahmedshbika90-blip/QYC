@@ -7,6 +7,7 @@ import InventoryHistory from "../../components/InventoryHistory";
 import { PageLoading } from "../../components/Loading";
 import { apiFetch } from "../../lib/apiFetch";
 import { cachedGet } from "../../lib/apiCache";
+import { useLiveRefresh } from "../../lib/useLiveRefresh";
 
 // Warehouse keeper's main page: shortcuts to the three working sections,
 // everything still awaiting someone's action (agent confirmation or
@@ -21,6 +22,10 @@ export default function WarehouseDashboard() {
       .then((d) => setPending(d.docs))
       .catch(() => {});
   }, [token]);
+
+  useLiveRefresh(token, ["inventory"], () => {
+    cachedGet(apiFetch, "/api/inventory/list?status=pending", token).then((d) => setPending(d.docs)).catch(() => {});
+  });
 
   if (loading) return <PageLoading />;
 

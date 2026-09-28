@@ -8,6 +8,7 @@ const TYPE_LABELS = {
 };
 
 const MAX_PREVIEW = 3;
+const ORDINAL = { 1: "الأول", 2: "الثاني", 3: "الثالث", 4: "الرابع", 5: "الخامس" };
 
 // Names only, sorted by quantity descending (the product with the most
 // moved shows first) — no numbers here, the point is a quick glance, not
@@ -25,6 +26,9 @@ export default function InventoryDocCard({ doc }) {
         <div className="min-w-0">
           <p className="font-medium text-gray-800">
             {TYPE_LABELS[doc.type] || doc.type}
+            {doc.dailySeq && (
+              <span className="text-xs font-normal text-gray-500 ms-1">({ORDINAL[doc.dailySeq] || doc.dailySeq})</span>
+            )}
             {doc.route && (
               <span className="text-xs font-normal text-gray-400 ms-2">
                 {doc.route === "car1" ? "السيارة ١" : "السيارة ٢"}

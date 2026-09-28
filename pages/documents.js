@@ -6,6 +6,7 @@ import InventoryHistory from "../components/InventoryHistory";
 import { PageLoading } from "../components/Loading";
 import { apiFetch } from "../lib/apiFetch";
 import { cachedGet } from "../lib/apiCache";
+import { useLiveRefresh } from "../lib/useLiveRefresh";
 
 const HOME = { agent_car1: "/dashboard/car1", agent_car2: "/dashboard/car2" };
 
@@ -23,6 +24,10 @@ export default function Documents() {
       .then((d) => setPendingCount(d.docs.length))
       .catch(() => {});
   }, [token]);
+
+  useLiveRefresh(token, ["inventory"], () => {
+    cachedGet(apiFetch, "/api/inventory/list?status=pending", token).then((d) => setPendingCount(d.docs.length)).catch(() => {});
+  });
 
   if (loading) return <PageLoading />;
 

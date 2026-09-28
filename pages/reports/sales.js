@@ -5,6 +5,7 @@ import { PageLoading, Spinner } from "../../components/Loading";
 import { apiFetch } from "../../lib/apiFetch";
 import { invalidate } from "../../lib/apiCache";
 import { useRequestId } from "../../lib/useRequestId";
+import { shareElementAsPdf } from "../../lib/sharePdf";
 import { ROUTE_LABELS, formatDate } from "../../lib/labels";
 
 export default function SalesReport() {
@@ -87,95 +88,11 @@ export default function SalesReport() {
       return;
     }
 
-    // The on-screen table scrolls horizontally when there are many product
-    // columns — capturing it as-is only grabs whatever portion happens to
-    // be visible, cropping the rest. Earlier attempts widened the REAL,
-    // visible table in place to work around that — which fixed the
-    // cropping but caused a visible layout glitch and left the page's
-    // scroll position stuck oddly, since the actual on-screen content was
-    // being resized live. Instead, this clones the report into an
-    // invisible off-screen copy, widens *that* to its full content width
-    // (measured via scrollWidth, and set as an explicit pixel value —
-    // "max-content" conflicts with the table's own w-full class and
-    // silently fails), captures the clone, then discards it. The real
-    // page is never touched, so there's nothing to glitch or restore.
-    const source = reportRef.current;
-    let fullWidth = source.scrollWidth;
-    source.querySelectorAll(".overflow-x-auto").forEach((el) => {
-      fullWidth = Math.max(fullWidth, el.scrollWidth);
-    });
-
-    let clone;
     try {
-      const [{ default: html2canvas }, { jsPDF }] = await Promise.all([
-        import("html2canvas"),
-        import("jspdf"),
-      ]);
-
-      clone = source.cloneNode(true);
-      clone.style.position = "fixed";
-      clone.style.top = "0";
-      clone.style.insetInlineStart = "-99999px";
-      clone.style.width = `${fullWidth}px`;
-      clone.querySelectorAll(".overflow-x-auto").forEach((el) => {
-        el.style.overflow = "visible";
-        el.style.width = `${fullWidth}px`;
-      });
-      // html2canvas doesn't reliably support position:sticky — it can
-      // render the sticky column at the wrong horizontal offset entirely,
-      // which is what was causing the broken/split-looking exports. The
-      // sticky behavior only matters for on-screen scrolling anyway; in
-      // the clone the whole table is already unclipped and fully visible,
-      // so it's simply not needed there.
-      clone.querySelectorAll(".sticky").forEach((el) => {
-        el.classList.remove("sticky", "start-0", "z-10");
-        el.style.position = "static";
-      });
-      document.body.appendChild(clone);
-
-      const canvas = await html2canvas(clone, {
-        scale: 2,
-        backgroundColor: "#ffffff",
-        width: fullWidth,
-        windowWidth: fullWidth,
-      });
-      const imgData = canvas.toDataURL("image/png");
-
-      // The page is sized to the content plus a margin on every side —
-      // without this, the PDF page exactly matches the image and the
-      // report ends up looking like a tightly-cropped screenshot rather
-      // than a page, with the table touching the edges.
-      const margin = 80; // px, at the same 2x scale as the capture
-      const pageWidth = canvas.width + margin * 2;
-      const pageHeight = canvas.height + margin * 2;
-
-      const pdf = new jsPDF({
-        orientation: pageWidth > pageHeight ? "l" : "p",
-        unit: "px",
-        format: [pageWidth, pageHeight],
-      });
-      pdf.addImage(imgData, "PNG", margin, margin, canvas.width, canvas.height);
-      const blob = pdf.output("blob");
-      const file = new File([blob], "تقرير-المبيعات.pdf", { type: "application/pdf" });
-
-      if (navigator.canShare && navigator.canShare({ files: [file] })) {
-        await navigator.share({ files: [file], title: "تقرير المبيعات" });
-      } else {
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = "تقرير-المبيعات.pdf";
-        a.click();
-        URL.revokeObjectURL(url);
-      }
-    } catch (err) {
-      if (err.name !== "AbortError") {
-        // AbortError just means the person closed the share sheet without
-        // picking anything — not a real failure, nothing to show for it.
-        setError("تعذر إنشاء ملف التقرير للمشاركة. حاول مرة أخرى.");
-      }
+      await shareElementAsPdf(reportRef.current, { fileName: "تقرير-المبيعات.pdf", title: "تقرير المبيعات" });
+    } catch {
+      setError("تم قفل الفواتير، لكن تعذر إنشاء ملف التقرير للمشاركة. حاول المشاركة مرة أخرى.");
     } finally {
-      if (clone) clone.remove();
       setSharing(false);
     }
   }

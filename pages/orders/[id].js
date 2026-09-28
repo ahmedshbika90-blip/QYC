@@ -6,6 +6,7 @@ import QtyStepper from "../../components/QtyStepper";
 import { PageLoading, Spinner } from "../../components/Loading";
 import { apiFetch } from "../../lib/apiFetch";
 import { invalidate } from "../../lib/apiCache";
+import { useLiveRefresh } from "../../lib/useLiveRefresh";
 import { formatDate, formatDateTime } from "../../lib/labels";
 import { useRequestId } from "../../lib/useRequestId";
 
@@ -219,6 +220,10 @@ export default function OrderDetail() {
       setSavingItems(false);
     }
   }
+
+  // Watches this invoice's own route so a supervisor's decision on a
+  // change request (or any other edit) shows up here without a reload.
+  useLiveRefresh(token, order ? [`orders_${order.route}`] : [], fetchOrder);
 
   if (loading || fetching || !order) return <PageLoading />;
 

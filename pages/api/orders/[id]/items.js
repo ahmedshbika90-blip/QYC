@@ -2,6 +2,7 @@ const { adminDb } = require("../../../../lib/firebaseAdmin");
 const { requireUser } = require("../../../../lib/apiAuth");
 const { editItemsTx } = require("../../../../lib/invoiceChanges");
 const { isLocked, stripCost } = require("../../../../lib/invoiceLock");
+const { bumpVersions, ordersKey } = require("../../../../lib/versions");
 
 const ROLE_TO_ROUTE = {
   agent_car1: "car1",
@@ -42,6 +43,7 @@ export default async function handler(req, res) {
     }
 
     const result = await adminDb.runTransaction((tx) => editItemsTx(tx, orderRef, items, decoded.uid));
+    if (result.changed) await bumpVersions([ordersKey(order.route)]);
 
     return res.status(200).json({
       ok: true,

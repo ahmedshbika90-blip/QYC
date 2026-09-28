@@ -6,6 +6,7 @@ import Nav from "../../components/Nav";
 import { PageLoading, Spinner } from "../../components/Loading";
 import { apiFetch } from "../../lib/apiFetch";
 import { invalidate } from "../../lib/apiCache";
+import { useLiveRefresh } from "../../lib/useLiveRefresh";
 import { formatDateTime } from "../../lib/labels";
 
 function ItemsTable({ title, items, total, tone = "gray" }) {
@@ -87,6 +88,8 @@ export default function RequestDetail() {
       setActing(false);
     }
   }
+
+  useLiveRefresh(token, ["requests"], load);
 
   if (loading || fetching) return <PageLoading />;
   if (!r) {
