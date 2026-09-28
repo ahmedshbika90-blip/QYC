@@ -26,6 +26,7 @@ export default function Login() {
       if (role === "agent_car1") router.push("/dashboard/car1");
       else if (role === "agent_car2") router.push("/dashboard/car2");
       else if (role === "supervisor") router.push("/dashboard/supervisor");
+      else if (role === "warehouse_keeper") router.push("/dashboard/warehouse");
       else setError("لا توجد صلاحية مرتبطة بهذا الحساب. يرجى التواصل مع الإدارة.");
     } catch (err) {
       setError("البريد الإلكتروني أو كلمة المرور غير صحيحة");

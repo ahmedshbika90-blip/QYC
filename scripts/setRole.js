@@ -9,7 +9,7 @@
 require("dotenv").config({ path: require("path").join(__dirname, "..", ".env.local") });
 const { adminAuth } = require("../lib/firebaseAdmin");
 
-const VALID_ROLES = ["agent_car1", "agent_car2", "supervisor"];
+const VALID_ROLES = ["agent_car1", "agent_car2", "supervisor", "warehouse_keeper"];
 
 async function main() {
   const [, , email, role] = process.argv;

@@ -11,7 +11,14 @@ export default async function handler(req, res) {
     requireRole(decoded, ["supervisor"]);
 
     const { id } = req.query;
-    const { name, unit, category, active, priceCar1, priceCar2 } = req.body || {};
+    const { name, unit, category, active, priceCar1, priceCar2, depotStock } = req.body || {};
+
+    const ref = adminDb.collection("products").doc(id);
+    const snap = await ref.get();
+    if (!snap.exists) {
+      return res.status(404).json({ error: "المنتج غير موجود" });
+    }
+    const product = snap.data();
 
     const updates = { updatedAt: new Date().toISOString(), updatedBy: decoded.uid };
     if (name !== undefined) updates.name = name;
@@ -20,14 +27,7 @@ export default async function handler(req, res) {
     if (active !== undefined) updates.active = Boolean(active);
 
     if (priceCar1 !== undefined || priceCar2 !== undefined) {
-      const ref = adminDb.collection("products").doc(id);
-      const snap = await ref.get();
-      if (!snap.exists) {
-        return res.status(404).json({ error: "المنتج غير موجود" });
-      }
-      const current = snap.data().prices || {};
-      const nextPrices = { ...current };
-
+      const nextPrices = { ...(product.prices || {}) };
       if (priceCar1 !== undefined) {
         const n = Number(priceCar1);
         if (Number.isNaN(n) || n < 0) {
@@ -43,14 +43,21 @@ export default async function handler(req, res) {
         nextPrices.car2 = n;
       }
       updates.prices = nextPrices;
-      await ref.update(updates);
-      return res.status(200).json({ ok: true });
     }
 
-    const ref = adminDb.collection("products").doc(id);
-    const snap = await ref.get();
-    if (!snap.exists) {
-      return res.status(404).json({ error: "المنتج غير موجود" });
+    // Depot stock can be corrected directly by the supervisor (e.g. an
+    // opening balance for a product that existed before inventory
+    // tracking was turned on, or fixing a real-world count mismatch).
+    // car1/car2 stock is deliberately NOT editable here — those only ever
+    // change through a confirmed Loading/Offloading document, so there's
+    // always a clear record of how stock moved between the depot and a
+    // car, rather than a silent manual override.
+    if (depotStock !== undefined) {
+      const n = Number(depotStock);
+      if (Number.isNaN(n) || n < 0) {
+        return res.status(400).json({ error: "رصيد المخزن يجب أن يكون رقمًا موجبًا" });
+      }
+      updates["stock.depot"] = n;
     }
 
     await ref.update(updates);

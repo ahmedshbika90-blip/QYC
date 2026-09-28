@@ -4,7 +4,7 @@ import Nav from "../components/Nav";
 import { PageLoading, SkeletonRows, Spinner } from "../components/Loading";
 import { apiFetch } from "../lib/apiFetch";
 
-const emptyForm = { name: "", category: "", unit: "", priceCar1: "", priceCar2: "" };
+const emptyForm = { name: "", category: "", unit: "", priceCar1: "", priceCar2: "", depotStock: "" };
 
 export default function Products() {
   const { role, token, loading, logout } = useAuth();
@@ -53,7 +53,7 @@ export default function Products() {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify(addForm),
+        body: JSON.stringify({ ...addForm, openingStock: addForm.depotStock }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
@@ -74,6 +74,7 @@ export default function Products() {
       unit: product.unit,
       priceCar1: product.prices?.car1 ?? "",
       priceCar2: product.prices?.car2 ?? "",
+      depotStock: product.stock?.depot ?? 0,
     });
   }
 
@@ -187,6 +188,14 @@ export default function Products() {
               className="border rounded-lg px-3 h-12 text-base"
               required
             />
+            <input
+              type="number"
+              min="0"
+              placeholder="الرصيد الافتتاحي بالمخزن (اختياري)"
+              value={addForm.depotStock}
+              onChange={(e) => setAddForm({ ...addForm, depotStock: e.target.value })}
+              className="border rounded-lg px-3 h-12 text-base sm:col-span-2"
+            />
             <button
               type="submit"
               disabled={submitting}
@@ -246,6 +255,14 @@ export default function Products() {
                     className="border rounded-lg px-3 h-12 text-base"
                     placeholder="سعر السيارة ٢"
                   />
+                  <input
+                    type="number"
+                    min="0"
+                    value={editForm.depotStock}
+                    onChange={(e) => setEditForm({ ...editForm, depotStock: e.target.value })}
+                    className="border rounded-lg px-3 h-12 text-base sm:col-span-2"
+                    placeholder="رصيد المخزن"
+                  />
                   <div className="sm:col-span-2 flex gap-2">
                     <button
                       onClick={() => saveEdit(p.id)}
@@ -276,6 +293,9 @@ export default function Products() {
                       السيارة ١: <span className="font-medium">{p.prices?.car1 ?? "—"}</span>
                       {"  ·  "}
                       السيارة ٢: <span className="font-medium">{p.prices?.car2 ?? "—"}</span>
+                    </p>
+                    <p className="text-xs text-gray-400 mt-0.5">
+                      المخزن: {p.stock?.depot ?? 0} · السيارة ١: {p.stock?.car1 ?? 0} · السيارة ٢: {p.stock?.car2 ?? 0}
                     </p>
                   </div>
                   {isSupervisor && (

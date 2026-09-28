@@ -8,6 +8,7 @@ const ROLE_HOME = {
   agent_car1: "/dashboard/car1",
   agent_car2: "/dashboard/car2",
   supervisor: "/dashboard/supervisor",
+  warehouse_keeper: "/dashboard/warehouse",
 };
 
 export default function Home() {

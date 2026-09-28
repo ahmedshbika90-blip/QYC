@@ -23,12 +23,20 @@ export default async function handler(req, res) {
     const decoded = await requireUser(req);
     requireRole(decoded, ["supervisor"]);
 
-    const { name, unit, category, priceCar1, priceCar2 } = req.body || {};
+    const { name, unit, category, priceCar1, priceCar2, openingStock } = req.body || {};
 
     if (!name || !unit || priceCar1 === undefined || priceCar2 === undefined) {
       return res.status(400).json({
         error: "الاسم والوحدة وسعر كل سيارة كلها مطلوبة",
       });
+    }
+
+    let openingQty = 0;
+    if (openingStock !== undefined && openingStock !== null && openingStock !== "") {
+      openingQty = Number(openingStock);
+      if (Number.isNaN(openingQty) || openingQty < 0) {
+        return res.status(400).json({ error: "الرصيد الافتتاحي يجب أن يكون رقمًا موجبًا" });
+      }
     }
 
     const productDoc = {
@@ -39,6 +47,11 @@ export default async function handler(req, res) {
         car1: parsePrice(priceCar1, "سعر السيارة ١"),
         car2: parsePrice(priceCar2, "سعر السيارة ٢"),
       },
+      // Depot stock starts at the opening balance the supervisor sets on
+      // creation; car1/car2 stock always starts at 0 since goods only
+      // ever reach a car through a confirmed Loading document, never
+      // directly.
+      stock: { depot: openingQty, car1: 0, car2: 0 },
       active: true,
       createdAt: new Date().toISOString(),
       createdBy: decoded.uid,

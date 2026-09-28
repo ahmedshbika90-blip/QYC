@@ -44,6 +44,17 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // Inventory movements (goods received, loading, offloading). All
+    // reads/writes go through the Admin SDK server-side, same as orders —
+    // these rules are defense-in-depth in case client-side Firestore
+    // access is ever added later.
+    match /inventoryDocs/{docId} {
+      allow read: if isSupervisor() ||
+        role() == 'warehouse_keeper' ||
+        isAgentForRoute(resource.data.route);
+      allow write: if false;
+    }
+
     // Internal counter used to generate sequential 4-digit client IDs.
     // Only touched by the Admin SDK server-side — never directly by clients.
     match /meta/{docId} {

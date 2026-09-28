@@ -6,19 +6,27 @@ const ROLE_HOME = {
   agent_car1: "/dashboard/car1",
   agent_car2: "/dashboard/car2",
   supervisor: "/dashboard/supervisor",
+  warehouse_keeper: "/dashboard/warehouse",
 };
 
 export default function Nav({ role, logout }) {
   const router = useRouter();
 
-  const links = [
-    role && { href: ROLE_HOME[role], label: "الرئيسية" },
-    role !== "supervisor" && { href: "/place-order", label: "تسجيل فاتورة" },
-    { href: "/register-client", label: "إضافة عميل" },
-    { href: "/reports/sales", label: "تقرير المبيعات" },
-    { href: "/clients", label: "العملاء" },
-    { href: "/products", label: "المنتجات" },
-  ].filter(Boolean);
+  // Warehouse keeper only ever needs their one section (loading/offloading
+  // for both cars) — none of the sales-side pages (clients, products,
+  // reports) are relevant to that job, so their nav stays to just that.
+  const links =
+    role === "warehouse_keeper"
+      ? [{ href: "/dashboard/warehouse", label: "المخزن" }]
+      : [
+          role && { href: ROLE_HOME[role], label: "الرئيسية" },
+          role !== "supervisor" && { href: "/place-order", label: "تسجيل فاتورة" },
+          { href: "/register-client", label: "إضافة عميل" },
+          { href: "/reports/sales", label: "تقرير المبيعات" },
+          { href: "/clients", label: "العملاء" },
+          { href: "/products", label: "المنتجات" },
+          role === "supervisor" && { href: "/inventory", label: "المخزون" },
+        ].filter(Boolean);
 
   return (
     <nav className="bg-white border-b sticky top-0 z-20">
