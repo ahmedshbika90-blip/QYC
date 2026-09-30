@@ -102,7 +102,7 @@ export default function ShipmentRequestQueue() {
             <p className="text-green-700 text-sm">
               {justFulfilled.type === "offloading"
                 ? "تم تسجيل مرتجع البضاعة واستلامه في المخزن — لا حاجة لتأكيد إضافي."
-                : "تم إنشاء أمر الشحن — بانتظار تأكيد المندوب."}
+                : "تم إنشاء تسليم الشحنة — بانتظار تأكيد المندوب."}
             </p>
             <Link href={`/inventory/${justFulfilled.id}`} className="text-sm text-green-800 underline">
               فتح المستند ←

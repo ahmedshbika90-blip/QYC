@@ -10,32 +10,57 @@ import { PageLoading } from "../../components/Loading";
 import { apiFetch } from "../../lib/apiFetch";
 import { cachedGet } from "../../lib/apiCache";
 import { useLiveRefresh } from "../../lib/useLiveRefresh";
+import { formatDateTime } from "../../lib/labels";
 
 // Warehouse keeper's main page: shortcuts to the three working sections,
-// everything still awaiting someone's action (agent confirmation or
-// supervisor approval), then the full filterable movement history.
+// a live inbox of requests + documents that need HIS attention (new
+// shipment requests from agents come in here — previously the keeper had
+// to remember to open the shipment-requests page), and the full
+// filterable movement history.
 export default function WarehouseDashboard() {
   const { role, token, loading, logout } = useAuth(["warehouse_keeper"]);
   const [pending, setPending] = useState([]);
+  const [incomingReqs, setIncomingReqs] = useState([]);
+
+  async function refresh() {
+    if (!token) return;
+    try {
+      const [pendingData, reqData] = await Promise.all([
+        cachedGet(apiFetch, "/api/inventory/list?status=pending", token),
+        cachedGet(apiFetch, "/api/shipment-requests/list?status=pending_warehouse", token),
+      ]);
+      setPending(pendingData.docs);
+      setIncomingReqs(reqData.requests || []);
+    } catch {}
+  }
 
   useEffect(() => {
-    if (!token) return;
-    cachedGet(apiFetch, "/api/inventory/list?status=pending", token)
-      .then((d) => setPending(d.docs))
-      .catch(() => {});
+    refresh();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token]);
 
-  useLiveRefresh(token, ["inventory"], () => {
-    cachedGet(apiFetch, "/api/inventory/list?status=pending", token).then((d) => setPending(d.docs)).catch(() => {});
-  });
+  useLiveRefresh(token, ["inventory", "shipmentRequests"], refresh);
 
   if (loading) return <PageLoading />;
 
-  const inbox = pending.map((d) => ({
+  // Actionable requests FIRST — these are new work that came in from the
+  // agents and the keeper needs to fulfill. Then the "still waiting on
+  // the other side" bucket, which is really just a tracker.
+  const actionable = incomingReqs.map((r) => ({
+    key: `req-${r.id}`,
+    href: `/warehouse/shipment-requests`,
+    icon: r.type === "loading" ? "truck" : "box",
+    tone: "warn",
+    title: `${r.type === "loading" ? "أمر شحن جديد" : "مرتجع بضاعة جديد"} · ${r.route === "car1" ? "مبيعات جملة" : "مبيعات تجزئة"}`,
+    meta: `${previewNames(r.items)} · ${formatDateTime(r.requestedAt)}`,
+    cta: "نفّذ",
+  }));
+
+  const awaitingOthers = pending.map((d) => ({
     key: d.id,
     href: `/inventory/${d.id}`,
     icon: d.type === "received" ? "warehouse" : d.type === "offloading" ? "box" : "truck",
-    tone: "warn",
+    tone: "accent",
     title: `${TYPE_LABELS[d.type] || d.type}${d.route ? ` · ${d.route === "car1" ? "جملة" : "تجزئة"}` : ""}`,
     meta: `${previewNames(d.items)} · ${d.type === "received" ? "بانتظار اعتماد المشرف" : "بانتظار تأكيد المندوب"}`,
   }));
@@ -56,8 +81,14 @@ export default function WarehouseDashboard() {
         />
 
         <ActionInbox
+          title="بانتظار تنفيذك"
+          items={actionable}
+          emptyText="لا طلبات جديدة — كل شيء منفَّذ"
+        />
+
+        <ActionInbox
           title="بانتظار الطرف الآخر"
-          items={inbox}
+          items={awaitingOthers}
           emptyText="كل المستندات مؤكدة ومعتمدة"
         />
 

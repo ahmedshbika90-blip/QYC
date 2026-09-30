@@ -1,9 +1,16 @@
 import Link from "next/link";
 import { formatDateTime } from "../lib/labels";
 
+// Labels for finalized inventory documents (i.e. AFTER the warehouse
+// keeper has fulfilled the request). At this stage a "loading" doc
+// represents a shipment that has been handed off from the warehouse to
+// the agent, not the original order — so we call it "تسليم شحنة"
+// (shipment delivery). The upstream request, before fulfillment, is
+// still labelled "أمر شحن" in the shipment-request queues; those are a
+// separate concept and keep their own labels.
 export const TYPE_LABELS = {
   received: "استلام بضاعة",
-  loading: "أمر شحن",
+  loading: "تسليم شحنة",
   offloading: "مرتجع بضاعة",
   damage: "تالف",
 };

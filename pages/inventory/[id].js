@@ -9,9 +9,13 @@ import { useLiveRefresh } from "../../lib/useLiveRefresh";
 import { shareElementAsPdf } from "../../lib/sharePdf";
 import { formatDateTime } from "../../lib/labels";
 
+// A finalized loading doc has already been dispatched by the warehouse
+// and is now on its way (or arrived) to the agent — call it a "shipment
+// delivery" from the agent's side, not a "shipping order" which is what
+// the upstream shipment REQUEST is called.
 const TYPE_LABELS = {
   received: "استلام بضاعة",
-  loading: "أمر شحن",
+  loading: "تسليم شحنة",
   offloading: "مرتجع بضاعة",
   damage: "تالف",
 };
@@ -185,7 +189,7 @@ export default function InventoryDocDetail() {
   const seqLabel = { 1: "الأول", 2: "الثاني", 3: "الثالث", 4: "الرابع", 5: "الخامس" };
   const seqText =
     isMovement && doc.dailySeq
-      ? `${doc.type === "loading" ? "أمر الشحن" : "مرتجع البضاعة"} ${seqLabel[doc.dailySeq] || `رقم ${doc.dailySeq}`} اليوم`
+      ? `${doc.type === "loading" ? "تسليم الشحنة" : "مرتجع البضاعة"} ${seqLabel[doc.dailySeq] || `رقم ${doc.dailySeq}`} اليوم`
       : null;
 
   return (

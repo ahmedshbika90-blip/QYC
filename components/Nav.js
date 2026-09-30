@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/router";
 import { ROLE_LABELS } from "../lib/labels";
@@ -40,16 +40,20 @@ const L = {
 // Per role: `tabs` = the mobile bottom bar (most-used first, max 4 +
 // optional centre action), `more` = everything else, in the "المزيد"
 // sheet. `desktop` = the full top-bar order on wide screens.
+//
+// For agents, documents comes BEFORE requests everywhere it appears —
+// documents (shipment deliveries) are the more time-sensitive queue
+// because they gate stock movement.
 function layoutFor(role) {
   const home = { href: ROLE_HOME[role], label: "الرئيسية", icon: "home" };
   switch (role) {
     case "agent_car1":
     case "agent_car2":
       return {
-        tabs: [home, L.clients, L.documents],
+        tabs: [home, L.documents, L.clients],
         center: L.placeOrder,
         more: [L.requests, L.registerClient, L.sales, L.products],
-        desktop: [home, L.placeOrder, L.requests, L.documents, L.clients, L.registerClient, L.sales, L.products],
+        desktop: [home, L.placeOrder, L.documents, L.requests, L.clients, L.registerClient, L.sales, L.products],
       };
     case "supervisor":
       return {
@@ -127,9 +131,40 @@ export default function Nav({ role, logout }) {
   );
   const { pref, isDark, choose, toggle } = useTheme();
 
+  // The badge on a nav item is a "you have work here" indicator, not a
+  // ticker of everything that ever happened. Once something is decided
+  // (approved / rejected / fulfilled / confirmed), it stops counting —
+  // only items that still need YOUR action light up the dot.
+  //
+  // We derive counts from `items` (which carries needsAction and badge)
+  // instead of trusting the hook's raw counts, which historically
+  // included resolved-but-unseen items too.
+  const { modificationCountActive, shippingCountActive } = useMemo(() => {
+    const list = items || [];
+    const isActionable = (it) => {
+      if (it?.needsAction === true) return true;
+      if (it?.needsAction === false) return false;
+      // Fallback for items that don't set needsAction: infer from state.
+      const s = String(it?.state || it?.status || "").toLowerCase();
+      if (!s) return true;
+      return !/(approved|rejected|fulfilled|confirmed|cancelled|resolved|done)/.test(s);
+    };
+    let mod = 0;
+    let ship = 0;
+    for (const it of list) {
+      if (!isActionable(it)) continue;
+      if (it.badge === "modification") mod += 1;
+      else if (it.badge === "shipping") ship += 1;
+    }
+    return {
+      modificationCountActive: mod || modificationCount || 0,
+      shippingCountActive: ship, // authoritative — resolved never counts
+    };
+  }, [items, modificationCount]);
+
   const layout = layoutFor(role);
   const hasTabbar = layout.tabs.length > 0;
-  const counts = { modification: modificationCount, shipping: shippingCount };
+  const counts = { modification: modificationCountActive, shipping: shippingCountActive };
   const countFor = (link) => (link.badge ? counts[link.badge] || 0 : 0);
   const moreCount = layout.more.reduce((n, l) => n + countFor(l), 0);
   const moreActive = layout.more.some((l) => isActive(router.pathname, l.href));
