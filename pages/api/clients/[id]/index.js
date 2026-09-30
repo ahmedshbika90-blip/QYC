@@ -50,7 +50,7 @@ export default async function handler(req, res) {
       }
       if (!checkAccess(decoded, client.route, res)) return;
       if (route !== undefined && !["car1", "car2"].includes(route)) {
-        return res.status(400).json({ error: 'المسار يجب أن يكون السيارة ١ أو السيارة ٢' });
+        return res.status(400).json({ error: 'المسار يجب أن يكون جملة أو تجزئة' });
       }
       if (phone !== undefined && !isValidPhone(phone)) {
         return res.status(400).json({ error: "رقم الهاتف يجب أن يتكون من 10 أرقام ويبدأ بصفر" });

@@ -9,7 +9,7 @@ import { apiFetch } from "../lib/apiFetch";
 import { invalidate } from "../lib/apiCache";
 import { useRequestId } from "../lib/useRequestId";
 
-const CAR_LABEL = { car1: "السيارة ١", car2: "السيارة ٢" };
+const CAR_LABEL = { car1: "مبيعات جملة", car2: "مبيعات تجزئة" };
 const ORDINAL = { 1: "الأول", 2: "الثاني", 3: "الثالث", 4: "الرابع", 5: "الخامس" };
 const ordinal = (n) => ORDINAL[n] || `رقم ${n}`;
 

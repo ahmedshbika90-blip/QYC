@@ -11,7 +11,7 @@ export default async function handler(req, res) {
     requireRole(decoded, ["supervisor"]);
 
     const { id } = req.query;
-    const { name, unit, category, active, priceCar1, priceCar2, depotStock, avgCost } = req.body || {};
+    const { name, unit, category, active, priceCar1, priceCar2, depotStock, avgCost, minStock } = req.body || {};
 
     const ref = adminDb.collection("products").doc(id);
     const snap = await ref.get();
@@ -31,14 +31,14 @@ export default async function handler(req, res) {
       if (priceCar1 !== undefined) {
         const n = Number(priceCar1);
         if (Number.isNaN(n) || n < 0) {
-          return res.status(400).json({ error: "سعر السيارة ١ يجب أن يكون رقمًا موجبًا" });
+          return res.status(400).json({ error: "سعر الجملة يجب أن يكون رقمًا موجبًا" });
         }
         nextPrices.car1 = n;
       }
       if (priceCar2 !== undefined) {
         const n = Number(priceCar2);
         if (Number.isNaN(n) || n < 0) {
-          return res.status(400).json({ error: "سعر السيارة ٢ يجب أن يكون رقمًا موجبًا" });
+          return res.status(400).json({ error: "سعر التجزئة يجب أن يكون رقمًا موجبًا" });
         }
         nextPrices.car2 = n;
       }
@@ -69,6 +69,14 @@ export default async function handler(req, res) {
         return res.status(400).json({ error: "رصيد المخزن يجب أن يكون رقمًا موجبًا" });
       }
       updates["stock.depot"] = n;
+    }
+
+    if (minStock !== undefined && minStock !== "") {
+      const n = Number(minStock);
+      if (Number.isNaN(n) || n < 0) {
+        return res.status(400).json({ error: "حد التنبيه يجب أن يكون رقمًا موجبًا" });
+      }
+      updates.minStock = n;
     }
 
     await ref.update(updates);

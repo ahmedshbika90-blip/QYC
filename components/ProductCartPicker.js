@@ -4,7 +4,10 @@ import QtyStepper from "./QtyStepper";
 // Search a product, tap to add it, adjust quantity with a stepper.
 // `hint(product)` optionally returns small text shown next to each result
 // (e.g. current depot stock). Quantity 0 removes the line.
-export default function ProductCartPicker({ products, cart, setCart, hint }) {
+// `salesMode` shows the free-sample checkbox and per-line discount input —
+// only meaningful for a client sale, not for warehouse receiving/loading
+// carts, so it defaults to off.
+export default function ProductCartPicker({ products, cart, setCart, hint, salesMode = false }) {
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
   const boxRef = useRef(null);
@@ -28,7 +31,7 @@ export default function ProductCartPicker({ products, cart, setCart, hint }) {
     .slice(0, 8);
 
   function add(p) {
-    setCart((prev) => [...prev, { productId: p.id, name: p.name, unit: p.unit, qty: 1 }]);
+    setCart((prev) => [...prev, { productId: p.id, name: p.name, unit: p.unit, qty: 1, freeSample: false, discount: 0 }]);
     setQuery("");
     setOpen(false);
   }
@@ -39,6 +42,18 @@ export default function ProductCartPicker({ products, cart, setCart, hint }) {
       return;
     }
     setCart((prev) => prev.map((it) => (it.productId === productId ? { ...it, qty } : it)));
+  }
+
+  function toggleFreeSample(productId) {
+    setCart((prev) =>
+      prev.map((it) =>
+        it.productId === productId ? { ...it, freeSample: !it.freeSample, discount: !it.freeSample ? 0 : it.discount } : it
+      )
+    );
+  }
+
+  function setDiscount(productId, value) {
+    setCart((prev) => prev.map((it) => (it.productId === productId ? { ...it, discount: value } : it)));
   }
 
   return (
@@ -79,11 +94,39 @@ export default function ProductCartPicker({ products, cart, setCart, hint }) {
       {cart.length > 0 && (
         <div className="border rounded-lg divide-y">
           {cart.map((it) => (
-            <div key={it.productId} className="flex items-center justify-between px-3 py-3 gap-3">
-              <p className="text-base text-gray-800 truncate">
-                {it.name} <span className="text-xs text-gray-400">({it.unit})</span>
-              </p>
-              <QtyStepper value={it.qty} onChange={(v) => setQty(it.productId, v)} min={0} />
+            <div key={it.productId} className="px-3 py-3 space-y-2">
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-base text-gray-800 truncate">
+                  {it.name} <span className="text-xs text-gray-400">({it.unit})</span>
+                </p>
+                <QtyStepper value={it.qty} onChange={(v) => setQty(it.productId, v)} min={0} />
+              </div>
+              {salesMode && (
+                <div className="flex items-center gap-3 text-sm">
+                  <label className="flex items-center gap-1.5 text-gray-600">
+                    <input
+                      type="checkbox"
+                      checked={Boolean(it.freeSample)}
+                      onChange={() => toggleFreeSample(it.productId)}
+                    />
+                    عينة مجانية
+                  </label>
+                  {!it.freeSample && (
+                    <label className="flex items-center gap-1.5 text-gray-600">
+                      خصم
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={it.discount || ""}
+                        onChange={(e) => setDiscount(it.productId, e.target.value)}
+                        placeholder="0"
+                        className="w-20 border rounded-lg px-2 h-8 text-sm"
+                      />
+                    </label>
+                  )}
+                </div>
+              )}
             </div>
           ))}
         </div>

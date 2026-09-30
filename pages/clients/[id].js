@@ -184,8 +184,8 @@ export default function ClientDetail() {
               disabled={role !== "supervisor"}
               className="w-full border rounded-lg px-3 h-12 text-base disabled:bg-gray-100 disabled:text-gray-400"
             >
-              <option value="car1">السيارة ١ (حسب الطلب)</option>
-              <option value="car2">السيارة ٢ (خط أسبوعي ثابت)</option>
+              <option value="car1">مبيعات جملة (حسب الطلب)</option>
+              <option value="car2">مبيعات تجزئة (خط أسبوعي ثابت)</option>
             </select>
             {role !== "supervisor" && (
               <p className="text-xs text-gray-400 mt-1">

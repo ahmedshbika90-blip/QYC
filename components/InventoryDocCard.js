@@ -5,6 +5,7 @@ const TYPE_LABELS = {
   received: "استلام بضاعة",
   loading: "تحميل",
   offloading: "تفريغ",
+  damage: "تالف",
 };
 
 const MAX_PREVIEW = 3;
@@ -31,7 +32,7 @@ export default function InventoryDocCard({ doc }) {
             )}
             {doc.route && (
               <span className="text-xs font-normal text-gray-400 ms-2">
-                {doc.route === "car1" ? "السيارة ١" : "السيارة ٢"}
+                {doc.route === "car1" ? "مبيعات جملة" : "مبيعات تجزئة"}
               </span>
             )}
           </p>

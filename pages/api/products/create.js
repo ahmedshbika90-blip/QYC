@@ -25,7 +25,7 @@ export default async function handler(req, res) {
     const decoded = await requireUser(req);
     requireRole(decoded, ["supervisor"]);
 
-    const { name, unit, category, priceCar1, priceCar2, openingStock, requestId } = req.body || {};
+    const { name, unit, category, priceCar1, priceCar2, openingStock, minStock, requestId } = req.body || {};
     if (!isValidRequestId(requestId)) {
       return res.status(400).json({ error: "طلب غير صالح، يرجى تحديث الصفحة والمحاولة مرة أخرى" });
     }
@@ -45,19 +45,32 @@ export default async function handler(req, res) {
       }
     }
 
+    let minStockQty = 0;
+    if (minStock !== undefined && minStock !== null && minStock !== "") {
+      minStockQty = Number(minStock);
+      if (Number.isNaN(minStockQty) || minStockQty < 0) {
+        return res.status(400).json({ error: "حد التنبيه يجب أن يكون رقمًا موجبًا" });
+      }
+    }
+
     const productDoc = {
       name,
       unit,
       category: category || null,
       prices: {
-        car1: parsePrice(priceCar1, "سعر السيارة ١"),
-        car2: parsePrice(priceCar2, "سعر السيارة ٢"),
+        car1: parsePrice(priceCar1, "سعر الجملة"),
+        car2: parsePrice(priceCar2, "سعر التجزئة"),
       },
       // Depot stock starts at the opening balance the supervisor sets on
       // creation; car1/car2 stock always starts at 0 since goods only
       // ever reach a car through a confirmed Loading document, never
-      // directly.
-      stock: { depot: openingQty, car1: 0, car2: 0 },
+      // directly. "damaged" is a write-off bucket — goods moved here are
+      // no longer sellable and no longer counted as available stock
+      // anywhere else (see /api/inventory/damage.js).
+      stock: { depot: openingQty, car1: 0, car2: 0, damaged: 0 },
+      // Below this depot quantity, the product shows a low-stock warning
+      // to the warehouse keeper and on the products screen. 0 = no alert.
+      minStock: minStockQty,
       active: true,
       createdAt: new Date().toISOString(),
       createdBy: decoded.uid,

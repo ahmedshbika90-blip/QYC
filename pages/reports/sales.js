@@ -6,7 +6,7 @@ import { apiFetch } from "../../lib/apiFetch";
 import { invalidate } from "../../lib/apiCache";
 import { useRequestId } from "../../lib/useRequestId";
 import { shareElementAsPdf } from "../../lib/sharePdf";
-import { ROUTE_LABELS, formatDate } from "../../lib/labels";
+import { ROUTE_LABELS, formatDate, formatNumber, formatQty } from "../../lib/labels";
 
 export default function SalesReport() {
   const { role, token, loading, logout } = useAuth();
@@ -168,8 +168,8 @@ export default function SalesReport() {
                   className="w-full border rounded-lg px-3 h-12 text-base"
                 >
                   <option value="all">كل المسارات</option>
-                  <option value="car1">السيارة ١</option>
-                  <option value="car2">السيارة ٢</option>
+                  <option value="car1">مبيعات جملة</option>
+                  <option value="car2">مبيعات تجزئة</option>
                 </select>
               </div>
             )}
@@ -272,7 +272,7 @@ export default function SalesReport() {
                                 ci === 0 ? "border-e border-gray-200" : ""
                               }`}
                             >
-                              {cells[col.key] ?? <span className="text-gray-300">—</span>}
+                              {cells[col.key] != null ? formatQty(cells[col.key]) : <span className="text-gray-300">—</span>}
                             </td>
                           ))}
                           <td
@@ -280,14 +280,14 @@ export default function SalesReport() {
                               i % 2 === 1 ? "bg-gray-100" : "bg-gray-50"
                             }`}
                           >
-                            {c.totalUnits}
+                            {formatQty(c.totalUnits)}
                           </td>
                           <td
                             className={`text-center px-4 py-3 font-medium text-gray-900 ${
                               i % 2 === 1 ? "bg-gray-100" : "bg-gray-50"
                             }`}
                           >
-                            {c.totalPrice}
+                            {formatNumber(c.totalPrice)}
                           </td>
                         </tr>
                       ))}
@@ -304,14 +304,14 @@ export default function SalesReport() {
                               i === 0 ? "border-e border-gray-700" : ""
                             }`}
                           >
-                            {columnTotals[col.key]}
+                            {formatQty(columnTotals[col.key])}
                           </td>
                         ))}
                         <td className="text-center px-4 py-4 font-bold border-s border-gray-700">
-                          {report.grandTotalUnits}
+                          {formatQty(report.grandTotalUnits)}
                         </td>
                         <td className="text-center px-4 py-4 font-bold">
-                          {report.grandTotalPrice}
+                          {formatNumber(report.grandTotalPrice)}
                         </td>
                       </tr>
                     </tfoot>
@@ -320,7 +320,7 @@ export default function SalesReport() {
               )}
 
               <p className="text-xs text-gray-400 mt-6 pt-4 border-t border-gray-100">
-                تم إنشاء هذا التقرير بواسطة نظام مسار — {formatDate(new Date().toISOString())}
+                تم إنشاء هذا التقرير بواسطة نظام مسار — Mahgoub Sons — {formatDate(new Date().toISOString())}
               </p>
             </div>
           </div>

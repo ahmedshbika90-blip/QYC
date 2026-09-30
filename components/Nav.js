@@ -19,12 +19,19 @@ export default function Nav({ role, logout }) {
       ? [
           { href: "/dashboard/warehouse", label: "الرئيسية" },
           { href: "/warehouse/inventory", label: "المخزون" },
-          { href: "/warehouse/car1", label: "السيارة ١" },
-          { href: "/warehouse/car2", label: "السيارة ٢" },
+          { href: "/warehouse/shipment-requests", label: "أوامر الشحن" },
+          { href: "/warehouse/car1", label: "مبيعات جملة" },
+          { href: "/warehouse/car2", label: "مبيعات تجزئة" },
         ]
+      : role === "depot_viewer"
+      ? [{ href: "/warehouse/view-stock", label: "المخزن الرئيسي" }]
       : [
           role && { href: ROLE_HOME[role], label: "الرئيسية" },
           role !== "supervisor" && { href: "/place-order", label: "تسجيل فاتورة" },
+          (role === "agent_car1" || role === "agent_car2") && {
+            href: "/shipment-requests",
+            label: "طلبات الشحن",
+          },
           role !== "supervisor" && { href: "/documents", label: "المستندات" },
           { href: "/register-client", label: "إضافة عميل" },
           { href: "/reports/sales", label: "تقرير المبيعات" },

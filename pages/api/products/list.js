@@ -29,6 +29,13 @@ export default async function handler(req, res) {
     const snap = await query.get();
     let products = snap.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
 
+    // Low-stock flag: depot balance at or below the supervisor's configured
+    // threshold. minStock of 0 (the default) means "no alert configured".
+    products = products.map((p) => ({
+      ...p,
+      lowStock: Boolean(p.minStock > 0 && (p.stock?.depot ?? 0) <= p.minStock),
+    }));
+
     if (route) {
       products = products.map((p) => ({ ...p, price: p.prices?.[route] ?? null }));
     }
@@ -39,11 +46,20 @@ export default async function handler(req, res) {
     }
 
     // The warehouse keeper manages the depot only: no selling prices and
-    // no live car stock — just depot balances.
+    // no live car stock — just depot and damaged-goods balances.
     if (decoded.role === "warehouse_keeper") {
       products = products.map(({ prices, stock, ...rest }) => ({
         ...rest,
-        stock: { depot: stock?.depot ?? 0 },
+        stock: { depot: stock?.depot ?? 0, damaged: stock?.damaged ?? 0 },
+      }));
+    }
+
+    // View-only role over the main depot: same restricted shape as the
+    // warehouse keeper, but this role never receives write access anyway.
+    if (decoded.role === "depot_viewer") {
+      products = products.map(({ prices, stock, ...rest }) => ({
+        ...rest,
+        stock: { depot: stock?.depot ?? 0, damaged: stock?.damaged ?? 0 },
       }));
     }
 

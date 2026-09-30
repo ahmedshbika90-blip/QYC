@@ -7,7 +7,8 @@ import { PageLoading, SkeletonRows } from "../components/Loading";
 import { apiFetch } from "../lib/apiFetch";
 import { cachedGet } from "../lib/apiCache";
 
-const fmt = (n) => (n == null ? "—" : Number(n).toLocaleString("en-US", { maximumFractionDigits: 2 }));
+import { formatNumber } from "./../lib/labels";
+const fmt = (n) => (n == null ? "—" : formatNumber(n));
 const pct = (n) => (n == null ? "—" : `${n}%`);
 
 function Stat({ label, value, strong }) {
@@ -82,8 +83,8 @@ export default function MarginPage() {
         >
           <select value={route} onChange={(e) => setRoute(e.target.value)} className="border rounded-lg px-3 h-11 text-base">
             <option value="">كل السيارات</option>
-            <option value="car1">السيارة ١</option>
-            <option value="car2">السيارة ٢</option>
+            <option value="car1">مبيعات جملة</option>
+            <option value="car2">مبيعات تجزئة</option>
           </select>
         </FilterPanel>
 
@@ -111,7 +112,7 @@ export default function MarginPage() {
                   (k) =>
                     data.byRoute[k] && (
                       <div key={k} className="bg-white rounded-lg shadow p-3">
-                        <p className="text-xs text-gray-500">{k === "car1" ? "السيارة ١" : "السيارة ٢"}</p>
+                        <p className="text-xs text-gray-500">{k === "car1" ? "مبيعات جملة" : "مبيعات تجزئة"}</p>
                         <p className="text-base font-medium text-gray-800 mt-1">
                           {fmt(data.byRoute[k].margin)} <span className="text-xs text-gray-400">({pct(data.byRoute[k].marginPct)})</span>
                         </p>

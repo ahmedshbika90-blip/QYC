@@ -4,6 +4,7 @@ import Nav from "../components/Nav";
 import { PageLoading, SkeletonRows, Spinner } from "../components/Loading";
 import { apiFetch } from "../lib/apiFetch";
 import { useRequestId } from "../lib/useRequestId";
+import { formatNumber, formatQty } from "../lib/labels";
 
 const emptyForm = { name: "", category: "", unit: "", priceCar1: "", priceCar2: "", depotStock: "", avgCost: "" };
 
@@ -183,7 +184,7 @@ export default function Products() {
               type="number"
               step="0.01"
               min="0"
-              placeholder="سعر السيارة ١"
+              placeholder="سعر الجملة"
               value={addForm.priceCar1}
               onChange={(e) => setAddForm({ ...addForm, priceCar1: e.target.value })}
               className="border rounded-lg px-3 h-12 text-base"
@@ -193,7 +194,7 @@ export default function Products() {
               type="number"
               step="0.01"
               min="0"
-              placeholder="سعر السيارة ٢"
+              placeholder="سعر التجزئة"
               value={addForm.priceCar2}
               onChange={(e) => setAddForm({ ...addForm, priceCar2: e.target.value })}
               className="border rounded-lg px-3 h-12 text-base"
@@ -255,7 +256,7 @@ export default function Products() {
                     value={editForm.priceCar1}
                     onChange={(e) => setEditForm({ ...editForm, priceCar1: e.target.value })}
                     className="border rounded-lg px-3 h-12 text-base"
-                    placeholder="سعر السيارة ١"
+                    placeholder="سعر الجملة"
                   />
                   <input
                     type="number"
@@ -264,7 +265,7 @@ export default function Products() {
                     value={editForm.priceCar2}
                     onChange={(e) => setEditForm({ ...editForm, priceCar2: e.target.value })}
                     className="border rounded-lg px-3 h-12 text-base"
-                    placeholder="سعر السيارة ٢"
+                    placeholder="سعر التجزئة"
                   />
                   <input
                     type="number"
@@ -315,12 +316,12 @@ export default function Products() {
                       لكل {p.unit}
                     </p>
                     <p className="text-sm text-gray-600 mt-0.5">
-                      السيارة ١: <span className="font-medium">{p.prices?.car1 ?? "—"}</span>
+                      مبيعات جملة: <span className="font-medium">{p.prices?.car1 != null ? formatNumber(p.prices.car1) : "—"}</span>
                       {"  ·  "}
-                      السيارة ٢: <span className="font-medium">{p.prices?.car2 ?? "—"}</span>
+                      مبيعات تجزئة: <span className="font-medium">{p.prices?.car2 != null ? formatNumber(p.prices.car2) : "—"}</span>
                     </p>
                     <p className="text-xs text-gray-400 mt-0.5">
-                      المخزن: {p.stock?.depot ?? 0} · السيارة ١: {p.stock?.car1 ?? 0} · السيارة ٢: {p.stock?.car2 ?? 0}
+                      المخزن: {formatQty(p.stock?.depot ?? 0)} · مبيعات جملة: {formatQty(p.stock?.car1 ?? 0)} · مبيعات تجزئة: {formatQty(p.stock?.car2 ?? 0)}
                     </p>
                     {isSupervisor && (
                       <p className="text-xs text-gray-400 mt-0.5">

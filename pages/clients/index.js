@@ -96,8 +96,8 @@ export default function ClientsList() {
               className="border rounded-lg px-3 h-11 text-base"
             >
               <option value="">كل المسارات</option>
-              <option value="car1">السيارة ١</option>
-              <option value="car2">السيارة ٢</option>
+              <option value="car1">مبيعات جملة</option>
+              <option value="car2">مبيعات تجزئة</option>
             </select>
           )}
         </FilterPanel>
@@ -142,7 +142,7 @@ export default function ClientsList() {
                     </span>
                   )}
                   {role === "supervisor" && (
-                    <span className="text-xs text-gray-400">{c.route === "car1" ? "السيارة ١" : "السيارة ٢"}</span>
+                    <span className="text-xs text-gray-400">{c.route === "car1" ? "مبيعات جملة" : "مبيعات تجزئة"}</span>
                   )}
                 </div>
               </Link>

@@ -122,8 +122,8 @@ export default function RequestsPage() {
         >
           <select value={route} onChange={(e) => setRoute(e.target.value)} className="border rounded-lg px-3 h-11 text-base">
             <option value="">كل السيارات</option>
-            <option value="car1">السيارة ١</option>
-            <option value="car2">السيارة ٢</option>
+            <option value="car1">مبيعات جملة</option>
+            <option value="car2">مبيعات تجزئة</option>
           </select>
         </FilterPanel>
 

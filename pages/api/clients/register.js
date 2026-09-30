@@ -56,7 +56,8 @@ export default async function handler(req, res) {
     const decoded = await requireUser(req);
     requireRole(decoded, ["agent_car1", "agent_car2", "supervisor"]);
 
-    const { name, storeName, location, phone, whatsapp, storeClass, requestId } = req.body || {};
+    const { nameFirst, nameMiddle, nameLast, storeName, location, phone, whatsapp, storeClass, requestId } =
+      req.body || {};
     if (!isValidRequestId(requestId)) {
       return res.status(400).json({ error: "طلب غير صالح، يرجى تحديث الصفحة والمحاولة مرة أخرى" });
     }
@@ -71,13 +72,21 @@ export default async function handler(req, res) {
       route = forcedRoute;
     }
 
-    if (!name || !storeName || !location || !route || !phone) {
+    // Name must be entered as three separate parts (first/middle/last) —
+    // no combined free-text name field anymore. All three, plus the rest
+    // of the basic client data, are required before a client is created
+    // at all: an incomplete submission is rejected with a clear reason
+    // rather than silently registering a half-empty record.
+    if (!nameFirst?.trim() || !nameMiddle?.trim() || !nameLast?.trim()) {
+      return res.status(400).json({ error: "اسم العميل يجب إدخاله ثلاثيًا: الاسم الأول والأوسط والأخير" });
+    }
+    if (!storeName || !location || !route || !phone) {
       return res.status(400).json({
-        error: "الاسم والمتجر والموقع والمسار ورقم الهاتف كلها مطلوبة",
+        error: "اسم المتجر والموقع والمسار ورقم الهاتف كلها مطلوبة",
       });
     }
     if (!["car1", "car2"].includes(route)) {
-      return res.status(400).json({ error: 'المسار يجب أن يكون السيارة ١ أو السيارة ٢' });
+      return res.status(400).json({ error: 'المسار يجب أن يكون جملة أو تجزئة' });
     }
     if (!STORE_CLASSES.includes(storeClass)) {
       return res.status(400).json({ error: "تصنيف المتجر يجب أن يكون A أو B أو C" });
@@ -90,7 +99,10 @@ export default async function handler(req, res) {
     }
 
     const clientDoc = {
-      name,
+      name: [nameFirst.trim(), nameMiddle.trim(), nameLast.trim()].join(" "),
+      nameFirst: nameFirst.trim(),
+      nameMiddle: nameMiddle.trim(),
+      nameLast: nameLast.trim(),
       storeName,
       location,
       route,

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { useAuth } from "../../lib/useAuth";
 import Nav from "../../components/Nav";
 import StatusTabs from "../../components/StatusTabs";
@@ -21,6 +22,7 @@ export default function Car1Dashboard() {
   const [loadingMore, setLoadingMore] = useState(false);
   const [clientsById, setClientsById] = useState({});
   const [pendingMovements, setPendingMovements] = useState([]);
+  const [toDecideCount, setToDecideCount] = useState(0);
   const [fetching, setFetching] = useState(true);
   const [error, setError] = useState("");
 
@@ -55,15 +57,17 @@ export default function Car1Dashboard() {
     try {
       // Pending-only query: fetches just the few documents awaiting this
       // agent's confirmation, not the whole inventory history.
-      const [ordersData, clients, pendingData] = await Promise.all([
+      const [ordersData, clients, pendingData, toDecideData] = await Promise.all([
         cachedGet(apiFetch, ordersUrl(), token),
         getClients(apiFetch, token, user.uid),
         cachedGet(apiFetch, "/api/inventory/list?status=pending", token),
+        cachedGet(apiFetch, "/api/shipment-requests/list?scope=todecide", token),
       ]);
       setOrders(ordersData.orders);
       setNextCursor(ordersData.nextCursor);
       setClientsById(Object.fromEntries(clients.map((c) => [c.id, c])));
       setPendingMovements(pendingData.docs);
+      setToDecideCount(toDecideData.requests.length);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -134,9 +138,10 @@ export default function Car1Dashboard() {
     [baseFiltered, statusFilter]
   );
 
-  useLiveRefresh(token, ["orders_car1", "inventory"], () => {
+  useLiveRefresh(token, ["orders_car1", "inventory", "shipmentRequests"], () => {
     invalidate("/api/orders/list");
     invalidate("/api/inventory");
+    invalidate("/api/shipment-requests");
     fetchAll();
   });
 
@@ -146,7 +151,7 @@ export default function Car1Dashboard() {
     <div className="min-h-screen bg-gray-50">
       <Nav role={role} logout={logout} />
       <div className="max-w-3xl mx-auto p-4 sm:p-8">
-        <h1 className="text-xl font-semibold mb-3 text-gray-800">السيارة ١</h1>
+        <h1 className="text-xl font-semibold mb-3 text-gray-800">مبيعات جملة</h1>
 
         <QuickActions
           actions={[
@@ -154,6 +159,17 @@ export default function Car1Dashboard() {
             { href: "/register-client", label: "إضافة عميل" },
           ]}
         />
+
+        {toDecideCount > 0 && (
+          <Link
+            href="/shipment-requests"
+            className="block mb-4 bg-amber-50 border border-amber-200 rounded-lg px-4 py-3"
+          >
+            <p className="text-sm font-semibold text-amber-800">
+              لديك {toDecideCount} {toDecideCount === 1 ? "طلب شحن" : "طلبات شحن"} من مبيعات التجزئة بانتظار موافقتك ←
+            </p>
+          </Link>
+        )}
 
         {pendingMovements.length > 0 && (
           <div className="mb-4">

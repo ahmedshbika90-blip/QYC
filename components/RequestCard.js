@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { formatDateTime } from "../lib/labels";
+import { formatDateTime, formatNumber } from "../lib/labels";
 
 const STATUS = {
   pending: ["بانتظار القرار", "bg-amber-50 text-amber-700"],
@@ -15,12 +15,12 @@ export default function RequestCard({ request: r }) {
         <div className="min-w-0">
           <p className="font-medium text-gray-800 truncate">
             {r.type === "cancel" ? "طلب إلغاء" : "طلب تعديل"} — {r.clientName || `#${r.clientId}`}
-            <span className="text-xs font-normal text-gray-400 ms-2">{r.route === "car1" ? "السيارة ١" : "السيارة ٢"}</span>
+            <span className="text-xs font-normal text-gray-400 ms-2">{r.route === "car1" ? "مبيعات جملة" : "مبيعات تجزئة"}</span>
           </p>
           <p className="text-sm text-gray-500 truncate mt-0.5">
             {r.type === "edit"
-              ? `الإجمالي: ${r.currentTotal} ← ${r.proposedTotal}`
-              : `إلغاء فاتورة بقيمة ${r.currentTotal}`}
+              ? `الإجمالي: ${formatNumber(r.currentTotal)} ← ${formatNumber(r.proposedTotal)}`
+              : `إلغاء فاتورة بقيمة ${formatNumber(r.currentTotal)}`}
             {r.reason && ` · ${r.reason}`}
           </p>
           <p className="text-xs text-gray-400 mt-1">

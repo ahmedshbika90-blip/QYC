@@ -7,7 +7,7 @@ import { PageLoading, Spinner } from "../../components/Loading";
 import { apiFetch } from "../../lib/apiFetch";
 import { invalidate } from "../../lib/apiCache";
 import { useLiveRefresh } from "../../lib/useLiveRefresh";
-import { formatDateTime } from "../../lib/labels";
+import { formatDateTime, formatNumber } from "../../lib/labels";
 
 function ItemsTable({ title, items, total, tone = "gray" }) {
   return (
@@ -20,12 +20,12 @@ function ItemsTable({ title, items, total, tone = "gray" }) {
           <div key={i} className="flex justify-between px-3 py-2 text-sm">
             <span className="text-gray-800">{it.name}</span>
             <span className="text-gray-600">
-              {it.qty} × {it.price} = {it.subtotal ?? it.price * it.qty}
+              {it.qty} × {formatNumber(it.price)} = {formatNumber(it.subtotal ?? it.price * it.qty)}
             </span>
           </div>
         ))}
       </div>
-      <p className="text-end text-sm font-semibold px-3 py-2 border-t">الإجمالي: {total}</p>
+      <p className="text-end text-sm font-semibold px-3 py-2 border-t">الإجمالي: {formatNumber(total)}</p>
     </div>
   );
 }
@@ -113,7 +113,7 @@ export default function RequestDetail() {
               {r.type === "cancel" ? "طلب إلغاء فاتورة" : "طلب تعديل فاتورة"}
             </h1>
             <p className="text-sm text-gray-500 mt-1">
-              {r.clientName} — {r.route === "car1" ? "السيارة ١" : "السيارة ٢"} ·{" "}
+              {r.clientName} — {r.route === "car1" ? "مبيعات جملة" : "مبيعات تجزئة"} ·{" "}
               <Link href={`/orders/${r.orderId}`} className="underline">
                 فتح الفاتورة
               </Link>

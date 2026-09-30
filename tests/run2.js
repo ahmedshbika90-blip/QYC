@@ -16,7 +16,7 @@ eval(header + `
   assert.deepStrictEqual([st.depot, st.car1], [40, 10]);
   ok("loading: duplicate doc prevented, double confirm moves stock once (depot 50→40, car 0→10)");
 
-  const body = { name: "New Store", storeName: "NS", location: "Souq", phone: "0912345678", storeClass: "A", requestId: "req-client-000001" };
+  const body = { nameFirst: "New", nameMiddle: "Store", nameLast: "Owner", storeName: "NS", location: "Souq", phone: "0912345678", storeClass: "A", requestId: "req-client-000001" };
   const a = await call("pages/api/clients/register.js", { method: "POST", ...A1, body });
   const b = await call("pages/api/clients/register.js", { method: "POST", ...A1, body });
   assert.strictEqual(a.status, 201, JSON.stringify(a.json)); assert.ok(b.json.duplicate);

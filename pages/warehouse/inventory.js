@@ -7,6 +7,7 @@ import { PageLoading, SkeletonRows, Spinner } from "../../components/Loading";
 import { apiFetch } from "../../lib/apiFetch";
 import { invalidate } from "../../lib/apiCache";
 import { useRequestId } from "../../lib/useRequestId";
+import { formatQty } from "../../lib/labels";
 
 // Warehouse keeper's depot section: current depot balances (depot only —
 // no car stock, no prices), logging goods received from the supplier
@@ -23,7 +24,13 @@ export default function WarehouseInventory() {
   const [success, setSuccess] = useState("");
   const [reloadKey, setReloadKey] = useState(0);
   const [tab, setTab] = useState("stock");
+  const [damageCart, setDamageCart] = useState([]);
+  const [damageNote, setDamageNote] = useState("");
+  const [damageSubmitting, setDamageSubmitting] = useState(false);
+  const [damageError, setDamageError] = useState("");
+  const [damageSuccess, setDamageSuccess] = useState("");
   const requestIds = useRequestId();
+  const damageRequestIds = useRequestId();
 
   useEffect(() => {
     if (!token) return;
@@ -88,11 +95,53 @@ export default function WarehouseInventory() {
     }
   }
 
+  async function submitDamage(e) {
+    e.preventDefault();
+    setDamageError("");
+    setDamageSuccess("");
+    if (damageCart.length === 0) {
+      setDamageError("أضف منتجًا واحدًا على الأقل");
+      return;
+    }
+    setDamageSubmitting(true);
+    try {
+      const res = await apiFetch("/api/inventory/damage", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify(
+          (() => {
+            const payload = {
+              source: "depot",
+              items: damageCart.map((it) => ({ productId: it.productId, qty: it.qty })),
+              note: damageNote,
+            };
+            return { ...payload, requestId: damageRequestIds.idFor(payload) };
+          })()
+        ),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      damageRequestIds.reset();
+      setDamageCart([]);
+      setDamageNote("");
+      setDamageSuccess("تم تسجيل التالف وخصمه من رصيد المخزن.");
+      loadProducts();
+      invalidate("/api/inventory");
+      setReloadKey((k) => k + 1);
+    } catch (err) {
+      if (!err.isNetworkError) damageRequestIds.reset();
+      setDamageError(err.message);
+    } finally {
+      setDamageSubmitting(false);
+    }
+  }
+
   if (loading) return <PageLoading />;
 
   const tabs = [
     ["stock", "رصيد المخزن"],
     ["receive", "استلام بضاعة"],
+    ["damage", "تالف"],
     ["history", "سجل الاستلام"],
   ];
 
@@ -133,15 +182,42 @@ export default function WarehouseInventory() {
               <div className="bg-white rounded-lg shadow divide-y">
                 {visibleProducts.map((p) => (
                   <div key={p.id} className="flex items-center justify-between p-4">
-                    <p className="text-gray-800">{p.name}</p>
+                    <div>
+                      <p className="text-gray-800">{p.name}</p>
+                      {p.lowStock && <p className="text-xs text-amber-600 mt-0.5">رصيد منخفض</p>}
+                    </div>
                     <p className={`font-medium ${(p.stock?.depot ?? 0) === 0 ? "text-red-500" : "text-gray-800"}`}>
-                      {p.stock?.depot ?? 0} <span className="text-xs text-gray-400 font-normal">{p.unit}</span>
+                      {formatQty(p.stock?.depot ?? 0)} <span className="text-xs text-gray-400 font-normal">{p.unit}</span>
                     </p>
                   </div>
                 ))}
               </div>
             )}
           </>
+        )}
+
+        {tab === "damage" && (
+          <form onSubmit={submitDamage} className="bg-white rounded-lg shadow p-4 space-y-4">
+            <p className="text-xs text-gray-400">يُخصم فورًا من رصيد المخزن وينتقل إلى بند التالف — لا رجوع.</p>
+            <ProductCartPicker products={products} cart={damageCart} setCart={setDamageCart} />
+            <textarea
+              value={damageNote}
+              onChange={(e) => setDamageNote(e.target.value)}
+              rows={2}
+              placeholder="سبب التلف (اختياري)"
+              className="w-full border rounded-lg px-3 py-2 text-base"
+            />
+            {damageError && <p className="text-red-600 text-sm">{damageError}</p>}
+            {damageSuccess && <p className="text-green-700 text-sm">{damageSuccess}</p>}
+            <button
+              type="submit"
+              disabled={damageSubmitting}
+              className="w-full bg-red-600 text-white rounded-lg h-12 text-base font-medium active:bg-red-700 disabled:opacity-50 flex items-center justify-center gap-2"
+            >
+              {damageSubmitting && <Spinner className="w-4 h-4" />}
+              {damageSubmitting ? "جارٍ التسجيل..." : "تسجيل التالف"}
+            </button>
+          </form>
         )}
 
         {tab === "receive" && (

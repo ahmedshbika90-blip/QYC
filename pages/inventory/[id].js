@@ -13,6 +13,7 @@ const TYPE_LABELS = {
   received: "استلام بضاعة",
   loading: "تحميل",
   offloading: "تفريغ",
+  damage: "تالف",
 };
 
 const ROLE_TO_ROUTE = { agent_car1: "car1", agent_car2: "car2" };
@@ -26,8 +27,6 @@ export default function InventoryDocDetail() {
   const [fetching, setFetching] = useState(true);
   const [error, setError] = useState("");
   const [costPrices, setCostPrices] = useState({}); // productId -> string
-  const [disputeReason, setDisputeReason] = useState("");
-  const [showDisputeBox, setShowDisputeBox] = useState(false);
   const [acting, setActing] = useState(false);
   const [sharing, setSharing] = useState(false);
   const docRef = useRef(null);
@@ -113,29 +112,6 @@ export default function InventoryDocDetail() {
           Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({ action: "confirm" }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error);
-      invalidate("/api/inventory");
-      fetchDoc();
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setActing(false);
-    }
-  }
-
-  async function handleDisputeMovement() {
-    setActing(true);
-    setError("");
-    try {
-      const res = await apiFetch(`/api/inventory/${id}/confirm`, {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ action: "dispute", disputeReason }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
@@ -235,7 +211,7 @@ export default function InventoryDocDetail() {
                 {TYPE_LABELS[doc.type] || doc.type}
                 {doc.route && (
                   <span className="text-sm font-normal text-gray-400 ms-2">
-                    {doc.route === "car1" ? "السيارة ١" : "السيارة ٢"}
+                    {doc.route === "car1" ? "مبيعات جملة" : "مبيعات تجزئة"}
                   </span>
                 )}
               </h1>
@@ -302,6 +278,10 @@ export default function InventoryDocDetail() {
             </div>
           )}
 
+          <p className="text-xs text-gray-400 mt-6 pt-4 border-t border-gray-100">
+            نظام مسار — Mahgoub Sons — {formatDateTime(new Date().toISOString())}
+          </p>
+
           </div>
 
           {/* Goods received approval — supervisor only */}
@@ -352,53 +332,16 @@ export default function InventoryDocDetail() {
           {canConfirmMovement && (
             <div className="mt-6 border-t pt-4 no-pdf">
               <p className="text-sm text-gray-600 mb-3">
-                تأكد من مطابقة الكميات أعلاه لما استلمته/سلّمته فعليًا.
+                تأكد من مطابقة الكميات أعلاه لما استلمته/سلّمته فعليًا قبل التأكيد.
               </p>
-              {!showDisputeBox ? (
-                <div className="flex gap-2">
-                  <button
-                    onClick={handleConfirmMovement}
-                    disabled={acting}
-                    className="flex-1 bg-gray-900 text-white rounded-lg h-12 text-base font-medium active:bg-gray-700 disabled:opacity-50 flex items-center justify-center gap-2"
-                  >
-                    {acting && <Spinner className="w-4 h-4" />}
-                    تأكيد
-                  </button>
-                  <button
-                    onClick={() => setShowDisputeBox(true)}
-                    disabled={acting}
-                    className="text-base text-red-600 bg-red-50 active:bg-red-100 rounded-lg px-4 h-12"
-                  >
-                    نزاع
-                  </button>
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  <textarea
-                    value={disputeReason}
-                    onChange={(e) => setDisputeReason(e.target.value)}
-                    rows={2}
-                    placeholder="اشرح سبب عدم مطابقة الكميات..."
-                    className="w-full border rounded-lg px-3 py-2 text-base"
-                  />
-                  <div className="flex gap-2">
-                    <button
-                      onClick={handleDisputeMovement}
-                      disabled={acting}
-                      className="flex-1 bg-red-600 text-white rounded-lg h-12 text-base font-medium active:bg-red-700 disabled:opacity-50 flex items-center justify-center gap-2"
-                    >
-                      {acting && <Spinner className="w-4 h-4" />}
-                      إرسال النزاع
-                    </button>
-                    <button
-                      onClick={() => setShowDisputeBox(false)}
-                      className="text-base text-gray-500 px-4 h-12"
-                    >
-                      تراجع
-                    </button>
-                  </div>
-                </div>
-              )}
+              <button
+                onClick={handleConfirmMovement}
+                disabled={acting}
+                className="w-full bg-gray-900 text-white rounded-lg h-12 text-base font-medium active:bg-gray-700 disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {acting && <Spinner className="w-4 h-4" />}
+                تأكيد
+              </button>
             </div>
           )}
 

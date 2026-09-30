@@ -31,8 +31,8 @@ export default function WarehouseDashboard() {
 
   const sections = [
     ["/warehouse/inventory", "المخزون"],
-    ["/warehouse/car1", "السيارة ١"],
-    ["/warehouse/car2", "السيارة ٢"],
+    ["/warehouse/car1", "مبيعات جملة"],
+    ["/warehouse/car2", "مبيعات تجزئة"],
   ];
 
   return (
@@ -40,6 +40,14 @@ export default function WarehouseDashboard() {
       <Nav role={role} logout={logout} />
       <div className="max-w-3xl mx-auto p-4 sm:p-8">
         <h1 className="text-xl font-semibold mb-3 text-gray-800">المخزن</h1>
+
+        {pending.length > 0 && (
+          <div className="mb-4 bg-amber-50 border border-amber-200 rounded-lg px-4 py-3">
+            <p className="text-sm font-semibold text-amber-800">
+              لديك {pending.length} {pending.length === 1 ? "مستند" : "مستندات"} بانتظار التأكيد أو الاعتماد
+            </p>
+          </div>
+        )}
 
         <div className="grid grid-cols-3 gap-2 mb-5">
           {sections.map(([href, label]) => (

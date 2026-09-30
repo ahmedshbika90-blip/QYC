@@ -7,7 +7,7 @@ import { apiFetch } from "../lib/apiFetch";
 import { invalidate } from "../lib/apiCache";
 import { getClients } from "../lib/clientsStore";
 import { newRequestId } from "../lib/requestId";
-import { formatDate } from "../lib/labels";
+import { formatDate, formatNumber } from "../lib/labels";
 
 // Invoices that couldn't be sent (no connection) are queued on the device,
 // per agent, and sent automatically when the connection returns. Each keeps
@@ -232,7 +232,16 @@ export default function PlaceOrder() {
   function addProduct(p) {
     setCart((prev) => [
       ...prev,
-      { productId: p.id, name: p.name, price: priceFor(p), unit: p.unit, qty: 1, available: stockFor(p) },
+      {
+        productId: p.id,
+        name: p.name,
+        price: priceFor(p),
+        unit: p.unit,
+        qty: 1,
+        available: stockFor(p),
+        freeSample: false,
+        discount: 0,
+      },
     ]);
     setProductQuery("");
     setProductDropdownOpen(false);
@@ -250,7 +259,26 @@ export default function PlaceOrder() {
     setCart((prev) => prev.filter((it) => it.productId !== productId));
   }
 
-  const total = cart.reduce((sum, it) => sum + (it.price || 0) * it.qty, 0);
+  function toggleFreeSample(productId) {
+    setCart((prev) =>
+      prev.map((it) =>
+        it.productId === productId ? { ...it, freeSample: !it.freeSample, discount: !it.freeSample ? 0 : it.discount } : it
+      )
+    );
+  }
+
+  function setCartDiscount(productId, value) {
+    setCart((prev) => prev.map((it) => (it.productId === productId ? { ...it, discount: value } : it)));
+  }
+
+  // Line total mirrors the server calculation in lib/orderCreation.js: a
+  // free sample contributes 0, otherwise price×qty minus the line discount.
+  function lineTotal(it) {
+    if (it.freeSample) return 0;
+    return Math.max(0, (it.price || 0) * it.qty - (Number(it.discount) || 0));
+  }
+
+  const total = cart.reduce((sum, it) => sum + lineTotal(it), 0);
 
   // Background resends run from timers set up earlier, so they read the
   // CURRENT login token through a ref rather than the one captured then.
@@ -290,7 +318,7 @@ export default function PlaceOrder() {
 
     const payload = {
       clientId: selectedClient.id,
-      items: cart.map((it) => ({ productId: it.productId, qty: it.qty })),
+      items: cart.map((it) => ({ productId: it.productId, qty: it.qty, freeSample: it.freeSample, discount: it.discount })),
       requestId: newRequestId(), // one ID per invoice — resends reuse it
     };
 
@@ -377,7 +405,7 @@ export default function PlaceOrder() {
                   <div key={q.requestId} className="py-2 flex items-start justify-between gap-2">
                     <div className="min-w-0">
                       <p className="text-sm text-gray-800 truncate">{q.clientLabel}</p>
-                      <p className="text-xs text-gray-500">الإجمالي: {Number(q.total || 0).toFixed(2)}</p>
+                      <p className="text-xs text-gray-500">الإجمالي: {formatNumber(q.total || 0)}</p>
                       {q.rejected && (
                         <p className="text-xs text-red-600 mt-0.5">رُفضت: {q.rejected}</p>
                       )}
@@ -425,7 +453,7 @@ export default function PlaceOrder() {
               <p className="text-green-800 font-medium">
                 تم إنشاء الفاتورة! الرقم: <span className="tabular-ltr">{result.orderId}</span>
               </p>
-              <p className="text-green-700 text-sm mt-1">الإجمالي: {result.total}</p>
+              <p className="text-green-700 text-sm mt-1">الإجمالي: {formatNumber(result.total)}</p>
               {result.deliveryDate ? (
                 <p className="text-green-700 text-sm mt-1">
                   تاريخ التسليم: {formatDate(result.deliveryDate)}
@@ -543,19 +571,48 @@ export default function PlaceOrder() {
               {cart.length > 0 && (
                 <div className="border rounded-lg divide-y">
                   {cart.map((it) => (
-                    <div key={it.productId} className="flex items-center justify-between px-3 py-3 gap-3">
-                      <div className="min-w-0">
-                        <p className="text-base text-gray-800 truncate">{it.name}</p>
-                        <p className="text-sm text-gray-400">
-                          {it.price ?? "—"} / {it.unit} · المتاح: {it.available}
-                        </p>
+                    <div key={it.productId} className="px-3 py-3 space-y-2">
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="text-base text-gray-800 truncate">{it.name}</p>
+                          <p className="text-sm text-gray-400">
+                            {it.price != null ? formatNumber(it.price) : "—"} / {it.unit} · المتاح: {it.available}
+                            {(it.freeSample || it.discount > 0) && (
+                              <span className="text-gray-600"> · الإجمالي: {formatNumber(lineTotal(it))}</span>
+                            )}
+                          </p>
+                        </div>
+                        <QtyStepper
+                          value={it.qty}
+                          onChange={(v) => setCartQty(it.productId, v)}
+                          min={0}
+                          max={it.available}
+                        />
                       </div>
-                      <QtyStepper
-                        value={it.qty}
-                        onChange={(v) => setCartQty(it.productId, v)}
-                        min={0}
-                        max={it.available}
-                      />
+                      <div className="flex items-center gap-3 text-sm">
+                        <label className="flex items-center gap-1.5 text-gray-600">
+                          <input
+                            type="checkbox"
+                            checked={Boolean(it.freeSample)}
+                            onChange={() => toggleFreeSample(it.productId)}
+                          />
+                          عينة مجانية
+                        </label>
+                        {!it.freeSample && (
+                          <label className="flex items-center gap-1.5 text-gray-600">
+                            خصم
+                            <input
+                              type="number"
+                              min="0"
+                              step="0.01"
+                              value={it.discount || ""}
+                              onChange={(e) => setCartDiscount(it.productId, e.target.value)}
+                              placeholder="0"
+                              className="w-20 border rounded-lg px-2 h-8 text-sm"
+                            />
+                          </label>
+                        )}
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -563,7 +620,7 @@ export default function PlaceOrder() {
 
               {cart.length > 0 && (
                 <div className="text-end text-base text-gray-600">
-                  الإجمالي: <span className="font-semibold text-gray-900">{total.toFixed(2)}</span>
+                  الإجمالي: <span className="font-semibold text-gray-900">{formatNumber(total)}</span>
                 </div>
               )}
 

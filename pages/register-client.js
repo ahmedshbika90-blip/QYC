@@ -10,7 +10,9 @@ import { STORE_CLASSES } from "../lib/labels";
 export default function RegisterClient() {
   const { role, token, loading, logout } = useAuth();
   const [form, setForm] = useState({
-    name: "",
+    nameFirst: "",
+    nameMiddle: "",
+    nameLast: "",
     storeName: "",
     location: "",
     route: "car1",
@@ -30,6 +32,17 @@ export default function RegisterClient() {
     e.preventDefault();
     setError("");
     setResult(null);
+    // Basic data required before a client is created at all — explained
+    // clearly rather than a silent/blocked submit, mirroring the same
+    // check the server itself enforces.
+    if (!form.nameFirst.trim() || !form.nameMiddle.trim() || !form.nameLast.trim()) {
+      setError("اسم العميل مطلوب ثلاثيًا: الاسم الأول والأوسط والأخير");
+      return;
+    }
+    if (!form.storeName.trim() || !form.location.trim() || !form.phone.trim()) {
+      setError("اسم المتجر والموقع ورقم الهاتف كلها مطلوبة");
+      return;
+    }
     if (!form.storeClass) {
       setError("اختر تصنيف المتجر (A أو B أو C)");
       return;
@@ -54,8 +67,22 @@ export default function RegisterClient() {
       setResult(data);
       requestIds.reset();
       invalidateClients();
-      setForm({ name: "", storeName: "", location: "", route: "car1", storeClass: "", phone: "", whatsapp: "" });
+      setForm({
+        nameFirst: "",
+        nameMiddle: "",
+        nameLast: "",
+        storeName: "",
+        location: "",
+        route: "car1",
+        storeClass: "",
+        phone: "",
+        whatsapp: "",
+      });
       setSameAsPhone(true);
+      // Success confirmation + a fresh tab ready for the next client, so
+      // an agent registering several clients in a row never has to wait
+      // on this one before starting the next.
+      window.open(window.location.href, "_blank");
     } catch (err) {
       // Connection failure: keep the same request ID so "retry" is safe.
       // Server rejection: a fresh ID next time.
@@ -87,14 +114,33 @@ export default function RegisterClient() {
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-sm text-gray-600 mb-1">اسم العميل</label>
-            <input
-              type="text"
-              value={form.name}
-              onChange={(e) => setForm({ ...form, name: e.target.value })}
-              className="w-full border rounded-lg px-3 h-12 text-base"
-              required
-            />
+            <label className="block text-sm text-gray-600 mb-1">اسم العميل (ثلاثي)</label>
+            <div className="grid grid-cols-3 gap-2">
+              <input
+                type="text"
+                value={form.nameFirst}
+                onChange={(e) => setForm({ ...form, nameFirst: e.target.value })}
+                className="w-full border rounded-lg px-3 h-12 text-base"
+                placeholder="الأول"
+                required
+              />
+              <input
+                type="text"
+                value={form.nameMiddle}
+                onChange={(e) => setForm({ ...form, nameMiddle: e.target.value })}
+                className="w-full border rounded-lg px-3 h-12 text-base"
+                placeholder="الأوسط"
+                required
+              />
+              <input
+                type="text"
+                value={form.nameLast}
+                onChange={(e) => setForm({ ...form, nameLast: e.target.value })}
+                className="w-full border rounded-lg px-3 h-12 text-base"
+                placeholder="الأخير"
+                required
+              />
+            </div>
           </div>
 
           <div>
@@ -189,12 +235,12 @@ export default function RegisterClient() {
                 onChange={(e) => setForm({ ...form, route: e.target.value })}
                 className="w-full border rounded-lg px-3 h-12 text-base"
               >
-                <option value="car1">السيارة ١ (حسب الطلب)</option>
-                <option value="car2">السيارة ٢ (خط أسبوعي ثابت)</option>
+                <option value="car1">مبيعات جملة (حسب الطلب)</option>
+                <option value="car2">مبيعات تجزئة (خط أسبوعي ثابت)</option>
               </select>
             ) : (
               <p className="w-full border rounded-lg px-3 h-12 text-base bg-gray-50 text-gray-600 flex items-center">
-                {role === "agent_car1" ? "السيارة ١ (حسب الطلب)" : "السيارة ٢ (خط أسبوعي ثابت)"}
+                {role === "agent_car1" ? "مبيعات جملة (حسب الطلب)" : "مبيعات تجزئة (خط أسبوعي ثابت)"}
               </p>
             )}
             {role !== "supervisor" && (

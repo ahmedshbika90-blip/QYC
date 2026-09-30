@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { formatNumber } from "../lib/labels";
 
 function itemsSummary(items) {
   if (items.length === 1) return `${items[0].name} ×${items[0].qty}`;
@@ -40,7 +41,7 @@ export default function OrderCard({ order, name, location, badge, subtitle, edit
           {subtitle && <p className="text-xs text-gray-400 mt-0.5">{subtitle}</p>}
         </Link>
         <div className="flex flex-col items-end gap-1 shrink-0">
-          <span className="text-sm font-medium text-gray-800">{order.total ?? "—"}</span>
+          <span className="text-sm font-medium text-gray-800">{order.total != null ? formatNumber(order.total) : "—"}</span>
           {isCancelled ? (
             <span className="text-xs text-red-500 px-2 h-9 flex items-center">ملغاة</span>
           ) : !canCancel || order.pendingRequest ? (

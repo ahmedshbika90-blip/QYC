@@ -7,7 +7,7 @@ import { PageLoading, Spinner } from "../../components/Loading";
 import { apiFetch } from "../../lib/apiFetch";
 import { invalidate } from "../../lib/apiCache";
 import { useLiveRefresh } from "../../lib/useLiveRefresh";
-import { formatDate, formatDateTime } from "../../lib/labels";
+import { formatDate, formatDateTime, formatNumber } from "../../lib/labels";
 import { useRequestId } from "../../lib/useRequestId";
 
 export default function OrderDetail() {
@@ -151,9 +151,29 @@ export default function OrderDetail() {
     .slice(0, 8);
 
   function addProduct(p) {
-    setCart((prev) => [...prev, { productId: p.id, name: p.name, price: p.price, unit: p.unit, qty: 1 }]);
+    setCart((prev) => [
+      ...prev,
+      { productId: p.id, name: p.name, price: p.price, unit: p.unit, qty: 1, freeSample: false, discount: 0 },
+    ]);
     setProductQuery("");
     setProductDropdownOpen(false);
+  }
+
+  function toggleFreeSample(productId) {
+    setCart((prev) =>
+      prev.map((it) =>
+        it.productId === productId ? { ...it, freeSample: !it.freeSample, discount: !it.freeSample ? 0 : it.discount } : it
+      )
+    );
+  }
+
+  function setCartDiscount(productId, value) {
+    setCart((prev) => prev.map((it) => (it.productId === productId ? { ...it, discount: value } : it)));
+  }
+
+  function lineTotal(it) {
+    if (it.freeSample) return 0;
+    return Math.max(0, (it.price || 0) * it.qty - (Number(it.discount) || 0));
   }
 
   // Agents can't change a locked invoice directly — they ask the supervisor.
@@ -193,7 +213,7 @@ export default function OrderDetail() {
     if (needsRequest) {
       return sendChangeRequest(
         "edit",
-        cart.map((it) => ({ productId: it.productId, qty: it.qty }))
+        cart.map((it) => ({ productId: it.productId, qty: it.qty, freeSample: it.freeSample, discount: it.discount }))
       );
     }
     setSavingItems(true);
@@ -402,7 +422,7 @@ export default function OrderDetail() {
                       <div className="min-w-0">
                         <p className="text-base text-gray-800 truncate">{it.name}</p>
                         <p className="text-sm text-gray-400">
-                          {it.price} / {it.unit}
+                          {formatNumber(it.price)} / {it.unit}
                         </p>
                       </div>
                       <QtyStepper value={it.qty} onChange={(v) => setCartQty(it.productId, v)} min={0} />
@@ -412,7 +432,7 @@ export default function OrderDetail() {
               </div>
 
               <div className="text-end text-base text-gray-600">
-                الإجمالي: <span className="font-semibold text-gray-900">{cartTotal.toFixed(2)}</span>
+                الإجمالي: <span className="font-semibold text-gray-900">{formatNumber(cartTotal)}</span>
               </div>
 
               {needsRequest && (
@@ -461,11 +481,11 @@ export default function OrderDetail() {
                     <div className="min-w-0">
                       <p className="text-base text-gray-800 truncate">{it.name}</p>
                       <p className="text-sm text-gray-400">
-                        {it.qty} {it.unit || ""} × {it.price}
+                        {it.qty} {it.unit || ""} × {formatNumber(it.price)}
                       </p>
                     </div>
                     <p className="text-base font-medium text-gray-800 shrink-0">
-                      {it.subtotal ?? it.price * it.qty}
+                      {formatNumber(it.subtotal ?? it.price * it.qty)}
                     </p>
                   </div>
                 ))}
@@ -496,7 +516,7 @@ export default function OrderDetail() {
                   <div key={i} className="text-gray-500">
                     <p className="text-xs text-gray-400">قبل التعديل — {formatDateTime(h.editedAt)}</p>
                     <p>
-                      {h.items.map((it) => `${it.name} ×${it.qty}`).join("، ")} — الإجمالي: {h.total}
+                      {h.items.map((it) => `${it.name} ×${it.qty}`).join("، ")} — الإجمالي: {formatNumber(h.total)}
                     </p>
                   </div>
                 ))}

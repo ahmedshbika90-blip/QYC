@@ -104,22 +104,21 @@ export default function InventoryHistory({
             <option value="received">استلام بضاعة</option>
             <option value="loading">تحميل</option>
             <option value="offloading">تفريغ</option>
+            <option value="damage">تالف</option>
           </select>
         )}
         {!fixedRoute && showRouteFilter && (
           <select value={routeFilter} onChange={(e) => setRouteFilter(e.target.value)} className={selectClass}>
             <option value="">كل السيارات</option>
-            <option value="car1">السيارة ١</option>
-            <option value="car2">السيارة ٢</option>
+            <option value="car1">مبيعات جملة</option>
+            <option value="car2">مبيعات تجزئة</option>
           </select>
         )}
         <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className={selectClass}>
           <option value="">كل الحالات</option>
           {!excludePending && <option value="pending">بانتظار التأكيد</option>}
           <option value="confirmed">مؤكدة</option>
-          <option value="disputed">متنازع عليها</option>
           <option value="rejected">مرفوضة</option>
-          <option value="cancelled">ملغاة</option>
         </select>
       </FilterPanel>
 

@@ -32,7 +32,7 @@ service cloud.firestore {
     //   - signed in AND holding a staff role claim, same bar as the API.
     match /meta/versions {
       allow get: if request.auth != null
-        && request.auth.token.role in ['agent_car1', 'agent_car2', 'supervisor', 'warehouse_keeper'];
+        && request.auth.token.role in ['agent_car1', 'agent_car2', 'supervisor', 'warehouse_keeper', 'depot_viewer'];
     }
   }
 }

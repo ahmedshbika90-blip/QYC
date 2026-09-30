@@ -12,7 +12,7 @@ import { apiFetch } from "../../lib/apiFetch";
 import { cachedGet, invalidate } from "../../lib/apiCache";
 import { useLiveRefresh } from "../../lib/useLiveRefresh";
 import { getClients } from "../../lib/clientsStore";
-import { formatDate } from "../../lib/labels";
+import { formatDate, formatNumber } from "../../lib/labels";
 
 export default function SupervisorDashboard() {
   const { user, role, token, loading, logout } = useAuth(["supervisor"]);
@@ -155,8 +155,8 @@ export default function SupervisorDashboard() {
             className="border rounded-lg px-3 h-10 text-sm"
           >
             <option value="all">كل المسارات</option>
-            <option value="car1">السيارة ١</option>
-            <option value="car2">السيارة ٢</option>
+            <option value="car1">مبيعات جملة</option>
+            <option value="car2">مبيعات تجزئة</option>
           </select>
         </div>
 
@@ -211,7 +211,7 @@ export default function SupervisorDashboard() {
         )}
 
         <p className="text-sm text-gray-500 mb-3">
-          {visible.length} فاتورة معروضة — الإجمالي {totalRevenue.toFixed(2)} (باستثناء الملغاة){nextCursor ? " · توجد فواتير أخرى لم تُحمَّل" : ""}
+          {visible.length} فاتورة معروضة — الإجمالي {formatNumber(totalRevenue)} (باستثناء الملغاة){nextCursor ? " · توجد فواتير أخرى لم تُحمَّل" : ""}
         </p>
 
         {error && (
@@ -235,7 +235,7 @@ export default function SupervisorDashboard() {
                 edited={order.edited}
                 badge={
                   <span className="text-xs font-normal text-gray-400 ms-2">
-                    {order.route === "car1" ? "السيارة ١" : "السيارة ٢"}
+                    {order.route === "car1" ? "مبيعات جملة" : "مبيعات تجزئة"}
                   </span>
                 }
                 subtitle={order.deliveryDate ? `التسليم: ${formatDate(order.deliveryDate)}` : null}
