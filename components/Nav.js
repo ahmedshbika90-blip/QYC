@@ -5,6 +5,7 @@ import { ROLE_LABELS } from "../lib/labels";
 import { subscribeAuth } from "../lib/currentToken";
 import { useNotifications } from "../lib/useNotifications";
 import PendingActionModal from "./PendingActionModal";
+import NotificationToastStack from "./NotificationToast";
 
 const ROLE_HOME = {
   agent_car1: "/dashboard/car1",
@@ -23,7 +24,11 @@ export default function Nav({ role, logout }) {
   const router = useRouter();
   const [auth, setAuth] = useState({ token: null, uid: null });
   useEffect(() => subscribeAuth(setAuth), []);
-  const { items, modificationCount, shippingCount, refreshSeen } = useNotifications(auth.token, role, auth.uid);
+  const { items, modificationCount, shippingCount, refreshSeen, toasts, dismissToast } = useNotifications(
+    auth.token,
+    role,
+    auth.uid
+  );
 
   // Warehouse keeper gets only their four working sections — none of the
   // sales-side pages (clients, products, reports) are relevant to that job.
@@ -57,6 +62,7 @@ export default function Nav({ role, logout }) {
   return (
     <nav className="bg-white border-b sticky top-0 z-20">
       <PendingActionModal role={role} uid={auth.uid} items={items} refreshSeen={refreshSeen} />
+      <NotificationToastStack toasts={toasts} uid={auth.uid} onDismiss={dismissToast} refreshSeen={refreshSeen} />
       <div className="max-w-5xl mx-auto px-4 py-3">
         <div className="flex items-center justify-between mb-1">
           <span className="font-semibold text-gray-800">بوابة الفواتير</span>
