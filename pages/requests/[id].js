@@ -31,7 +31,7 @@ function ItemsTable({ title, items, total, tone = "gray" }) {
 }
 
 export default function RequestDetail() {
-  const { role, token, loading, logout } = useAuth(["supervisor"]);
+  const { role, token, loading, logout } = useAuth(["supervisor", "agent_car1", "agent_car2"]);
   const router = useRouter();
   const { id } = router.query;
   const [r, setR] = useState(null);
@@ -143,7 +143,7 @@ export default function RequestDetail() {
 
           {error && <p className="text-red-600 text-sm">{error}</p>}
 
-          {r.status === "pending" ? (
+          {r.status === "pending" && role === "supervisor" ? (
             <div className="border-t pt-4 space-y-3">
               <textarea
                 value={note}
@@ -179,10 +179,15 @@ export default function RequestDetail() {
           ) : (
             <div
               className={`rounded-lg px-3 py-2 text-sm ${
-                r.status === "approved" ? "bg-green-50 text-green-700" : "bg-red-50 text-red-600"
+                r.status === "approved"
+                  ? "bg-green-50 text-green-700"
+                  : r.status === "rejected"
+                  ? "bg-red-50 text-red-600"
+                  : "bg-amber-50 text-amber-700"
               }`}
             >
-              {r.status === "approved" ? "تمت الموافقة" : "تم الرفض"} — {formatDateTime(r.decidedAt)}
+              {r.status === "approved" ? "تمت الموافقة" : r.status === "rejected" ? "تم الرفض" : "بانتظار قرار المشرف"}
+              {r.decidedAt && <> — {formatDateTime(r.decidedAt)}</>}
               {r.decisionNote && <span className="block text-xs mt-0.5">الملاحظة: {r.decisionNote}</span>}
             </div>
           )}

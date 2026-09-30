@@ -5,12 +5,12 @@ const { createMovementDoc } = require("../../../../lib/movementDoc");
 const { bumpVersions } = require("../../../../lib/versions");
 
 // Turns an agent's approved shipment request into the actual
-// loading/offloading document — the SAME kind of document the direct path
-// (/api/inventory/movement.js) creates, so everything downstream (the car
-// agent's confirm/dispute, stock movement on confirm, history, PDF) works
-// identically either way. The warehouse keeper can adjust quantities here
-// if what's physically going out differs from what was requested; leaving
-// `items` out reuses the request's original quantities as-is.
+// loading/offloading document — this is the ONLY way one gets created;
+// there is no direct/manual path anymore (see lib/movementDoc.js). The car
+// agent still has to confirm before any stock actually moves. The
+// warehouse keeper can adjust quantities here if what's physically going
+// out differs from what was requested; leaving `items` out reuses the
+// request's original quantities as-is.
 export default async function handler(req, res) {
   if (req.method !== "PATCH") {
     return res.status(405).json({ error: "طريقة الطلب غير مسموح بها" });
@@ -36,7 +36,10 @@ export default async function handler(req, res) {
     // Repeat of an already-fulfilled request (weak-connection retry)
     // returns the original document instead of erroring or duplicating it.
     if (request.status === "fulfilled") {
-      return res.status(200).json({ id: request.fulfilledDocId, duplicate: true });
+      const existingDoc = await adminDb.collection("inventoryDocs").doc(request.fulfilledDocId).get();
+      return res
+        .status(200)
+        .json({ id: request.fulfilledDocId, dailySeq: existingDoc.exists ? existingDoc.data().dailySeq : null, duplicate: true });
     }
     if (request.status !== "pending_warehouse") {
       return res.status(400).json({ error: "هذا الطلب ليس جاهزًا للتنفيذ" });

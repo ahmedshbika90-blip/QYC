@@ -9,11 +9,12 @@ import { useLiveRefresh } from "../../lib/useLiveRefresh";
 import { useRequestId } from "../../lib/useRequestId";
 import { formatDateTime, formatQty } from "../../lib/labels";
 
-// The warehouse keeper's queue of agent-submitted shipment requests ready
-// to fulfill — car1's own requests, plus car2's once approved by car1.
-// Fulfilling creates the real loading/offloading document (same as the
-// direct /warehouse/car1 or /warehouse/car2 form), which still needs the
-// car agent's own confirmation before any stock actually moves.
+// The warehouse keeper's queue of agent-submitted requests ready to
+// fulfill — car1's own requests, plus car2's LOADING requests once
+// approved by car1 (car2's offloading needs no such approval). Fulfilling
+// a loading request creates a document still awaiting the car agent's own
+// confirmation; fulfilling an offloading request finalizes and moves
+// stock immediately, since the warehouse keeper is the one receiving it.
 export default function ShipmentRequestQueue() {
   const { role, token, loading, logout } = useAuth(["warehouse_keeper"]);
   const [requests, setRequests] = useState([]);
@@ -23,7 +24,7 @@ export default function ShipmentRequestQueue() {
   const [qtyOverrides, setQtyOverrides] = useState({});
   const [note, setNote] = useState("");
   const [acting, setActing] = useState(false);
-  const [justFulfilled, setJustFulfilled] = useState(null); // { requestIdKey, id }
+  const [justFulfilled, setJustFulfilled] = useState(null); // { id, type }
   const requestIds = useRequestId();
 
   async function load() {
@@ -74,7 +75,7 @@ export default function ShipmentRequestQueue() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
       requestIds.reset();
-      setJustFulfilled({ id: data.id });
+      setJustFulfilled({ id: data.id, type: r.type });
       setOpenId(null);
       invalidate("/api/inventory");
       load();
@@ -92,13 +93,17 @@ export default function ShipmentRequestQueue() {
     <div className="min-h-screen bg-gray-50">
       <Nav role={role} logout={logout} />
       <div className="max-w-3xl mx-auto p-4 sm:p-8">
-        <h1 className="text-xl font-semibold mb-3 text-gray-800">أوامر شحن بانتظار التنفيذ</h1>
+        <h1 className="text-xl font-semibold mb-3 text-gray-800">طلبات بانتظار التنفيذ</h1>
 
         {error && <p className="text-red-600 text-sm mb-4">{error}</p>}
 
         {justFulfilled && (
           <div className="bg-green-50 border border-green-200 rounded-lg p-3 mb-4">
-            <p className="text-green-700 text-sm">تم إنشاء مستند التحميل/التفريغ — بانتظار تأكيد المندوب.</p>
+            <p className="text-green-700 text-sm">
+              {justFulfilled.type === "offloading"
+                ? "تم تسجيل التفريغ واستلامه في المخزن — لا حاجة لتأكيد إضافي."
+                : "تم إنشاء مستند التحميل — بانتظار تأكيد المندوب."}
+            </p>
             <Link href={`/inventory/${justFulfilled.id}`} className="text-sm text-green-800 underline">
               فتح المستند ←
             </Link>
@@ -108,7 +113,7 @@ export default function ShipmentRequestQueue() {
         {fetching ? (
           <SkeletonRows count={4} />
         ) : requests.length === 0 ? (
-          <p className="text-gray-400">لا توجد أوامر شحن بانتظار التنفيذ.</p>
+          <p className="text-gray-400">لا توجد طلبات بانتظار التنفيذ.</p>
         ) : (
           <div className="space-y-2">
             {requests.map((r) => (
@@ -139,7 +144,10 @@ export default function ShipmentRequestQueue() {
 
                 {openId === r.id && (
                   <div className="mt-4 border-t pt-4 space-y-3">
-                    <p className="text-xs text-gray-500">عدّل الكميات إذا اختلفت عمّا طُلب، ثم أكّد الإرسال.</p>
+                    <p className="text-xs text-gray-500">
+                      عدّل الكميات إذا اختلفت عمّا طُلب، ثم أكّد.
+                      {r.type === "offloading" && " هذا يسجّلها ويستلمها في المخزن فورًا."}
+                    </p>
                     <div className="space-y-2">
                       {r.items.map((it) => (
                         <div key={it.productId} className="flex items-center justify-between gap-3">
@@ -171,7 +179,7 @@ export default function ShipmentRequestQueue() {
                         className="flex-1 bg-gray-900 text-white rounded-lg h-12 text-base font-medium disabled:opacity-50 flex items-center justify-center gap-2"
                       >
                         {acting && <Spinner className="w-4 h-4" />}
-                        إرسال للتأكيد
+                        {r.type === "offloading" ? "تأكيد الاستلام" : "إرسال للتأكيد"}
                       </button>
                       <button onClick={() => setOpenId(null)} className="text-base text-gray-500 px-4 h-12">
                         تراجع
@@ -184,9 +192,7 @@ export default function ShipmentRequestQueue() {
           </div>
         )}
 
-        <p className="text-xs text-gray-400 mt-4">
-          {formatQty(requests.length)} أمر شحن بانتظار التنفيذ.
-        </p>
+        <p className="text-xs text-gray-400 mt-4">{formatQty(requests.length)} طلب بانتظار التنفيذ.</p>
       </div>
     </div>
   );

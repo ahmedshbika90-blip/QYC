@@ -6,14 +6,21 @@ const { bumpVersions } = require("../../../lib/versions");
 
 const ROLE_TO_ROUTE = { agent_car1: "car1", agent_car2: "car2" };
 
-// An agent asks for a loading/offloading, instead of the warehouse keeper
-// creating it out of nothing. car1 (wholesale) requests go straight to the
+// An agent asks for a loading or offloading, instead of the warehouse
+// keeper creating it out of nothing.
+//
+// LOADING (depot -> car): car1 (wholesale) requests go straight to the
 // warehouse keeper's queue. car2 (retail) requests need car1's approval
 // FIRST — car1 acts as a check on retail shipments before they even reach
-// the warehouse keeper. Either way, nothing here moves stock; this is only
-// a request. The actual loading/offloading document (and its stock check)
-// is created when the warehouse keeper fulfills it — see
-// /api/shipment-requests/[id]/fulfill.js.
+// the warehouse keeper.
+//
+// OFFLOADING (car -> depot): always goes straight to the warehouse
+// keeper's queue, for EITHER car — it's unsold stock coming back, not
+// stock going out to sell, so there's nothing for car1 to gate here.
+//
+// Either way, nothing here moves stock; this is only a request. The
+// actual document (and its stock effect) is created when the warehouse
+// keeper fulfills it — see /api/shipment-requests/[id]/fulfill.js.
 export default async function handler(req, res) {
   if (req.method !== "POST") {
     return res.status(405).json({ error: "طريقة الطلب غير مسموح بها" });
@@ -62,7 +69,7 @@ export default async function handler(req, res) {
         type,
         items: resolvedItems,
         note: note || "",
-        status: route === "car2" ? "pending_car1" : "pending_warehouse",
+        status: route === "car2" && type === "loading" ? "pending_car1" : "pending_warehouse",
         requestedBy: decoded.uid,
         requestedAt: now,
         car1Decision: null,

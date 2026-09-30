@@ -113,13 +113,17 @@ const ok = (msg) => { passed++; console.log("PASS", passed + ":", msg); };
   assert.strictEqual((await get("products", "p1")).stock.car1, 20);
   ok("cancel approved: stock 18→20, returned exactly once");
 
-  // 9. requests list: pending empty, history has 2 approved
+  // 9. requests list: pending empty, history has 2 approved; an agent can
+  // now list their OWN requests (scoped to requestedBy), but nothing more.
   const lp = await call("pages/api/requests/list.js", { ...SUP, query: { status: "pending" } });
   const lh = await call("pages/api/requests/list.js", { ...SUP, query: { status: "approved", route: "car1" } });
   assert.strictEqual(lp.json.requests.length, 0); assert.strictEqual(lh.json.requests.length, 2);
   const la = await call("pages/api/requests/list.js", { ...A1, query: { status: "pending" } });
-  assert.strictEqual(la.status, 403);
-  ok("requests list: filters by status & car; agents refused (403)");
+  assert.strictEqual(la.status, 200, JSON.stringify(la.json));
+  assert.strictEqual(la.json.requests.length, 0); // both of A1's own requests are already decided by now
+  const laAll = await call("pages/api/requests/list.js", { ...A1, query: {} });
+  assert.strictEqual(laAll.json.requests.length, 2); // exactly A1's own 2 decided requests, not the whole collection
+  ok("requests list: filters by status & car for the supervisor; an agent sees only their own requests");
 
   // 10. report + share-lock + margin
   await call("pages/api/orders/create-staff.js", { method: "POST", ...A1, body: { clientId: "1000", items: [{ productId: "p1", qty: 4 }], requestId: "req-invoice-000002" } });

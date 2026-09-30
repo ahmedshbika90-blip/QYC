@@ -42,6 +42,11 @@ export default async function handler(req, res) {
         err.statusCode = 400;
         throw err;
       }
+      if (request.type !== "loading") {
+        const err = new Error("التفريغ لا يحتاج موافقة سيارة الجملة — يذهب مباشرة لأمين المخزن");
+        err.statusCode = 400;
+        throw err;
+      }
 
       const target = action === "approve" ? "pending_warehouse" : "rejected";
       if (request.status === target) {
