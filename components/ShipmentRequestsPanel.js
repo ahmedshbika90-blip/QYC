@@ -25,7 +25,7 @@ function RequestRow({ r }) {
     <div className="p-4">
       <div className="flex justify-between items-start gap-2">
         <div className="min-w-0">
-          <p className="font-medium text-gray-800">{r.type === "loading" ? "تحميل" : "تفريغ"}</p>
+          <p className="font-medium text-gray-800">{r.type === "loading" ? "أمر شحن" : "مرتجع بضاعة"}</p>
           <p className="text-sm text-gray-500 truncate mt-0.5">
             {r.items.map((it) => `${it.name} ×${it.qty}`).join("، ")}
           </p>
@@ -188,8 +188,8 @@ export default function ShipmentRequestsPanel({ role, token }) {
         <form onSubmit={submit} className="bg-white rounded-lg shadow p-4 space-y-4">
           <div className="grid grid-cols-2 gap-2">
             {[
-              ["loading", "تحميل", "من المخزن إلى السيارة"],
-              ["offloading", "تفريغ", "من السيارة إلى المخزن"],
+              ["loading", "أمر شحن", "من المخزن إلى السيارة"],
+              ["offloading", "مرتجع بضاعة", "من السيارة إلى المخزن"],
             ].map(([value, label, sub]) => (
               <button
                 type="button"
@@ -255,7 +255,7 @@ export default function ShipmentRequestsPanel({ role, token }) {
           <div className="space-y-2">
             {toDecide.map((r) => (
               <div key={r.id} className="bg-white rounded-lg shadow p-4">
-                <p className="font-medium text-gray-800">تحميل — مبيعات تجزئة</p>
+                <p className="font-medium text-gray-800">أمر شحن — مبيعات تجزئة</p>
                 <p className="text-sm text-gray-500 mt-0.5">
                   {r.items.map((it) => `${it.name} ×${it.qty}`).join("، ")}
                 </p>

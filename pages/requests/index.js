@@ -4,7 +4,6 @@ import Nav from "../../components/Nav";
 import FilterPanel from "../../components/FilterPanel";
 import PeriodTabs, { periodStartISO } from "../../components/PeriodTabs";
 import RequestCard from "../../components/RequestCard";
-import ShipmentRequestsPanel from "../../components/ShipmentRequestsPanel";
 import { PageLoading, SkeletonRows, Spinner } from "../../components/Loading";
 import { apiFetch } from "../../lib/apiFetch";
 import { cachedGet, invalidate } from "../../lib/apiCache";
@@ -24,9 +23,10 @@ const AGENT_ORDER_TABS = [
 // One page, two very different audiences:
 //  - Supervisor: reviews change requests (invoice edit/cancel) from
 //    agents — pending ones to decide on, plus history.
-//  - Agent (car1/car2): "الطلبات" — everything THEY might need to check
-//    or act on: their own change requests to the supervisor, and loading/
-//    offloading requests (car1 additionally approves/rejects car2's).
+//  - Agent (car1/car2): "طلب تعديل" — their own invoice edit/cancel
+//    requests to the supervisor, and the outcome once decided. Shipping
+//    orders/cargo returns live in Documents now, not here — see
+//    components/ShipmentRequestsPanel.js.
 // Both sets of hooks are declared unconditionally (rules of hooks), each
 // gated internally by role so the wrong one never actually fetches.
 export default function RequestsPage() {
@@ -97,7 +97,6 @@ export default function RequestsPage() {
   });
 
   // ---- Agent: their own order change-requests ----
-  const [mainTab, setMainTab] = useState("orders"); // "orders" | "shipments"
   const [agentOrderTab, setAgentOrderTab] = useState("pending");
   const [orderRequests, setOrderRequests] = useState([]);
   const [orderFetching, setOrderFetching] = useState(true);
@@ -219,23 +218,20 @@ export default function RequestsPage() {
     );
   }
 
-  // Agent view: unified "الطلبات" — order change requests + loading/offloading.
+  // Agent view: "طلب تعديل" — invoice edit/cancel requests only.
   return (
     <div className="min-h-screen bg-gray-50">
       <Nav role={role} logout={logout} />
       <div className="max-w-3xl mx-auto p-4 sm:p-8">
-        <h1 className="text-xl font-semibold mb-3 text-gray-800">الطلبات</h1>
+        <h1 className="text-xl font-semibold mb-3 text-gray-800">طلب تعديل</h1>
 
-        <div className="flex gap-1 mb-4 overflow-x-auto">
-          {[
-            ["orders", "طلبات الفاتورة"],
-            ["shipments", "التحميل والتفريغ"],
-          ].map(([key, label]) => (
+        <div className="flex gap-1 mb-3 overflow-x-auto">
+          {AGENT_ORDER_TABS.map(([key, label]) => (
             <button
               key={key}
-              onClick={() => setMainTab(key)}
+              onClick={() => setAgentOrderTab(key)}
               className={`whitespace-nowrap min-h-[40px] px-3 rounded-lg text-sm ${
-                mainTab === key ? "bg-gray-900 text-white font-medium" : "bg-white text-gray-600"
+                agentOrderTab === key ? "bg-gray-900 text-white font-medium" : "bg-white text-gray-600"
               }`}
             >
               {label}
@@ -243,40 +239,20 @@ export default function RequestsPage() {
           ))}
         </div>
 
-        {mainTab === "shipments" ? (
-          <ShipmentRequestsPanel role={role} token={token} />
+        {orderError && <p className="text-red-600 text-sm mb-4">{orderError}</p>}
+
+        {orderFetching ? (
+          <SkeletonRows count={4} />
+        ) : orderRequests.length === 0 ? (
+          <p className="text-gray-400">
+            {agentOrderTab === "pending" ? "لا توجد طلبات بانتظار قرار المشرف." : "لا توجد طلبات بهذه الحالة."}
+          </p>
         ) : (
-          <>
-            <div className="flex gap-1 mb-3 overflow-x-auto">
-              {AGENT_ORDER_TABS.map(([key, label]) => (
-                <button
-                  key={key}
-                  onClick={() => setAgentOrderTab(key)}
-                  className={`whitespace-nowrap min-h-[40px] px-3 rounded-lg text-sm ${
-                    agentOrderTab === key ? "bg-gray-900 text-white font-medium" : "bg-white text-gray-600"
-                  }`}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
-
-            {orderError && <p className="text-red-600 text-sm mb-4">{orderError}</p>}
-
-            {orderFetching ? (
-              <SkeletonRows count={4} />
-            ) : orderRequests.length === 0 ? (
-              <p className="text-gray-400">
-                {agentOrderTab === "pending" ? "لا توجد طلبات بانتظار قرار المشرف." : "لا توجد طلبات بهذه الحالة."}
-              </p>
-            ) : (
-              <div className="bg-white rounded-lg shadow divide-y">
-                {orderRequests.map((r) => (
-                  <RequestCard key={r.id} request={r} />
-                ))}
-              </div>
-            )}
-          </>
+          <div className="bg-white rounded-lg shadow divide-y">
+            {orderRequests.map((r) => (
+              <RequestCard key={r.id} request={r} />
+            ))}
+          </div>
         )}
       </div>
     </div>

@@ -36,7 +36,7 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: "طلب غير صالح، يرجى تحديث الصفحة والمحاولة مرة أخرى" });
     }
     if (!["loading", "offloading"].includes(type)) {
-      return res.status(400).json({ error: "نوع الحركة يجب أن يكون تحميل أو تفريغ" });
+      return res.status(400).json({ error: "نوع الحركة يجب أن يكون أمر شحن أو مرتجع بضاعة" });
     }
     if (!Array.isArray(items) || items.length === 0) {
       return res.status(400).json({ error: "يجب إضافة منتج واحد على الأقل" });

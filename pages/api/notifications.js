@@ -1,0 +1,183 @@
+const { adminDb } = require("../../lib/firebaseAdmin");
+const { requireUser } = require("../../lib/apiAuth");
+
+const ROLE_TO_ROUTE = { agent_car1: "car1", agent_car2: "car2" };
+const ROUTE_LABEL = { car1: "مبيعات جملة", car2: "مبيعات تجزئة" };
+const RESOLVED_LIMIT = 20; // bounded — just enough recent history to notify on
+
+// Every notification item: { id, bucket, needsAction, requestType, from,
+// state, href, at }.
+//
+//  - needsAction: true  → still pending — the client NEVER marks these
+//    "seen" locally, so they keep appearing every session until the
+//    underlying thing is actually resolved (approved/rejected/fulfilled/
+//    confirmed). That's the whole point: an outstanding task doesn't get
+//    to be dismissed away.
+//  - needsAction: false → already resolved (approved/rejected/fulfilled) —
+//    purely informational. The client marks these seen once opened or
+//    once the prompt is dismissed, and they never reappear after that.
+//
+// "bucket" separates the two notification surfaces this app has: the
+// invoice modification-request review (nav: الطلبات) and shipping orders /
+// cargo returns (nav: المستندات → شحن) — each gets its own red dot and its
+// own count, deliberately not merged into one number.
+export default async function handler(req, res) {
+  if (req.method !== "GET") {
+    return res.status(405).json({ error: "طريقة الطلب غير مسموح بها" });
+  }
+
+  try {
+    const decoded = await requireUser(req);
+    const role = decoded.role;
+    const items = [];
+
+    if (role === "supervisor") {
+      const [pendingRequests, pendingReceived] = await Promise.all([
+        adminDb.collection("changeRequests").where("status", "==", "pending").get(),
+        adminDb.collection("inventoryDocs").where("type", "==", "received").where("status", "==", "pending").get(),
+      ]);
+      pendingRequests.docs.forEach((d) => {
+        const r = d.data();
+        items.push({
+          id: d.id,
+          bucket: "modification",
+          needsAction: true,
+          requestType: r.type === "cancel" ? "طلب إلغاء فاتورة" : "طلب تعديل فاتورة",
+          from: ROUTE_LABEL[r.route] || "",
+          state: "بانتظار قرارك",
+          href: `/requests/${d.id}`,
+          at: r.requestedAt,
+        });
+      });
+      pendingReceived.docs.forEach((d) => {
+        const r = d.data();
+        items.push({
+          id: d.id,
+          bucket: "modification",
+          needsAction: true,
+          requestType: "استلام بضاعة",
+          from: "أمين المخزن",
+          state: "بانتظار اعتمادك",
+          href: `/inventory/${d.id}`,
+          at: r.createdAt,
+        });
+      });
+    } else if (role === "warehouse_keeper") {
+      const pendingWarehouse = await adminDb
+        .collection("shipmentRequests")
+        .where("status", "==", "pending_warehouse")
+        .get();
+      pendingWarehouse.docs.forEach((d) => {
+        const r = d.data();
+        items.push({
+          id: d.id,
+          bucket: "shipping",
+          needsAction: true,
+          requestType: r.type === "offloading" ? "مرتجع بضاعة" : "أمر شحن",
+          from: ROUTE_LABEL[r.route] || "",
+          state: "بانتظار التنفيذ",
+          href: `/shipping/${d.id}`,
+          at: r.requestedAt,
+        });
+      });
+    } else if (ROLE_TO_ROUTE[role]) {
+      const myRoute = ROLE_TO_ROUTE[role];
+
+      // Modification bucket: purely informational for an agent — they
+      // never decide these, only find out the outcome.
+      const decidedMine = await adminDb
+        .collection("changeRequests")
+        .where("requestedBy", "==", decoded.uid)
+        .get();
+      decidedMine.docs
+        .map((d) => ({ id: d.id, ...d.data() }))
+        .filter((r) => r.status === "approved" || r.status === "rejected")
+        .sort((a, b) => (b.decidedAt || "").localeCompare(a.decidedAt || ""))
+        .slice(0, RESOLVED_LIMIT)
+        .forEach((r) => {
+          items.push({
+            id: r.id,
+            bucket: "modification",
+            needsAction: false,
+            requestType: r.type === "cancel" ? "طلب إلغاء فاتورة" : "طلب تعديل فاتورة",
+            from: "المشرف",
+            state: r.status === "approved" ? "تمت الموافقة" : "تم الرفض",
+            href: `/requests/${r.id}`,
+            at: r.decidedAt,
+          });
+        });
+
+      // Shipping bucket: pending confirmations on MY car are actionable —
+      // I must confirm before that stock movement is final.
+      const pendingConfirm = await adminDb
+        .collection("inventoryDocs")
+        .where("route", "==", myRoute)
+        .where("status", "==", "pending")
+        .get();
+      pendingConfirm.docs.forEach((d) => {
+        const r = d.data();
+        items.push({
+          id: d.id,
+          bucket: "shipping",
+          needsAction: true,
+          requestType: "أمر شحن",
+          from: "أمين المخزن",
+          state: "بانتظار تأكيدك",
+          href: `/inventory/${d.id}`,
+          at: r.createdAt,
+        });
+      });
+
+      if (role === "agent_car1") {
+        const toDecide = await adminDb
+          .collection("shipmentRequests")
+          .where("route", "==", "car2")
+          .where("status", "==", "pending_car1")
+          .get();
+        toDecide.docs.forEach((d) => {
+          const r = d.data();
+          items.push({
+            id: d.id,
+            bucket: "shipping",
+            needsAction: true,
+            requestType: "أمر شحن",
+            from: "مبيعات تجزئة",
+            state: "بانتظار موافقتك",
+            href: `/shipping/${d.id}`,
+            at: r.requestedAt,
+          });
+        });
+      }
+
+      // My own shipping/cargo-return requests once resolved — informational.
+      const myShipments = await adminDb
+        .collection("shipmentRequests")
+        .where("requestedBy", "==", decoded.uid)
+        .get();
+      myShipments.docs
+        .map((d) => ({ id: d.id, ...d.data() }))
+        .filter((r) => r.status === "rejected" || r.status === "fulfilled")
+        .sort((a, b) => (b.fulfilledAt || b.requestedAt || "").localeCompare(a.fulfilledAt || a.requestedAt || ""))
+        .slice(0, RESOLVED_LIMIT)
+        .forEach((r) => {
+          items.push({
+            id: r.id,
+            bucket: "shipping",
+            needsAction: false,
+            requestType: r.type === "offloading" ? "مرتجع بضاعة" : "أمر شحن",
+            from: r.status === "rejected" ? "مبيعات جملة" : "أمين المخزن",
+            state: r.status === "rejected" ? "تم الرفض" : "تم التنفيذ",
+            href: `/shipping/${r.id}`,
+            at: r.fulfilledAt || r.requestedAt,
+          });
+        });
+    }
+    // Any other role (e.g. depot_viewer): no notifications.
+
+    items.sort((a, b) => (b.at || "").localeCompare(a.at || ""));
+    return res.status(200).json({ items });
+  } catch (err) {
+    const status = err.statusCode || 500;
+    return res.status(status).json({ error: err.message });
+  }
+}

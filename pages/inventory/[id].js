@@ -11,8 +11,8 @@ import { formatDateTime } from "../../lib/labels";
 
 const TYPE_LABELS = {
   received: "استلام بضاعة",
-  loading: "تحميل",
-  offloading: "تفريغ",
+  loading: "أمر شحن",
+  offloading: "مرتجع بضاعة",
   damage: "تالف",
 };
 
@@ -185,7 +185,7 @@ export default function InventoryDocDetail() {
   const seqLabel = { 1: "الأول", 2: "الثاني", 3: "الثالث", 4: "الرابع", 5: "الخامس" };
   const seqText =
     isMovement && doc.dailySeq
-      ? `${doc.type === "loading" ? "التحميل" : "التفريغ"} ${seqLabel[doc.dailySeq] || `رقم ${doc.dailySeq}`} اليوم`
+      ? `${doc.type === "loading" ? "أمر الشحن" : "مرتجع البضاعة"} ${seqLabel[doc.dailySeq] || `رقم ${doc.dailySeq}`} اليوم`
       : null;
 
   return (

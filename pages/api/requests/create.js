@@ -93,6 +93,13 @@ export default async function handler(req, res) {
         decidedBy: null,
         decidedAt: null,
         decisionNote: "",
+        // Whether the requesting agent has been notified of the decision
+        // yet. Irrelevant while pending (that state is always shown, live,
+        // for as long as it's actually pending); once decided, this flips
+        // to true the first time the agent views it, so the "you have a
+        // decision" notification fires exactly once — see
+        // /api/action-items.js and mark-seen.js.
+        seenByRequester: false,
       });
       // Stored on the invoice so pages can show "request pending" without
       // any extra reads.

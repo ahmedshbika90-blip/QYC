@@ -151,19 +151,57 @@ eval(header + `
   assert.strictEqual(supRead.status, 200); // supervisor can read any
   ok("an agent can read their OWN change-request detail read-only; a different agent is refused; supervisor sees any");
 
-  // 7. /api/action-items.js: the unified "needs your action" count per role.
-  const supCount = (await call("pages/api/action-items.js", SUP)).json.count;
-  assert.strictEqual(supCount, 1); // the pending changeRequests doc set up just above
-  const wkCount = (await call("pages/api/action-items.js", WK)).json.count;
-  assert.strictEqual(wkCount, 1); // reqCar1 from scenario 3 was created but never fulfilled — still sitting there
+  // 7. /api/notifications.js: per-role, per-item feed — what it is, who
+  // it's from, its state, and where it leads. Checking specific items by
+  // id (rather than exact totals) since a lot of state has accumulated
+  // across the scenarios above.
+  const supNotifs = (await call("pages/api/notifications.js", SUP)).json.items;
+  const supItem = supNotifs.find((it) => it.id === "req-detail-doc-000001");
+  assert.ok(supItem, "supervisor should see the pending change request");
+  assert.deepStrictEqual(
+    [supItem.bucket, supItem.needsAction, supItem.state, supItem.href],
+    ["modification", true, "بانتظار قرارك", "/requests/req-detail-doc-000001"]
+  );
+
+  const wkNotifs1 = (await call("pages/api/notifications.js", WK)).json.items;
+  const wkItem = wkNotifs1.find((it) => it.id === reqCar1.json.id);
+  assert.ok(wkItem, "warehouse keeper should still see reqCar1 (created in scenario 3, never fulfilled)");
+  assert.deepStrictEqual(
+    [wkItem.bucket, wkItem.needsAction, wkItem.requestType, wkItem.href],
+    ["shipping", true, "أمر شحن", "/shipping/" + reqCar1.json.id]
+  );
+  const wkCountBefore = wkNotifs1.filter((it) => it.needsAction).length;
   const freshOff = await call("pages/api/shipment-requests/create.js", { method: "POST", ...A2, body: { type: "offloading", items: [{ productId: "p1", qty: 1 }], requestId: "req-actioncount-off01" } });
   assert.strictEqual(freshOff.status, 201, JSON.stringify(freshOff.json));
-  const wkCount2 = (await call("pages/api/action-items.js", WK)).json.count;
-  assert.strictEqual(wkCount2, 2); // plus the fresh offloading request, also landing straight in pending_warehouse
-  const freshCar2Load = await call("pages/api/shipment-requests/create.js", { method: "POST", ...A2, body: { type: "loading", items: [{ productId: "p1", qty: 1 }], requestId: "req-actioncount-load01" } });
-  const car1Count = (await call("pages/api/action-items.js", A1)).json.count;
-  assert.strictEqual(car1Count, 1); // car2's loading request awaiting car1's approval (the offloading one never gates through car1)
-  ok("action-items: supervisor sees pending change requests, warehouse keeper sees pending_warehouse, car1 sees car2's loading requests to decide");
+  const wkNotifs2 = (await call("pages/api/notifications.js", WK)).json.items;
+  assert.strictEqual(wkNotifs2.filter((it) => it.needsAction).length, wkCountBefore + 1);
+
+  await call("pages/api/shipment-requests/create.js", { method: "POST", ...A2, body: { type: "loading", items: [{ productId: "p1", qty: 1 }], requestId: "req-actioncount-load01" } });
+  const car1Notifs = (await call("pages/api/notifications.js", A1)).json.items;
+  const todecideItems = car1Notifs.filter((it) => it.bucket === "shipping" && it.needsAction && it.from === "مبيعات تجزئة");
+  assert.strictEqual(todecideItems.length, 1); // the fresh car2 loading request — the offloading one never gates through car1
+  // car1's OWN offloading from scenario 5, already fulfilled, shows up as
+  // a one-time informational item (needsAction: false).
+  const car1OwnResolved = car1Notifs.find((it) => it.id === offCar1Req.json.id);
+  assert.ok(car1OwnResolved);
+  assert.deepStrictEqual(
+    [car1OwnResolved.bucket, car1OwnResolved.needsAction, car1OwnResolved.requestType, car1OwnResolved.state],
+    ["shipping", false, "مرتجع بضاعة", "تم التنفيذ"]
+  );
+  ok("notifications: supervisor/warehouse-keeper/car1 each see the right pending items; a resolved item is informational (needsAction: false)");
+
+  // 8. GET /api/shipment-requests/[id]/index.js — powers the /shipping/[id]
+  // detail page: the requester, car1 (oversight on car2), the warehouse
+  // keeper and the supervisor can all read it; an unrelated agent cannot.
+  const shipRead = await call("pages/api/shipment-requests/[id]/index.js", { ...A2, query: { id: reqCar1.json.id } });
+  assert.strictEqual(shipRead.status, 403); // car2 has no relation to car1's own request
+  const shipReadOwner = await call("pages/api/shipment-requests/[id]/index.js", { ...A1, query: { id: reqCar1.json.id } });
+  assert.strictEqual(shipReadOwner.status, 200, JSON.stringify(shipReadOwner.json));
+  const shipReadWk = await call("pages/api/shipment-requests/[id]/index.js", { ...WK, query: { id: reqCar1.json.id } });
+  assert.strictEqual(shipReadWk.status, 200);
+  const shipReadSup = await call("pages/api/shipment-requests/[id]/index.js", { ...SUP, query: { id: reqCar1.json.id } });
+  assert.strictEqual(shipReadSup.status, 200);
+  ok("shipment request detail: owner, warehouse keeper and supervisor can read it; an unrelated agent is refused");
 
   console.log("ALL SESSION-3 SCENARIOS PASSED");
 })().catch((e) => { console.error("FAIL:", e.message); process.exit(1); });

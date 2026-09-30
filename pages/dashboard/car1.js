@@ -162,11 +162,11 @@ export default function Car1Dashboard() {
 
         {toDecideCount > 0 && (
           <Link
-            href="/requests"
+            href="/documents"
             className="block mb-4 bg-amber-50 border border-amber-200 rounded-lg px-4 py-3"
           >
             <p className="text-sm font-semibold text-amber-800">
-              لديك {toDecideCount} {toDecideCount === 1 ? "طلب تحميل" : "طلبات تحميل"} من مبيعات التجزئة بانتظار موافقتك ←
+              لديك {toDecideCount} {toDecideCount === 1 ? "أمر شحن" : "أوامر شحن"} من مبيعات التجزئة بانتظار موافقتك ←
             </p>
           </Link>
         )}

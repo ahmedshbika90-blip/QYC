@@ -3,8 +3,8 @@ import { formatDateTime } from "../lib/labels";
 
 const TYPE_LABELS = {
   received: "استلام بضاعة",
-  loading: "تحميل",
-  offloading: "تفريغ",
+  loading: "أمر شحن",
+  offloading: "مرتجع بضاعة",
   damage: "تالف",
 };
 

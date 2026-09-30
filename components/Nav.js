@@ -2,8 +2,8 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/router";
 import { ROLE_LABELS } from "../lib/labels";
-import { subscribeToken } from "../lib/currentToken";
-import { useActionCount, REQUESTS_HREF } from "../lib/useActionCount";
+import { subscribeAuth } from "../lib/currentToken";
+import { useNotifications } from "../lib/useNotifications";
 import PendingActionModal from "./PendingActionModal";
 
 const ROLE_HOME = {
@@ -13,11 +13,17 @@ const ROLE_HOME = {
   warehouse_keeper: "/dashboard/warehouse",
 };
 
+// Two independent notification surfaces, each with its own red dot:
+//  - "modification" (طلب تعديل — invoice edit/cancel requests) → /requests
+//  - "shipping" (شحن — shipping orders / cargo returns) → /documents for
+//    agents, the fulfillment queue for the warehouse keeper
+const SHIPPING_HREF = { warehouse_keeper: "/warehouse/shipment-requests", agent_car1: "/documents", agent_car2: "/documents" };
+
 export default function Nav({ role, logout }) {
   const router = useRouter();
-  const [token, setToken] = useState(null);
-  useEffect(() => subscribeToken(setToken), []);
-  const actionCount = useActionCount(token, role);
+  const [auth, setAuth] = useState({ token: null, uid: null });
+  useEffect(() => subscribeAuth(setAuth), []);
+  const { items, modificationCount, shippingCount, refreshSeen } = useNotifications(auth.token, role, auth.uid);
 
   // Warehouse keeper gets only their four working sections — none of the
   // sales-side pages (clients, products, reports) are relevant to that job.
@@ -26,7 +32,7 @@ export default function Nav({ role, logout }) {
       ? [
           { href: "/dashboard/warehouse", label: "الرئيسية" },
           { href: "/warehouse/inventory", label: "المخزون" },
-          { href: "/warehouse/shipment-requests", label: "الطلبات" },
+          { href: "/warehouse/shipment-requests", label: "شحن" },
           { href: "/warehouse/car1", label: "مبيعات جملة" },
           { href: "/warehouse/car2", label: "مبيعات تجزئة" },
         ]
@@ -46,11 +52,11 @@ export default function Nav({ role, logout }) {
           role === "supervisor" && { href: "/margin", label: "هامش التشغيل" },
         ].filter(Boolean);
 
-  const requestsHref = REQUESTS_HREF[role];
+  const shippingHref = SHIPPING_HREF[role];
 
   return (
     <nav className="bg-white border-b sticky top-0 z-20">
-      <PendingActionModal role={role} count={actionCount} />
+      <PendingActionModal role={role} uid={auth.uid} items={items} refreshSeen={refreshSeen} />
       <div className="max-w-5xl mx-auto px-4 py-3">
         <div className="flex items-center justify-between mb-1">
           <span className="font-semibold text-gray-800">بوابة الفواتير</span>
@@ -67,25 +73,30 @@ export default function Nav({ role, logout }) {
         {/* Horizontally scrollable on narrow screens instead of wrapping/cramping,
             with generous tap targets (min-h-[44px]) for touch use. */}
         <div className="flex gap-1 overflow-x-auto -mx-1 px-1 pb-1">
-          {links.map((link) => (
-            <Link
-              key={link.href}
-              href={link.href}
-              className={`relative flex items-center whitespace-nowrap min-h-[44px] px-3 rounded-lg text-sm ${
-                router.pathname === link.href
-                  ? "bg-gray-900 text-white font-medium"
-                  : "text-gray-600 bg-gray-50 active:bg-gray-100"
-              }`}
-            >
-              {link.label}
-              {link.href === requestsHref && actionCount > 0 && (
-                <span
-                  className="absolute top-1 end-1 w-2 h-2 rounded-full bg-red-500"
-                  aria-label={`${actionCount} بحاجة لإجراء`}
-                />
-              )}
-            </Link>
-          ))}
+          {links.map((link) => {
+            const dot =
+              (link.href === "/requests" && modificationCount > 0) ||
+              (link.href === shippingHref && shippingCount > 0);
+            return (
+              <Link
+                key={link.href}
+                href={link.href}
+                className={`relative flex items-center whitespace-nowrap min-h-[44px] px-3 rounded-lg text-sm ${
+                  router.pathname === link.href
+                    ? "bg-gray-900 text-white font-medium"
+                    : "text-gray-600 bg-gray-50 active:bg-gray-100"
+                }`}
+              >
+                {link.label}
+                {dot && (
+                  <span
+                    className="absolute top-1 end-1 w-2 h-2 rounded-full bg-red-500"
+                    aria-label="بحاجة لإجراء أو إشعار جديد"
+                  />
+                )}
+              </Link>
+            );
+          })}
         </div>
       </div>
     </nav>

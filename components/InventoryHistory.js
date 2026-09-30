@@ -102,8 +102,8 @@ export default function InventoryHistory({
           <select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)} className={selectClass}>
             <option value="">كل الأنواع</option>
             <option value="received">استلام بضاعة</option>
-            <option value="loading">تحميل</option>
-            <option value="offloading">تفريغ</option>
+            <option value="loading">أمر شحن</option>
+            <option value="offloading">مرتجع بضاعة</option>
             <option value="damage">تالف</option>
           </select>
         )}

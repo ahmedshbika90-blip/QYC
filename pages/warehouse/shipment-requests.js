@@ -101,8 +101,8 @@ export default function ShipmentRequestQueue() {
           <div className="bg-green-50 border border-green-200 rounded-lg p-3 mb-4">
             <p className="text-green-700 text-sm">
               {justFulfilled.type === "offloading"
-                ? "تم تسجيل التفريغ واستلامه في المخزن — لا حاجة لتأكيد إضافي."
-                : "تم إنشاء مستند التحميل — بانتظار تأكيد المندوب."}
+                ? "تم تسجيل مرتجع البضاعة واستلامه في المخزن — لا حاجة لتأكيد إضافي."
+                : "تم إنشاء أمر الشحن — بانتظار تأكيد المندوب."}
             </p>
             <Link href={`/inventory/${justFulfilled.id}`} className="text-sm text-green-800 underline">
               فتح المستند ←
@@ -121,7 +121,7 @@ export default function ShipmentRequestQueue() {
                 <div className="flex justify-between items-start gap-2">
                   <div>
                     <p className="font-medium text-gray-800">
-                      {r.type === "loading" ? "تحميل" : "تفريغ"}
+                      {r.type === "loading" ? "أمر شحن" : "مرتجع بضاعة"}
                       <span className="text-xs font-normal text-gray-400 ms-2">
                         {r.route === "car1" ? "مبيعات جملة" : "مبيعات تجزئة"}
                       </span>

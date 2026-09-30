@@ -3,6 +3,7 @@ import Link from "next/link";
 import { useAuth } from "../lib/useAuth";
 import Nav from "../components/Nav";
 import InventoryHistory from "../components/InventoryHistory";
+import ShipmentRequestsPanel from "../components/ShipmentRequestsPanel";
 import { PageLoading } from "../components/Loading";
 import { apiFetch } from "../lib/apiFetch";
 import { cachedGet } from "../lib/apiCache";
@@ -10,12 +11,14 @@ import { useLiveRefresh } from "../lib/useLiveRefresh";
 
 const HOME = { agent_car1: "/dashboard/car1", agent_car2: "/dashboard/car2" };
 
-// Agent's archive of loading/offloading documents they've already acted
-// on (confirmed, disputed, or cancelled by the supervisor). Anything still
-// awaiting their confirmation stays on the main dashboard — once they
-// confirm it, it leaves the dashboard and lives here.
+// Everything related to physical goods movement on this car: submitting
+// a shipping order or a cargo return, seeing their status (car1 also
+// approves/rejects car2's), and the archive of already-confirmed
+// documents. "شحن" is the default tab since it's the one with something
+// to actually act on; the archive is just history.
 export default function Documents() {
   const { role, token, loading, logout } = useAuth(["agent_car1", "agent_car2"]);
+  const [tab, setTab] = useState("shipping");
   const [pendingCount, setPendingCount] = useState(0);
 
   useEffect(() => {
@@ -46,12 +49,33 @@ export default function Documents() {
           </Link>
         )}
 
-        <InventoryHistory
-          token={token}
-          excludePending
-          showRouteFilter={false}
-          emptyText="لا توجد مستندات مؤكدة في هذه الفترة."
-        />
+        <div className="flex gap-1 mb-4 overflow-x-auto">
+          {[
+            ["shipping", "شحن"],
+            ["archive", "الأرشيف"],
+          ].map(([key, label]) => (
+            <button
+              key={key}
+              onClick={() => setTab(key)}
+              className={`whitespace-nowrap min-h-[40px] px-4 rounded-lg text-sm ${
+                tab === key ? "bg-gray-900 text-white font-medium" : "bg-white text-gray-600"
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+
+        {tab === "shipping" ? (
+          <ShipmentRequestsPanel role={role} token={token} />
+        ) : (
+          <InventoryHistory
+            token={token}
+            excludePending
+            showRouteFilter={false}
+            emptyText="لا توجد مستندات مؤكدة في هذه الفترة."
+          />
+        )}
       </div>
     </div>
   );

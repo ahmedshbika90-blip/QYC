@@ -30,7 +30,7 @@ export default async function handler(req, res) {
     }
     const doc = docSnap.data();
     if (!["loading", "offloading"].includes(doc.type)) {
-      return res.status(400).json({ error: "هذا الإجراء خاص بمستندات التحميل والتفريغ فقط" });
+      return res.status(400).json({ error: "هذا الإجراء خاص بمستندات أمر الشحن ومرتجع البضاعة فقط" });
     }
 
     const now = new Date().toISOString();
