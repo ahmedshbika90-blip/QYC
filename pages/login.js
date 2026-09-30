@@ -4,6 +4,7 @@ import { signInWithEmailAndPassword } from "firebase/auth";
 import { auth } from "../lib/firebaseClient";
 import { markActivity } from "../lib/session";
 import { Spinner } from "../components/Loading";
+import Icon from "../components/Icon";
 
 // Staff login. Clients don't use the app directly — agents place
 // invoices on their behalf.
@@ -29,6 +30,7 @@ export default function Login() {
       else if (role === "agent_car2") router.push("/dashboard/car2");
       else if (role === "supervisor") router.push("/dashboard/supervisor");
       else if (role === "warehouse_keeper") router.push("/dashboard/warehouse");
+      else if (role === "depot_viewer") router.push("/warehouse/view-stock");
       else setError("لا توجد صلاحية مرتبطة بهذا الحساب. يرجى التواصل مع الإدارة.");
     } catch (err) {
       // Only say "wrong password" when that's actually the reason — on a
@@ -47,12 +49,21 @@ export default function Login() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50">
+    <div className="min-h-screen flex flex-col items-center justify-center bg-canvas px-4 py-10">
+      <div className="flex flex-col items-center gap-3 mb-8 text-center">
+        <span className="w-16 h-16 rounded-2xl bg-accent text-on-accent flex items-center justify-center shadow-lg">
+          <Icon name="route" size={34} strokeWidth={2.2} />
+        </span>
+        <div>
+          <p className="font-display text-3xl font-bold text-ink">مسار</p>
+          <p className="text-sm text-muted mt-1">إدارة المبيعات والتوزيع</p>
+        </div>
+      </div>
       <form
         onSubmit={handleSubmit}
-        className="bg-white p-6 sm:p-8 rounded-lg shadow-md w-full max-w-sm mx-4"
+        className="bg-white p-6 sm:p-8 rounded-3xl shadow-lg w-full max-w-sm"
       >
-        <h1 className="text-xl font-semibold mb-6 text-gray-800">تسجيل دخول الموظفين</h1>
+        <h1 className="text-xl font-bold mb-6 text-ink">تسجيل دخول الموظفين</h1>
 
         {idleLogout && !error && (
           <p className="text-amber-700 text-sm bg-amber-50 rounded-lg px-3 py-2 mb-4">
@@ -61,25 +72,25 @@ export default function Login() {
         )}
 
         {error && (
-          <p className="text-red-600 text-sm mb-4">{error}</p>
+          <p role="alert" className="text-red-600 bg-red-50 rounded-xl px-3 py-2.5 text-sm mb-4">{error}</p>
         )}
 
-        <label className="block text-sm text-gray-600 mb-1">البريد الإلكتروني</label>
+        <label className="block text-sm font-medium text-ink-soft mb-1.5">البريد الإلكتروني</label>
         <input
           type="email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
-          className="w-full border rounded-lg px-3 h-12 text-base mb-4 tabular-ltr text-start"
+          className="w-full border border-line rounded-xl px-3.5 h-12 text-base mb-4 tabular-ltr text-start"
           dir="ltr"
           required
         />
 
-        <label className="block text-sm text-gray-600 mb-1">كلمة المرور</label>
+        <label className="block text-sm font-medium text-ink-soft mb-1.5">كلمة المرور</label>
         <input
           type="password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
-          className="w-full border rounded-lg px-3 h-12 text-base mb-6"
+          className="w-full border border-line rounded-xl px-3.5 h-12 text-base mb-6"
           dir="ltr"
           required
         />
@@ -87,7 +98,7 @@ export default function Login() {
         <button
           type="submit"
           disabled={loading}
-          className="w-full bg-gray-900 text-white rounded-lg h-12 text-base font-medium active:bg-gray-700 disabled:opacity-50 flex items-center justify-center gap-2"
+          className="w-full bg-accent text-on-accent rounded-xl h-12 font-semibold text-base font-medium active:bg-accent-strong disabled:opacity-50 flex items-center justify-center gap-2"
         >
           {loading && <Spinner className="w-4 h-4" />}
           {loading ? "جارٍ تسجيل الدخول..." : "تسجيل الدخول"}

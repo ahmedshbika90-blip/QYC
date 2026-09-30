@@ -1,5 +1,6 @@
 import { useRouter } from "next/router";
 import { markSeen } from "../lib/notificationSeen";
+import Icon from "./Icon";
 
 // Small, non-blocking, top-of-screen — the opposite of the full-screen
 // prompt. That one greets you once per session with everything
@@ -25,8 +26,11 @@ export default function NotificationToastStack({ toasts, uid, onDismiss, refresh
       {toasts.map((t) => (
         <div
           key={t._toastId}
-          className="bg-white shadow-lg border rounded-lg p-3 flex items-start gap-2"
+          className="bg-white shadow-lg rounded-2xl p-3 flex items-start gap-3"
         >
+          <span className="w-9 h-9 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center">
+            <Icon name="bell" size={18} />
+          </span>
           <button onClick={() => open(t)} className="flex-1 text-start min-w-0">
             <p className="text-sm font-medium text-gray-800 truncate">{t.requestType}</p>
             <p className="text-xs text-gray-500 truncate">
@@ -35,10 +39,10 @@ export default function NotificationToastStack({ toasts, uid, onDismiss, refresh
           </button>
           <button
             onClick={() => onDismiss(t._toastId)}
-            className="text-gray-400 text-lg leading-none px-1 shrink-0"
+            className="w-9 h-9 rounded-lg text-gray-400 flex items-center justify-center shrink-0 active:bg-surface-2"
             aria-label="إغلاق"
           >
-            ×
+            <Icon name="x" size={16} />
           </button>
         </div>
       ))}

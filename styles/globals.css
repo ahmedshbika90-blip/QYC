@@ -2,8 +2,178 @@
 @tailwind components;
 @tailwind utilities;
 
-html {
-  font-family: "Cairo", ui-sans-serif, system-ui, sans-serif;
+/* ──────────────────────────────────────────────────────────────────────
+   Masar design tokens.
+   Every colour is an "R G B" triplet so Tailwind opacity modifiers keep
+   working (bg-gray-900/40). Light is the default; `html.dark` swaps the
+   whole palette — the neutral scale inverts, and the accent families
+   flip to their luminous variants so filled buttons keep dark text.
+   All text/background pairings used in the app pass WCAG AA in both.
+   ────────────────────────────────────────────────────────────────────── */
+:root {
+  --white: 255 255 255;
+  --gray-50: 244 241 234;
+  --gray-100: 239 234 223;
+  --gray-200: 227 220 205;
+  --gray-300: 207 199 182;
+  --gray-400: 109 117 111;
+  --gray-500: 90 99 93;
+  --gray-600: 70 80 73;
+  --gray-700: 51 60 55;
+  --gray-800: 34 43 38;
+  --gray-900: 22 33 28;
+  --green-50: 236 245 240;
+  --green-100: 220 237 229;
+  --green-200: 186 219 204;
+  --green-300: 143 196 174;
+  --green-400: 62 156 126;
+  --green-500: 31 133 104;
+  --green-600: 14 118 93;
+  --green-700: 11 110 87;
+  --green-800: 8 84 67;
+  --green-900: 6 58 47;
+  --amber-50: 251 243 228;
+  --amber-100: 247 231 203;
+  --amber-200: 238 211 162;
+  --amber-300: 226 182 110;
+  --amber-400: 201 138 44;
+  --amber-500: 166 98 13;
+  --amber-600: 138 79 6;
+  --amber-700: 122 69 5;
+  --amber-800: 94 53 4;
+  --amber-900: 66 37 3;
+  --red-50: 252 237 234;
+  --red-100: 248 223 218;
+  --red-200: 240 193 185;
+  --red-300: 227 154 142;
+  --red-400: 201 83 63;
+  --red-500: 181 58 40;
+  --red-600: 163 38 26;
+  --red-700: 134 30 20;
+  --red-800: 102 23 15;
+  --red-900: 70 16 10;
+  --blue-50: 238 244 251;
+  --blue-100: 221 232 245;
+  --blue-200: 188 209 234;
+  --blue-300: 143 178 218;
+  --blue-400: 79 132 194;
+  --blue-500: 44 105 172;
+  --blue-600: 29 87 150;
+  --blue-700: 23 70 122;
+  --blue-800: 17 52 91;
+  --blue-900: 11 35 61;
+  --accent: 11 110 87;
+  --accent-strong: 8 84 67;
+  --on-accent: 255 255 255;
+  --shadow-sm: 0 1px 2px rgb(22 33 28 / 0.05);
+  --shadow: 0 1px 2px rgb(22 33 28 / 0.05), 0 8px 24px rgb(22 33 28 / 0.06);
+  --shadow-lg: 0 2px 6px rgb(22 33 28 / 0.08), 0 20px 48px rgb(22 33 28 / 0.14);
+  color-scheme: light;
+}
+
+html.dark {
+  --white: 21 29 25;
+  --gray-50: 13 19 16;
+  --gray-100: 30 40 35;
+  --gray-200: 42 54 47;
+  --gray-300: 58 71 64;
+  --gray-400: 143 154 147;
+  --gray-500: 156 166 159;
+  --gray-600: 180 189 182;
+  --gray-700: 203 210 204;
+  --gray-800: 223 227 221;
+  --gray-900: 236 231 221;
+  --green-50: 16 38 31;
+  --green-100: 20 53 43;
+  --green-200: 28 74 60;
+  --green-300: 39 100 80;
+  --green-400: 52 144 116;
+  --green-500: 63 170 136;
+  --green-600: 76 192 156;
+  --green-700: 98 207 172;
+  --green-800: 138 221 193;
+  --green-900: 181 235 216;
+  --amber-50: 38 28 13;
+  --amber-100: 58 42 18;
+  --amber-200: 78 56 23;
+  --amber-300: 110 78 30;
+  --amber-400: 185 133 53;
+  --amber-500: 217 154 69;
+  --amber-600: 230 170 86;
+  --amber-700: 237 178 98;
+  --amber-800: 243 201 140;
+  --amber-900: 248 222 182;
+  --red-50: 42 20 17;
+  --red-100: 59 27 22;
+  --red-200: 85 37 30;
+  --red-300: 122 51 40;
+  --red-400: 217 106 88;
+  --red-500: 233 123 105;
+  --red-600: 242 139 123;
+  --red-700: 245 160 146;
+  --red-800: 248 189 178;
+  --red-900: 251 217 210;
+  --blue-50: 15 28 45;
+  --blue-100: 21 40 64;
+  --blue-200: 30 58 90;
+  --blue-300: 42 80 128;
+  --blue-400: 92 143 204;
+  --blue-500: 115 159 216;
+  --blue-600: 141 184 238;
+  --blue-700: 166 200 242;
+  --blue-800: 194 218 246;
+  --blue-900: 221 235 250;
+  --accent: 76 192 156;
+  --accent-strong: 98 207 172;
+  --on-accent: 4 20 14;
+  /* Shadows barely read on dark grounds — a hairline edge does the job. */
+  --shadow-sm: 0 0 0 1px rgb(var(--gray-200));
+  --shadow: 0 0 0 1px rgb(var(--gray-200));
+  --shadow-lg: 0 0 0 1px rgb(var(--gray-300)), 0 20px 48px rgb(0 0 0 / 0.5);
+  color-scheme: dark;
+}
+
+@layer base {
+  html {
+    font-family: "IBM Plex Sans Arabic", ui-sans-serif, system-ui, sans-serif;
+    -webkit-tap-highlight-color: transparent;
+    text-rendering: optimizeLegibility;
+  }
+  body {
+    @apply bg-canvas text-ink antialiased;
+  }
+  h1, h2, h3 {
+    font-family: "Alexandria", "IBM Plex Sans Arabic", sans-serif;
+    letter-spacing: 0;
+  }
+  input, select, textarea {
+    @apply bg-white text-ink;
+  }
+  input::placeholder, textarea::placeholder {
+    @apply text-gray-400;
+  }
+  /* One consistent, visible focus ring for keyboard users. */
+  :focus-visible {
+    outline: 2px solid rgb(var(--accent));
+    outline-offset: 2px;
+  }
+  input:focus, select:focus, textarea:focus {
+    outline: none;
+    border-color: rgb(var(--accent));
+    box-shadow: 0 0 0 3px rgb(var(--accent) / 0.18);
+  }
+}
+
+@layer utilities {
+  /* Page bottom padding so content clears the mobile tab bar. */
+  .pb-tabbar {
+    padding-bottom: calc(5.5rem + env(safe-area-inset-bottom));
+  }
+  @media (min-width: 768px) {
+    .pb-tabbar { padding-bottom: 0; }
+  }
+  .no-scrollbar { scrollbar-width: none; }
+  .no-scrollbar::-webkit-scrollbar { display: none; }
 }
 
 /* Keep numerals (prices, phone numbers, IDs) left-to-right even inside
@@ -13,4 +183,27 @@ html {
 .tabular-ltr {
   direction: ltr;
   unicode-bidi: isolate;
+}
+.num {
+  font-family: "Alexandria", "IBM Plex Sans Arabic", sans-serif;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Smooth the theme switch without animating every layout change. */
+html.theme-transition,
+html.theme-transition * {
+  transition: background-color 180ms ease, border-color 180ms ease, color 180ms ease !important;
+}
+
+/* Mobile: content clears the fixed bottom tab bar (set by <Nav />). */
+@media (max-width: 767px) {
+  body.has-tabbar {
+    padding-bottom: calc(5.25rem + env(safe-area-inset-bottom));
+  }
+}
+
+/* Connection pill floats above the tab bar on phones, bottom on desktop. */
+.conn-pill { bottom: 1rem; }
+@media (max-width: 767px) {
+  body.has-tabbar .conn-pill { bottom: calc(5.75rem + env(safe-area-inset-bottom)); }
 }

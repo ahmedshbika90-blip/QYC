@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { formatDateTime } from "../lib/labels";
 
-const TYPE_LABELS = {
+export const TYPE_LABELS = {
   received: "استلام بضاعة",
   loading: "أمر شحن",
   offloading: "مرتجع بضاعة",
@@ -14,7 +14,7 @@ const ORDINAL = { 1: "الأول", 2: "الثاني", 3: "الثالث", 4: "ا�
 // Names only, sorted by quantity descending (the product with the most
 // moved shows first) — no numbers here, the point is a quick glance, not
 // the full manifest. Full item list + quantities live on the detail page.
-function previewNames(items) {
+export function previewNames(items) {
   const sorted = [...items].sort((a, b) => b.qty - a.qty);
   const names = sorted.slice(0, MAX_PREVIEW).map((it) => it.name);
   return sorted.length > MAX_PREVIEW ? `${names.join("، ")}...` : names.join("، ");
@@ -22,10 +22,10 @@ function previewNames(items) {
 
 export default function InventoryDocCard({ doc }) {
   return (
-    <Link href={`/inventory/${doc.id}`} className="block p-4 active:bg-gray-50">
+    <Link href={`/inventory/${doc.id}`} className="block px-4 py-3.5 active:bg-surface-2">
       <div className="flex justify-between items-start gap-2">
         <div className="min-w-0">
-          <p className="font-medium text-gray-800">
+          <p className="font-semibold text-ink">
             {TYPE_LABELS[doc.type] || doc.type}
             {doc.dailySeq && (
               <span className="text-xs font-normal text-gray-500 ms-1">({ORDINAL[doc.dailySeq] || doc.dailySeq})</span>
@@ -40,7 +40,7 @@ export default function InventoryDocCard({ doc }) {
           <p className="text-xs text-gray-400 mt-1">{formatDateTime(doc.createdAt)}</p>
         </div>
         <span
-          className={`text-xs px-2 py-1 rounded-lg shrink-0 ${
+          className={`text-xs font-semibold px-2.5 py-1 rounded-lg shrink-0 ${
             doc.status === "confirmed"
               ? "bg-green-50 text-green-700"
               : doc.status === "rejected" || doc.status === "disputed"

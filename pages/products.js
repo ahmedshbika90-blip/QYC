@@ -211,7 +211,7 @@ export default function Products() {
             <button
               type="submit"
               disabled={submitting}
-              className="sm:col-span-2 bg-gray-900 text-white rounded-lg h-12 text-base font-medium active:bg-gray-700 disabled:opacity-50 flex items-center justify-center gap-2"
+              className="sm:col-span-2 bg-accent text-on-accent rounded-lg h-12 text-base font-medium active:bg-accent-strong disabled:opacity-50 flex items-center justify-center gap-2"
             >
               {submitting && <Spinner className="w-4 h-4" />}
               {submitting ? "جارٍ الإضافة..." : "+ إضافة منتج"}
@@ -293,7 +293,7 @@ export default function Products() {
                     <button
                       onClick={() => saveEdit(p.id)}
                       disabled={saving}
-                      className="bg-gray-900 text-white rounded-lg px-4 min-h-[44px] text-base active:bg-gray-700 disabled:opacity-50"
+                      className="bg-accent text-on-accent rounded-lg px-4 min-h-[44px] text-base active:bg-accent-strong disabled:opacity-50"
                     >
                       {saving ? "جارٍ الحفظ..." : "حفظ"}
                     </button>

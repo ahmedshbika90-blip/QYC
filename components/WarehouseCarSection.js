@@ -25,7 +25,7 @@ export default function WarehouseCarSection({ route }) {
 
         <Link
           href="/warehouse/shipment-requests"
-          className="block bg-gray-900 text-white rounded-lg p-4 mb-6 active:bg-gray-700"
+          className="block bg-accent text-on-accent rounded-lg p-4 mb-6 active:bg-accent-strong"
         >
           <p className="font-medium">تنفيذ طلب بانتظارك ←</p>
           <p className="text-xs text-gray-300 mt-0.5">

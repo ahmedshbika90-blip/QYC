@@ -6,6 +6,7 @@ import PeriodTabs, { periodStartISO } from "../../components/PeriodTabs";
 import FilterPanel from "../../components/FilterPanel";
 import OrderCard from "../../components/OrderCard";
 import QuickActions from "../../components/QuickActions";
+import { TodayHeader, ActionInbox, SectionTitle, todayStats } from "../../components/Today";
 import Link from "next/link";
 import { PageLoading, SkeletonRows, Spinner } from "../../components/Loading";
 import { apiFetch } from "../../lib/apiFetch";
@@ -141,42 +142,64 @@ export default function SupervisorDashboard() {
     fetchAll();
   });
 
+  const today = useMemo(() => todayStats(orders), [orders]);
+  const inbox =
+    pendingRequests > 0
+      ? [
+          {
+            key: "requests",
+            href: "/requests",
+            icon: "inbox",
+            tone: "warn",
+            title: `${pendingRequests} ${pendingRequests === 1 ? "طلب تعديل أو إلغاء" : "طلبات تعديل أو إلغاء"} بانتظار قرارك`,
+            meta: "فواتير لن تتغير حتى توافق أو ترفض",
+            cta: "قرّر الآن",
+          },
+        ]
+      : [];
+
   if (loading) return <PageLoading />;
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-canvas">
       <Nav role={role} logout={logout} />
-      <div className="max-w-3xl mx-auto p-4 sm:p-8">
-        <div className="flex justify-between items-center mb-3 gap-3">
-          <h1 className="text-xl font-semibold text-gray-800">المشرف</h1>
-          <select
-            value={routeFilter}
-            onChange={(e) => setRouteFilter(e.target.value)}
-            className="border rounded-lg px-3 h-10 text-sm"
-          >
-            <option value="all">كل المسارات</option>
-            <option value="car1">مبيعات جملة</option>
-            <option value="car2">مبيعات تجزئة</option>
-          </select>
-        </div>
-
-        <QuickActions
-          actions={[
-            { href: "/reports/sales", label: "تقرير المبيعات" },
-            { href: "/margin", label: "هامش التشغيل" },
-            { href: "/requests", label: "الطلبات" },
-            { href: "/products", label: "الأسعار والمنتجات" },
+      <main className="max-w-5xl mx-auto px-4 pt-5 pb-8 sm:px-8">
+        <TodayHeader
+          title="نظرة اليوم"
+          subtitle="كل المسارات"
+          aside={
+            <label className="shrink-0">
+              <span className="sr-only">المسار</span>
+              <select
+                value={routeFilter}
+                onChange={(e) => setRouteFilter(e.target.value)}
+                className="border border-line rounded-xl px-3 h-11 text-sm font-medium"
+              >
+                <option value="all">كل المسارات</option>
+                <option value="car1">مبيعات جملة</option>
+                <option value="car2">مبيعات تجزئة</option>
+              </select>
+            </label>
+          }
+          stats={[
+            { label: "فواتير اليوم", value: fetching ? "…" : today.count },
+            { label: "مبيعات اليوم", value: fetching ? "…" : formatNumber(today.total) },
+            { label: "بانتظار قرارك", value: pendingRequests, tone: pendingRequests > 0 ? "warn" : undefined },
           ]}
         />
 
-        {pendingRequests > 0 && (
-          <Link
-            href="/requests"
-            className="block bg-amber-50 border border-amber-200 text-amber-800 text-sm rounded-lg px-4 py-3 mb-4"
-          >
-            طلبات تعديل/إلغاء بانتظار قرارك ({pendingRequests}) ←
-          </Link>
-        )}
+        <ActionInbox items={inbox} emptyText="لا توجد قرارات معلّقة" />
+
+        <QuickActions
+          actions={[
+            { href: "/reports/sales", label: "تقرير المبيعات", icon: "chart" },
+            { href: "/margin", label: "هامش التشغيل", icon: "percent" },
+            { href: "/inventory", label: "المخزون", icon: "box" },
+            { href: "/products", label: "الأسعار والمنتجات", icon: "tag" },
+          ]}
+        />
+
+        <SectionTitle>الفواتير</SectionTitle>
 
         <PeriodTabs
           value={dateFrom || dateTo ? null : period}
@@ -187,11 +210,9 @@ export default function SupervisorDashboard() {
           }}
         />
 
-        <div className="mb-3">
+        <div className="flex flex-wrap items-start justify-between gap-2 mb-1">
           <StatusTabs value={statusFilter} onChange={setStatusFilter} counts={counts} />
-        </div>
-
-        <FilterPanel
+          <FilterPanel
           nameQuery={nameQuery}
           onNameChange={setNameQuery}
           locationQuery={locationQuery}
@@ -202,7 +223,8 @@ export default function SupervisorDashboard() {
           onDateFromChange={setDateFrom}
           dateTo={dateTo}
           onDateToChange={setDateTo}
-        />
+          />
+        </div>
 
         {(nameQuery || locationQuery || storeClass) && nextCursor && (
           <p className="text-xs text-amber-600 mb-3">
@@ -210,12 +232,12 @@ export default function SupervisorDashboard() {
           </p>
         )}
 
-        <p className="text-sm text-gray-500 mb-3">
-          {visible.length} فاتورة معروضة — الإجمالي {formatNumber(totalRevenue)} (باستثناء الملغاة){nextCursor ? " · توجد فواتير أخرى لم تُحمَّل" : ""}
+        <p className="text-sm text-muted mb-3">
+          <span className="num font-semibold text-ink">{visible.length}</span> فاتورة معروضة — الإجمالي <span className="num font-semibold text-ink tabular-ltr">{formatNumber(totalRevenue)}</span> (باستثناء الملغاة){nextCursor ? " · توجد فواتير أخرى لم تُحمَّل" : ""}
         </p>
 
         {error && (
-          <div className="text-red-600 text-sm mb-4 flex items-center gap-2">
+          <div role="alert" className="text-red-600 bg-red-50 rounded-xl px-3 py-2.5 text-sm mb-4 flex items-center justify-between gap-2">
             <span>{error}</span>
             <button onClick={fetchAll} className="underline shrink-0">إعادة المحاولة</button>
           </div>
@@ -225,7 +247,9 @@ export default function SupervisorDashboard() {
           <SkeletonRows count={4} />
         ) : (
           <div className="space-y-2">
-            {visible.length === 0 && <p className="text-gray-400">لا توجد فواتير مطابقة.</p>}
+            {visible.length === 0 && (
+              <p className="text-muted text-sm bg-white rounded-2xl shadow px-4 py-6 text-center">لا توجد فواتير مطابقة.</p>
+            )}
             {visible.map((order) => (
               <OrderCard
                 key={order.id}
@@ -234,8 +258,8 @@ export default function SupervisorDashboard() {
                 location={clientsById[order.clientId]?.location}
                 edited={order.edited}
                 badge={
-                  <span className="text-xs font-normal text-gray-400 ms-2">
-                    {order.route === "car1" ? "مبيعات جملة" : "مبيعات تجزئة"}
+                  <span className={`shrink-0 text-[11px] font-semibold rounded-md px-1.5 py-0.5 ${order.route === "car1" ? "bg-accent-soft text-accent-ink" : "bg-blue-100 text-blue-700"}`}>
+                    {order.route === "car1" ? "جملة" : "تجزئة"}
                   </span>
                 }
                 subtitle={order.deliveryDate ? `التسليم: ${formatDate(order.deliveryDate)}` : null}
@@ -246,7 +270,7 @@ export default function SupervisorDashboard() {
               <button
                 onClick={loadMore}
                 disabled={loadingMore}
-                className="w-full bg-white rounded-lg shadow text-sm text-gray-600 h-11 flex items-center justify-center gap-2 disabled:opacity-50"
+                className="w-full bg-white rounded-2xl shadow text-sm font-semibold text-ink-soft h-12 flex items-center justify-center gap-2 disabled:opacity-50"
               >
                 {loadingMore && <Spinner className="w-4 h-4" />}
                 {loadingMore ? "جارٍ التحميل..." : "تحميل المزيد"}
@@ -254,7 +278,7 @@ export default function SupervisorDashboard() {
             )}
           </div>
         )}
-      </div>
+      </main>
     </div>
   );
 }

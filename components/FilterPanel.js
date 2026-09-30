@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { STORE_CLASSES } from "../lib/labels";
+import Icon from "./Icon";
 
 // Collapsible filter panel shared by invoices and clients. Every field is
 // optional — pass only the handlers for the filters a page actually uses
@@ -30,19 +31,21 @@ export default function FilterPanel({
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="flex items-center gap-2 text-sm text-gray-600 bg-white rounded-lg px-3 min-h-[40px] shadow-sm"
+        aria-expanded={open}
+        className="flex items-center gap-2 text-sm text-ink bg-white rounded-xl px-3.5 h-11 shadow-sm"
       >
-        <span>تصفية</span>
+        <Icon name="filter" size={17} className="text-muted" />
+        <span className="font-medium">بحث وتصفية</span>
         {activeCount > 0 && (
-          <span className="bg-gray-900 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
+          <span className="bg-accent text-on-accent text-xs rounded-full w-5 h-5 flex items-center justify-center num">
             {activeCount}
           </span>
         )}
-        <span className="text-gray-400">{open ? "▲" : "▼"}</span>
+        <Icon name="chevronDown" size={16} className={`text-gray-400 transition-transform ${open ? "rotate-180" : ""}`} />
       </button>
 
       {open && (
-        <div className="bg-white rounded-lg shadow p-4 mt-2 grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div className="bg-white rounded-2xl shadow p-4 mt-2 grid grid-cols-1 sm:grid-cols-2 gap-3">
           {onNameChange && (
             <input
               type="text"

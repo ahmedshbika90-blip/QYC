@@ -135,7 +135,7 @@ export default function ShipmentRequestQueue() {
                   {openId !== r.id && (
                     <button
                       onClick={() => openRequest(r)}
-                      className="text-sm bg-gray-900 text-white rounded-lg px-4 h-10 shrink-0"
+                      className="text-sm bg-accent text-on-accent rounded-lg px-4 h-10 shrink-0"
                     >
                       تنفيذ
                     </button>
@@ -176,7 +176,7 @@ export default function ShipmentRequestQueue() {
                       <button
                         onClick={() => fulfill(r)}
                         disabled={acting}
-                        className="flex-1 bg-gray-900 text-white rounded-lg h-12 text-base font-medium disabled:opacity-50 flex items-center justify-center gap-2"
+                        className="flex-1 bg-accent text-on-accent rounded-lg h-12 text-base font-medium disabled:opacity-50 flex items-center justify-center gap-2"
                       >
                         {acting && <Spinner className="w-4 h-4" />}
                         {r.type === "offloading" ? "تأكيد الاستلام" : "إرسال للتأكيد"}

@@ -1,30 +1,31 @@
 import { STATUS_LABELS } from "../lib/labels";
 
 const TABS = ["active", "cancelled"];
-const TAB_LABELS = STATUS_LABELS;
 
+// Segmented control — one track, the selected segment lifts out of it.
 export default function StatusTabs({ value, onChange, counts }) {
   return (
-    <div className="flex gap-1 overflow-x-auto -mx-1 px-1 pb-1">
-      {TABS.map((tab) => (
-        <button
-          key={tab}
-          type="button"
-          onClick={() => onChange(tab)}
-          className={`flex items-center gap-1.5 whitespace-nowrap min-h-[40px] px-3 rounded-lg text-sm ${
-            value === tab
-              ? "bg-gray-900 text-white font-medium"
-              : "text-gray-600 bg-white active:bg-gray-100"
-          }`}
-        >
-          {TAB_LABELS[tab]}
-          {counts?.[tab] !== undefined && (
-            <span className={value === tab ? "text-gray-300" : "text-gray-400"}>
-              ({counts[tab]})
-            </span>
-          )}
-        </button>
-      ))}
+    <div role="tablist" className="inline-flex gap-1 p-1 rounded-xl bg-surface-2">
+      {TABS.map((tab) => {
+        const on = value === tab;
+        return (
+          <button
+            key={tab}
+            type="button"
+            role="tab"
+            aria-selected={on}
+            onClick={() => onChange(tab)}
+            className={`flex items-center gap-1.5 whitespace-nowrap h-10 px-4 rounded-lg text-sm ${
+              on ? "bg-white text-ink font-semibold shadow-sm" : "text-muted"
+            }`}
+          >
+            {STATUS_LABELS[tab]}
+            {counts?.[tab] !== undefined && (
+              <span className={`num text-xs ${on ? "text-muted" : "text-gray-400"}`}>{counts[tab]}</span>
+            )}
+          </button>
+        );
+      })}
     </div>
   );
 }

@@ -197,7 +197,7 @@ export default function InventoryDocDetail() {
             <button
               onClick={shareDoc}
               disabled={sharing}
-              className="text-sm bg-gray-900 text-white rounded-lg px-4 min-h-[44px] flex items-center gap-2 disabled:opacity-50"
+              className="text-sm bg-accent text-on-accent rounded-lg px-4 min-h-[44px] flex items-center gap-2 disabled:opacity-50"
             >
               {sharing && <Spinner className="w-4 h-4" />}
               {sharing ? "جارٍ التجهيز..." : "مشاركة"}
@@ -312,7 +312,7 @@ export default function InventoryDocDetail() {
                 <button
                   onClick={handleApprove}
                   disabled={acting}
-                  className="flex-1 bg-gray-900 text-white rounded-lg h-12 text-base font-medium active:bg-gray-700 disabled:opacity-50 flex items-center justify-center gap-2"
+                  className="flex-1 bg-accent text-on-accent rounded-lg h-12 text-base font-medium active:bg-accent-strong disabled:opacity-50 flex items-center justify-center gap-2"
                 >
                   {acting && <Spinner className="w-4 h-4" />}
                   اعتماد
@@ -337,7 +337,7 @@ export default function InventoryDocDetail() {
               <button
                 onClick={handleConfirmMovement}
                 disabled={acting}
-                className="w-full bg-gray-900 text-white rounded-lg h-12 text-base font-medium active:bg-gray-700 disabled:opacity-50 flex items-center justify-center gap-2"
+                className="w-full bg-accent text-on-accent rounded-lg h-12 text-base font-medium active:bg-accent-strong disabled:opacity-50 flex items-center justify-center gap-2"
               >
                 {acting && <Spinner className="w-4 h-4" />}
                 تأكيد

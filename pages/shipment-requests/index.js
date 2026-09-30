@@ -223,7 +223,7 @@ export default function ShipmentRequests() {
             <button
               type="submit"
               disabled={submitting}
-              className="w-full bg-gray-900 text-white rounded-lg h-12 text-base font-medium active:bg-gray-700 disabled:opacity-50 flex items-center justify-center gap-2"
+              className="w-full bg-accent text-on-accent rounded-lg h-12 text-base font-medium active:bg-accent-strong disabled:opacity-50 flex items-center justify-center gap-2"
             >
               {submitting && <Spinner className="w-4 h-4" />}
               {submitting ? "جارٍ الإرسال..." : "إرسال الطلب"}
@@ -263,7 +263,7 @@ export default function ShipmentRequests() {
                     <button
                       onClick={() => decide(r.id, "approve")}
                       disabled={acting === r.id}
-                      className="flex-1 bg-gray-900 text-white rounded-lg h-11 text-sm font-medium disabled:opacity-50 flex items-center justify-center gap-2"
+                      className="flex-1 bg-accent text-on-accent rounded-lg h-11 text-sm font-medium disabled:opacity-50 flex items-center justify-center gap-2"
                     >
                       {acting === r.id && <Spinner className="w-4 h-4" />}
                       موافقة

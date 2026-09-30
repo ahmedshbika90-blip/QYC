@@ -176,7 +176,7 @@ export default function SalesReport() {
             <button
               type="submit"
               disabled={fetching}
-              className="sm:col-span-3 bg-gray-900 text-white rounded-lg h-12 text-base font-medium active:bg-gray-700 disabled:opacity-50 flex items-center justify-center gap-2"
+              className="sm:col-span-3 bg-accent text-on-accent rounded-lg h-12 text-base font-medium active:bg-accent-strong disabled:opacity-50 flex items-center justify-center gap-2"
             >
               {fetching && <Spinner className="w-4 h-4" />}
               {fetching ? "جارٍ إنشاء التقرير..." : "إنشاء التقرير"}
@@ -196,7 +196,7 @@ export default function SalesReport() {
               <button
                 onClick={shareReport}
                 disabled={sharing}
-                className="text-sm bg-gray-900 text-white rounded-lg px-4 min-h-[44px] shrink-0 flex items-center gap-2 disabled:opacity-50"
+                className="text-sm bg-accent text-on-accent rounded-lg px-4 min-h-[44px] shrink-0 flex items-center gap-2 disabled:opacity-50"
               >
                 {sharing && <Spinner className="w-4 h-4" />}
                 {sharing ? "جارٍ التجهيز..." : "مشاركة"}

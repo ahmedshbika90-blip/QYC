@@ -2,7 +2,9 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useAuth } from "../../lib/useAuth";
 import Nav from "../../components/Nav";
-import InventoryDocCard from "../../components/InventoryDocCard";
+import { TYPE_LABELS, previewNames } from "../../components/InventoryDocCard";
+import QuickActions from "../../components/QuickActions";
+import { TodayHeader, ActionInbox, SectionTitle } from "../../components/Today";
 import InventoryHistory from "../../components/InventoryHistory";
 import { PageLoading } from "../../components/Loading";
 import { apiFetch } from "../../lib/apiFetch";
@@ -29,52 +31,39 @@ export default function WarehouseDashboard() {
 
   if (loading) return <PageLoading />;
 
-  const sections = [
-    ["/warehouse/inventory", "المخزون"],
-    ["/warehouse/car1", "مبيعات جملة"],
-    ["/warehouse/car2", "مبيعات تجزئة"],
-  ];
+  const inbox = pending.map((d) => ({
+    key: d.id,
+    href: `/inventory/${d.id}`,
+    icon: d.type === "received" ? "warehouse" : d.type === "offloading" ? "box" : "truck",
+    tone: "warn",
+    title: `${TYPE_LABELS[d.type] || d.type}${d.route ? ` · ${d.route === "car1" ? "جملة" : "تجزئة"}` : ""}`,
+    meta: `${previewNames(d.items)} · ${d.type === "received" ? "بانتظار اعتماد المشرف" : "بانتظار تأكيد المندوب"}`,
+  }));
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-canvas">
       <Nav role={role} logout={logout} />
-      <div className="max-w-3xl mx-auto p-4 sm:p-8">
-        <h1 className="text-xl font-semibold mb-3 text-gray-800">المخزن</h1>
+      <main className="max-w-3xl mx-auto px-4 pt-5 pb-8 sm:px-8">
+        <TodayHeader title="المخزن" subtitle="المركز" />
 
-        {pending.length > 0 && (
-          <div className="mb-4 bg-amber-50 border border-amber-200 rounded-lg px-4 py-3">
-            <p className="text-sm font-semibold text-amber-800">
-              لديك {pending.length} {pending.length === 1 ? "مستند" : "مستندات"} بانتظار التأكيد أو الاعتماد
-            </p>
-          </div>
-        )}
+        <QuickActions
+          actions={[
+            { href: "/warehouse/shipment-requests", label: "طلبات الشحن", icon: "truck" },
+            { href: "/warehouse/inventory", label: "المخزون", icon: "box" },
+            { href: "/warehouse/car1", label: "مبيعات جملة", icon: "warehouse" },
+            { href: "/warehouse/car2", label: "مبيعات تجزئة", icon: "warehouse" },
+          ]}
+        />
 
-        <div className="grid grid-cols-3 gap-2 mb-5">
-          {sections.map(([href, label]) => (
-            <Link
-              key={href}
-              href={href}
-              className="flex items-center justify-center bg-gray-900 text-white rounded-lg h-14 text-base font-medium active:bg-gray-700"
-            >
-              {label}
-            </Link>
-          ))}
-        </div>
+        <ActionInbox
+          title="بانتظار الطرف الآخر"
+          items={inbox}
+          emptyText="كل المستندات مؤكدة ومعتمدة"
+        />
 
-        {pending.length > 0 && (
-          <div className="mb-5">
-            <p className="text-sm font-medium text-amber-700 mb-2">بانتظار التأكيد أو الاعتماد ({pending.length})</p>
-            <div className="bg-white rounded-lg shadow divide-y border border-amber-200">
-              {pending.map((d) => (
-                <InventoryDocCard key={d.id} doc={d} />
-              ))}
-            </div>
-          </div>
-        )}
-
-        <h2 className="font-medium text-gray-800 mb-3">كل الحركات</h2>
+        <SectionTitle>كل الحركات</SectionTitle>
         <InventoryHistory token={token} excludePending />
-      </div>
+      </main>
     </div>
   );
 }

@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState } from "react";
+import Icon from "./Icon";
+import { Spinner } from "./Loading";
 
 // One banner that tells people plainly what the connection is doing:
 //   offline        — device has no internet
@@ -54,33 +56,46 @@ export default function ConnectionBanner() {
     }
   }, [down, showedStale]);
 
-  const base = "text-sm text-center py-2 px-4 sticky top-0 z-30";
+  const pill =
+    "conn-pill fixed inset-x-0 z-40 mx-auto w-fit max-w-[calc(100%-1.5rem)] rounded-2xl px-4 py-2.5 text-sm shadow-lg flex items-center gap-2.5";
 
   if (!online) {
     return (
-      <div className={`${base} bg-amber-500 text-white`}>
-        لا يوجد اتصال بالإنترنت — تُعرض آخر بيانات محفوظة. الفواتير غير المرسلة تُحفظ وتُرسل تلقائيًا عند عودة الاتصال.
+      <div role="status" aria-live="polite" className={`${pill} bg-amber-100 text-amber-800 border border-amber-200`}>
+        <Icon name="wifiOff" size={18} />
+        <span>
+          <strong className="font-semibold">لا يوجد اتصال</strong> — الفواتير تُحفظ على الجهاز وتُرسل تلقائيًا
+        </span>
       </div>
     );
   }
   if (net.failed) {
     return (
-      <div className={`${base} bg-amber-500 text-white`}>
-        تعذر الوصول إلى الخادم — الاتصال ضعيف أو منقطع. تُعرض آخر بيانات محفوظة إن وُجدت.
+      <div role="status" aria-live="polite" className={`${pill} bg-amber-100 text-amber-800 border border-amber-200`}>
+        <Icon name="alert" size={18} />
+        <span>
+          <strong className="font-semibold">تعذّر الوصول للخادم</strong> — تُعرض آخر بيانات محفوظة
+        </span>
       </div>
     );
   }
   if (net.slow || net.retrying) {
-    return <div className={`${base} bg-gray-700 text-white`}>الاتصال ضعيف — جارٍ المحاولة، يرجى الانتظار...</div>;
+    return (
+      <div role="status" aria-live="polite" className={`${pill} bg-white text-ink border border-line`}>
+        <Spinner className="w-4 h-4 text-accent" />
+        <span>الاتصال ضعيف — جارٍ المحاولة...</span>
+      </div>
+    );
   }
   if (recovered) {
     return (
-      <div className={`${base} bg-green-600 text-white flex items-center justify-center gap-3`}>
-        <span>عاد الاتصال{showedStale ? " — قد تكون البيانات المعروضة قديمة" : ""}</span>
+      <div role="status" aria-live="polite" className={`${pill} bg-green-100 text-green-800 border border-green-200`}>
+        <Icon name="check" size={18} strokeWidth={2.6} />
+        <span>عاد الاتصال{showedStale ? " — قد تكون البيانات قديمة" : ""}</span>
         {showedStale && (
           <button
             onClick={() => window.location.reload()}
-            className="bg-white text-green-700 rounded px-3 py-0.5 text-sm font-medium"
+            className="h-8 px-3 rounded-lg bg-accent text-on-accent text-sm font-semibold"
           >
             تحديث
           </button>

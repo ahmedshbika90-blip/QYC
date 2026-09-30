@@ -172,7 +172,7 @@ export default function ShippingDetail() {
                 <button
                   onClick={() => decide("approve")}
                   disabled={acting}
-                  className="flex-1 bg-gray-900 text-white rounded-lg h-12 text-base font-medium disabled:opacity-50 flex items-center justify-center gap-2"
+                  className="flex-1 bg-accent text-on-accent rounded-lg h-12 text-base font-medium disabled:opacity-50 flex items-center justify-center gap-2"
                 >
                   {acting && <Spinner className="w-4 h-4" />}
                   موافقة
@@ -216,7 +216,7 @@ export default function ShippingDetail() {
               <button
                 onClick={fulfill}
                 disabled={acting}
-                className="w-full bg-gray-900 text-white rounded-lg h-12 text-base font-medium disabled:opacity-50 flex items-center justify-center gap-2"
+                className="w-full bg-accent text-on-accent rounded-lg h-12 text-base font-medium disabled:opacity-50 flex items-center justify-center gap-2"
               >
                 {acting && <Spinner className="w-4 h-4" />}
                 {r.type === "offloading" ? "تأكيد الاستلام" : "إرسال للتأكيد"}

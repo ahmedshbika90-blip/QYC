@@ -253,7 +253,7 @@ export default function RegisterClient() {
           <button
             type="submit"
             disabled={submitting}
-            className="w-full bg-gray-900 text-white rounded-lg h-12 text-base font-medium active:bg-gray-700 disabled:opacity-50 flex items-center justify-center gap-2"
+            className="w-full bg-accent text-on-accent rounded-lg h-12 text-base font-medium active:bg-accent-strong disabled:opacity-50 flex items-center justify-center gap-2"
           >
             {submitting && <Spinner className="w-4 h-4" />}
             {submitting ? "جارٍ التسجيل..." : "تسجيل العميل"}

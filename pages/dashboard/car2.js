@@ -6,13 +6,14 @@ import PeriodTabs, { periodStartISO } from "../../components/PeriodTabs";
 import FilterPanel from "../../components/FilterPanel";
 import OrderCard from "../../components/OrderCard";
 import QuickActions from "../../components/QuickActions";
-import InventoryDocCard from "../../components/InventoryDocCard";
+import { TodayHeader, ActionInbox, SectionTitle, todayStats } from "../../components/Today";
+import { TYPE_LABELS, previewNames } from "../../components/InventoryDocCard";
 import { PageLoading, SkeletonRows, Spinner } from "../../components/Loading";
 import { apiFetch } from "../../lib/apiFetch";
 import { cachedGet, invalidate } from "../../lib/apiCache";
 import { useLiveRefresh } from "../../lib/useLiveRefresh";
 import { getClients } from "../../lib/clientsStore";
-import { formatDate } from "../../lib/labels";
+import { formatDate, formatDateTime, formatNumber } from "../../lib/labels";
 
 export default function Car2Dashboard() {
   const { user, role, token, loading, logout } = useAuth(["agent_car2"]);
@@ -146,33 +147,44 @@ export default function Car2Dashboard() {
     fetchAll();
   });
 
+  const today = useMemo(() => todayStats(orders), [orders]);
+  const inbox = [
+    ...pendingMovements.map((d) => ({
+      key: d.id,
+      href: `/inventory/${d.id}`,
+      icon: d.type === "offloading" ? "box" : "truck",
+      tone: "warn",
+      title: `${TYPE_LABELS[d.type] || d.type} بانتظار تأكيدك`,
+      meta: `${previewNames(d.items)} · ${formatDateTime(d.createdAt)}`,
+      cta: "أكّد",
+    })),
+  ];
+
   if (loading) return <PageLoading />;
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-canvas">
       <Nav role={role} logout={logout} />
-      <div className="max-w-3xl mx-auto p-4 sm:p-8">
-        <h1 className="text-xl font-semibold mb-3 text-gray-800">مبيعات تجزئة</h1>
-
-        <QuickActions
-          actions={[
-            { href: "/place-order", label: "فاتورة جديدة" },
-            { href: "/register-client", label: "إضافة عميل" },
+      <main className="max-w-3xl mx-auto px-4 pt-5 pb-8 sm:px-8">
+        <TodayHeader
+          title="مبيعات تجزئة"
+          subtitle="خط أسبوعي ثابت"
+          stats={[
+            { label: "فواتير اليوم", value: fetching ? "…" : today.count },
+            { label: "مبيعات اليوم", value: fetching ? "…" : formatNumber(today.total) },
           ]}
         />
 
-        {pendingMovements.length > 0 && (
-          <div className="mb-4">
-            <p className="text-sm font-medium text-amber-700 mb-2">
-              بانتظار تأكيدك ({pendingMovements.length})
-            </p>
-            <div className="bg-white rounded-lg shadow divide-y border border-amber-200">
-              {pendingMovements.map((d) => (
-                <InventoryDocCard key={d.id} doc={d} />
-              ))}
-            </div>
-          </div>
-        )}
+        <QuickActions
+          actions={[
+            { href: "/place-order", label: "فاتورة جديدة", icon: "plus" },
+            { href: "/register-client", label: "إضافة عميل", icon: "userPlus" },
+          ]}
+        />
+
+        <ActionInbox items={inbox} loading={fetching && orders.length === 0} emptyText="لا شيء بانتظارك — يومك على المسار" />
+
+        <SectionTitle>الفواتير</SectionTitle>
 
         <PeriodTabs
           value={dateFrom || dateTo ? null : period}
@@ -183,33 +195,32 @@ export default function Car2Dashboard() {
           }}
         />
 
-        <div className="mb-3">
+        <div className="flex flex-wrap items-start justify-between gap-2 mb-1">
           <StatusTabs value={statusFilter} onChange={setStatusFilter} counts={counts} />
+          <FilterPanel
+            nameQuery={nameQuery}
+            onNameChange={setNameQuery}
+            locationQuery={locationQuery}
+            onLocationChange={setLocationQuery}
+            storeClass={storeClass}
+            onStoreClassChange={setStoreClass}
+            dateFrom={dateFrom}
+            onDateFromChange={setDateFrom}
+            dateTo={dateTo}
+            onDateToChange={setDateTo}
+          />
         </div>
 
-        <FilterPanel
-          nameQuery={nameQuery}
-          onNameChange={setNameQuery}
-          locationQuery={locationQuery}
-          onLocationChange={setLocationQuery}
-          storeClass={storeClass}
-          onStoreClassChange={setStoreClass}
-          dateFrom={dateFrom}
-          onDateFromChange={setDateFrom}
-          dateTo={dateTo}
-          onDateToChange={setDateTo}
-        />
-
         {(nameQuery || locationQuery || storeClass) && nextCursor && (
-          <p className="text-xs text-amber-600 mb-3">
-            البحث يشمل الفواتير المحمّلة فقط — اضغط "تحميل المزيد" أو حدد فترة لنتائج أشمل.
+          <p className="text-xs text-amber-700 bg-amber-50 rounded-xl px-3 py-2 mb-3">
+            البحث يشمل الفواتير المحمّلة فقط — اضغط &quot;تحميل المزيد&quot; أو حدد فترة لنتائج أشمل.
           </p>
         )}
 
         {error && (
-          <div className="text-red-600 text-sm mb-4 flex items-center gap-2">
+          <div role="alert" className="text-red-600 bg-red-50 rounded-xl px-3 py-2.5 text-sm mb-4 flex items-center justify-between gap-2">
             <span>{error}</span>
-            <button onClick={fetchAll} className="underline shrink-0">إعادة المحاولة</button>
+            <button onClick={fetchAll} className="font-semibold underline shrink-0">إعادة المحاولة</button>
           </div>
         )}
 
@@ -217,11 +228,13 @@ export default function Car2Dashboard() {
           <SkeletonRows count={4} />
         ) : (
           <>
-            {Object.keys(grouped).length === 0 && <p className="text-gray-400">لا توجد فواتير مطابقة.</p>}
+            {Object.keys(grouped).length === 0 && (
+              <p className="text-muted text-sm bg-white rounded-2xl shadow px-4 py-6 text-center">لا توجد فواتير مطابقة.</p>
+            )}
 
             {Object.entries(grouped).map(([date, group]) => (
               <div key={date} className="mb-5">
-                <h2 className="text-sm font-semibold text-gray-600 mb-2">{date}</h2>
+                <h3 className="text-xs font-semibold text-muted mb-2 px-1">{date}</h3>
                 <div className="space-y-2">
                   {group.map((order) => (
                     <OrderCard
@@ -230,7 +243,7 @@ export default function Car2Dashboard() {
                       name={clientsById[order.clientId]?.name}
                       location={clientsById[order.clientId]?.location}
                       onStatusChange={updateStatus}
-                canCancel={!order.locked}
+                      canCancel={!order.locked}
                     />
                   ))}
                 </div>
@@ -241,7 +254,7 @@ export default function Car2Dashboard() {
               <button
                 onClick={loadMore}
                 disabled={loadingMore}
-                className="w-full bg-white rounded-lg shadow text-sm text-gray-600 h-11 flex items-center justify-center gap-2 disabled:opacity-50"
+                className="w-full bg-white rounded-2xl shadow text-sm font-semibold text-ink-soft h-12 flex items-center justify-center gap-2 disabled:opacity-50"
               >
                 {loadingMore && <Spinner className="w-4 h-4" />}
                 {loadingMore ? "جارٍ التحميل..." : "تحميل المزيد"}
@@ -249,7 +262,7 @@ export default function Car2Dashboard() {
             )}
           </>
         )}
-      </div>
+      </main>
     </div>
   );
 }

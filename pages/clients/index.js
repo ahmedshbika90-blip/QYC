@@ -66,7 +66,7 @@ export default function ClientsList() {
           <h1 className="text-xl font-semibold text-gray-800">العملاء</h1>
           <Link
             href="/register-client"
-            className="text-sm bg-gray-900 text-white rounded-lg px-4 min-h-[44px] flex items-center active:bg-gray-700 shrink-0"
+            className="text-sm bg-accent text-on-accent rounded-lg px-4 min-h-[44px] flex items-center active:bg-accent-strong shrink-0"
           >
             + إضافة عميل
           </Link>

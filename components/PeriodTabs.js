@@ -2,7 +2,7 @@
 // or a month. `value` is the selected number of days, or null when a
 // custom date range from the filter panel is in use.
 const PERIODS = [
-  [7, "آخر ٧ أيام"],
+  [7, "آخر 7 أيام"],
   [14, "أسبوعان"],
   [30, "شهر"],
 ];
@@ -19,19 +19,22 @@ export function periodStartISO(days) {
 
 export default function PeriodTabs({ value, onChange }) {
   return (
-    <div className="flex gap-1 mb-3">
-      {PERIODS.map(([days, label]) => (
-        <button
-          key={days}
-          type="button"
-          onClick={() => onChange(days)}
-          className={`flex-1 min-h-[40px] px-2 rounded-lg text-sm ${
-            value === days ? "bg-gray-900 text-white font-medium" : "bg-white text-gray-600 active:bg-gray-100"
-          }`}
-        >
-          {label}
-        </button>
-      ))}
+    <div role="tablist" aria-label="الفترة" className="grid grid-cols-3 gap-1 p-1 rounded-xl bg-surface-2 mb-3">
+      {PERIODS.map(([days, label]) => {
+        const on = value === days;
+        return (
+          <button
+            key={days}
+            type="button"
+            role="tab"
+            aria-selected={on}
+            onClick={() => onChange(days)}
+            className={`h-10 px-2 rounded-lg text-sm ${on ? "bg-white text-ink font-semibold shadow-sm" : "text-muted"}`}
+          >
+            {label}
+          </button>
+        );
+      })}
     </div>
   );
 }
