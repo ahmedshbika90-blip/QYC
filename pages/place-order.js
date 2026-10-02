@@ -3,13 +3,14 @@ import { useAuth } from "../lib/useAuth";
 import Nav from "../components/Nav";
 import BackButton from "../components/BackButton";
 import SuccessScreen from "../components/SuccessScreen";
+import InvoiceTotals from "../components/InvoiceTotals";
 import QtyStepper from "../components/QtyStepper";
 import { PageLoading, Spinner } from "../components/Loading";
 import { apiFetch } from "../lib/apiFetch";
 import { invalidate } from "../lib/apiCache";
 import { getClients } from "../lib/clientsStore";
 import { newRequestId } from "../lib/requestId";
-import { formatDate, formatNumber } from "../lib/labels";
+import { formatDate, formatNumber, formatQty } from "../lib/labels";
 
 // Invoices that couldn't be sent (no connection) are queued on the device,
 // per agent, and sent automatically when the connection returns. Each keeps
@@ -43,6 +44,8 @@ export default function PlaceOrder() {
   const [fetching, setFetching] = useState(true);
   const [error, setError] = useState("");
   const [result, setResult] = useState(null);
+  const [invoiceDiscount, setInvoiceDiscount] = useState(""); // whole-invoice amount, SDG
+  const [invoiceNotes, setInvoiceNotes] = useState(""); // written before submitting
   const [submitting, setSubmitting] = useState(false);
   const [queue, setQueue] = useState([]); // unsent invoices saved on this device
   const [productsStale, setProductsStale] = useState(false);
@@ -241,8 +244,6 @@ export default function PlaceOrder() {
         unit: p.unit,
         qty: 1,
         available: stockFor(p),
-        freeSample: false,
-        discount: 0,
       },
     ]);
     setProductQuery("");
@@ -261,26 +262,15 @@ export default function PlaceOrder() {
     setCart((prev) => prev.filter((it) => it.productId !== productId));
   }
 
-  function toggleFreeSample(productId) {
-    setCart((prev) =>
-      prev.map((it) =>
-        it.productId === productId ? { ...it, freeSample: !it.freeSample, discount: !it.freeSample ? 0 : it.discount } : it
-      )
-    );
-  }
-
-  function setCartDiscount(productId, value) {
-    setCart((prev) => prev.map((it) => (it.productId === productId ? { ...it, discount: value } : it)));
-  }
-
-  // Line total mirrors the server calculation in lib/orderCreation.js: a
-  // free sample contributes 0, otherwise price×qty minus the line discount.
+  // Line total mirrors the server (lib/orderCreation.js): price × qty.
+  // Any discount is ONE amount off the whole invoice, entered below.
   function lineTotal(it) {
-    if (it.freeSample) return 0;
-    return Math.max(0, (it.price || 0) * it.qty - (Number(it.discount) || 0));
+    return (it.price || 0) * it.qty;
   }
 
-  const total = cart.reduce((sum, it) => sum + lineTotal(it), 0);
+  const subtotal = Math.round(cart.reduce((sum, it) => sum + lineTotal(it), 0) * 100) / 100;
+  const discountValue = Number(invoiceDiscount) || 0;
+  const total = Math.max(0, Math.round((subtotal - discountValue) * 100) / 100);
 
   // Background resends run from timers set up earlier, so they read the
   // CURRENT login token through a ref rather than the one captured then.
@@ -317,10 +307,16 @@ export default function PlaceOrder() {
       setError("أضف منتجًا واحدًا على الأقل");
       return;
     }
+    if (discountValue > subtotal) {
+      setError("الخصم أكبر من مجموع الفاتورة");
+      return;
+    }
 
     const payload = {
       clientId: selectedClient.id,
-      items: cart.map((it) => ({ productId: it.productId, qty: it.qty, freeSample: it.freeSample, discount: it.discount })),
+      items: cart.map((it) => ({ productId: it.productId, qty: it.qty })),
+      discount: discountValue || 0,
+      notes: invoiceNotes.trim(),
       requestId: newRequestId(), // one ID per invoice — resends reuse it
     };
 
@@ -329,6 +325,8 @@ export default function PlaceOrder() {
       const data = await submitPayload(payload);
       setResult(data);
       setCart([]);
+      setInvoiceDiscount("");
+      setInvoiceNotes("");
       clearClient();
     } catch (err) {
       if (err.isNetworkError || err.isAuthError) {
@@ -348,6 +346,8 @@ export default function PlaceOrder() {
         if (saved) {
           setQueue(readJSON(queueKey, []));
           setCart([]);
+          setInvoiceDiscount("");
+          setInvoiceNotes("");
           clearClient();
           setError("");
           setResult({ queued: true });
@@ -555,7 +555,7 @@ export default function PlaceOrder() {
                             >
                               <span>{p.name}</span>
                               <span className="text-gray-400 text-sm">
-                                {priceFor(p) ?? "—"} / {p.unit} · المتاح: {stockFor(p)}
+                                {priceFor(p) != null ? formatNumber(priceFor(p)) : "—"} / {p.unit} · المتاح: {formatQty(stockFor(p))}
                               </span>
                             </button>
                           ))
@@ -575,10 +575,7 @@ export default function PlaceOrder() {
                         <div className="min-w-0">
                           <p className="text-base text-gray-800 truncate">{it.name}</p>
                           <p className="text-sm text-gray-400">
-                            {it.price != null ? formatNumber(it.price) : "—"} / {it.unit} · المتاح: {it.available}
-                            {(it.freeSample || it.discount > 0) && (
-                              <span className="text-gray-600"> · الإجمالي: {formatNumber(lineTotal(it))}</span>
-                            )}
+                            {it.price != null ? formatNumber(it.price) : "—"} / {it.unit} · المتاح: {formatQty(it.available)}
                           </p>
                         </div>
                         <QtyStepper
@@ -588,40 +585,29 @@ export default function PlaceOrder() {
                           max={it.available}
                         />
                       </div>
-                      <div className="flex items-center gap-3 text-sm">
-                        <label className="flex items-center gap-1.5 text-gray-600">
-                          <input
-                            type="checkbox"
-                            checked={Boolean(it.freeSample)}
-                            onChange={() => toggleFreeSample(it.productId)}
-                          />
-                          عينة مجانية
-                        </label>
-                        {!it.freeSample && (
-                          <label className="flex items-center gap-1.5 text-gray-600">
-                            خصم
-                            <input
-                              type="number"
-                              min="0"
-                              step="0.01"
-                              value={it.discount || ""}
-                              onChange={(e) => setCartDiscount(it.productId, e.target.value)}
-                              placeholder="0"
-                              className="w-20 border rounded-lg px-2 h-8 text-sm"
-                            />
-                          </label>
-                        )}
-                      </div>
                     </div>
                   ))}
                 </div>
               )}
 
               {cart.length > 0 && (
-                <div className="text-end text-base text-gray-600">
-                  الإجمالي: <span className="font-semibold text-gray-900">{formatNumber(total)}</span>
-                </div>
+                <InvoiceTotals subtotal={subtotal} discount={invoiceDiscount} onDiscountChange={setInvoiceDiscount} />
               )}
+
+              <div>
+                <label htmlFor="invoice-notes" className="block text-sm text-gray-600 mb-1">
+                  ملاحظة على الفاتورة (اختياري)
+                </label>
+                <textarea
+                  id="invoice-notes"
+                  value={invoiceNotes}
+                  onChange={(e) => setInvoiceNotes(e.target.value)}
+                  rows={2}
+                  maxLength={1000}
+                  placeholder="مثال: التسليم بعد العصر"
+                  className="w-full border rounded-lg px-3 py-2 text-base"
+                />
+              </div>
 
               <button
                 type="submit"

@@ -5,14 +5,11 @@ import { formatQty } from "../lib/labels";
 // Search a product, tap to add it, adjust quantity with a stepper.
 // `hint(product)` optionally returns small text shown next to each result
 // (e.g. current depot stock). Quantity 0 removes the line.
-// `salesMode` shows the free-sample checkbox and per-line discount input —
-// only meaningful for a client sale, not for warehouse receiving/loading
-// carts, so it defaults to off.
 // `maxFor(product)` caps a line's quantity at what's actually available
 // (depot stock for a loading request, van stock for a return). Products
 // with nothing available are shown greyed out and can't be added at all,
 // so an impossible request can't even be typed.
-export default function ProductCartPicker({ products, cart, setCart, hint, salesMode = false, maxFor }) {
+export default function ProductCartPicker({ products, cart, setCart, hint, maxFor }) {
   const capOf = (productId) => (maxFor ? maxFor(products.find((p) => p.id === productId)) : undefined);
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
@@ -40,7 +37,7 @@ export default function ProductCartPicker({ products, cart, setCart, hint, sales
     if (maxFor && (maxFor(p) ?? 0) <= 0) return;
     // Start at 1, or at everything available if that's less (e.g. 0.5 kg).
     const startQty = maxFor ? Math.min(1, maxFor(p)) : 1;
-    setCart((prev) => [...prev, { productId: p.id, name: p.name, unit: p.unit, qty: startQty, freeSample: false, discount: 0 }]);
+    setCart((prev) => [...prev, { productId: p.id, name: p.name, unit: p.unit, qty: startQty }]);
     setQuery("");
     setOpen(false);
   }
@@ -53,18 +50,6 @@ export default function ProductCartPicker({ products, cart, setCart, hint, sales
     const cap = capOf(productId);
     const capped = cap === undefined ? qty : Math.min(qty, cap);
     setCart((prev) => prev.map((it) => (it.productId === productId ? { ...it, qty: capped } : it)));
-  }
-
-  function toggleFreeSample(productId) {
-    setCart((prev) =>
-      prev.map((it) =>
-        it.productId === productId ? { ...it, freeSample: !it.freeSample, discount: !it.freeSample ? 0 : it.discount } : it
-      )
-    );
-  }
-
-  function setDiscount(productId, value) {
-    setCart((prev) => prev.map((it) => (it.productId === productId ? { ...it, discount: value } : it)));
   }
 
   return (
@@ -119,32 +104,6 @@ export default function ProductCartPicker({ products, cart, setCart, hint, sales
               </div>
               {capOf(it.productId) !== undefined && it.qty >= capOf(it.productId) && (
                 <p className="text-xs text-amber-700">هذا كل المتاح ({formatQty(capOf(it.productId))})</p>
-              )}
-              {salesMode && (
-                <div className="flex items-center gap-3 text-sm">
-                  <label className="flex items-center gap-1.5 text-gray-600">
-                    <input
-                      type="checkbox"
-                      checked={Boolean(it.freeSample)}
-                      onChange={() => toggleFreeSample(it.productId)}
-                    />
-                    عينة مجانية
-                  </label>
-                  {!it.freeSample && (
-                    <label className="flex items-center gap-1.5 text-gray-600">
-                      خصم
-                      <input
-                        type="number"
-                        min="0"
-                        step="0.01"
-                        value={it.discount || ""}
-                        onChange={(e) => setDiscount(it.productId, e.target.value)}
-                        placeholder="0"
-                        className="w-20 border rounded-lg px-2 h-8 text-sm"
-                      />
-                    </label>
-                  )}
-                </div>
               )}
             </div>
           ))}

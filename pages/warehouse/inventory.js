@@ -126,7 +126,7 @@ export default function WarehouseInventory() {
       damageRequestIds.reset();
       setDamageCart([]);
       setDamageNote("");
-      setDamageSuccess("تم تسجيل التالف وخصمه من رصيد المخزن.");
+      setDamageSuccess("sent");
       loadProducts();
       invalidate("/api/inventory");
       setReloadKey((k) => k + 1);
@@ -201,8 +201,9 @@ export default function WarehouseInventory() {
 
         {tab === "damage" && damageSuccess && (
           <SuccessScreen
-            title="تم تسجيل التالف"
-            hint="خُصمت الكميات من رصيد المخزن ونُقلت إلى بند التالف."
+            tone="warn"
+            title="أُرسل التالف للمشرف"
+            hint="لن يُخصم شيء من المخزن حتى يعتمده المشرف. ستصلك رسالة بالقرار."
             secondary={{ label: "رصيد المخزن", onClick: () => { setDamageSuccess(""); setTab("stock"); } }}
             primary={{ label: "تسجيل تالف آخر", onClick: () => setDamageSuccess("") }}
           />
@@ -210,7 +211,7 @@ export default function WarehouseInventory() {
 
         {tab === "damage" && !damageSuccess && (
           <form onSubmit={submitDamage} className="bg-white rounded-lg shadow p-4 space-y-4">
-            <p className="text-xs text-gray-400">يُخصم فورًا من رصيد المخزن وينتقل إلى بند التالف — لا رجوع.</p>
+            <p className="text-xs text-gray-400">يُرسل للمشرف للاعتماد أولًا — لا يُخصم من رصيد المخزن إلا بعد موافقته.</p>
             <ProductCartPicker products={products} cart={damageCart} setCart={setDamageCart} />
             <textarea
               value={damageNote}

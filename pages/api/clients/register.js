@@ -1,6 +1,6 @@
 const { adminDb } = require("../../../lib/firebaseAdmin");
 const { requireUser, requireRole } = require("../../../lib/apiAuth");
-const { isValidPhone } = require("../../../lib/validation");
+const { isValidPhone, normalizePhone } = require("../../../lib/validation");
 const { bumpVersion } = require("../../../lib/versions");
 const { STORE_CLASSES } = require("../../../lib/labels");
 const { isValidRequestId } = require("../../../lib/requestId");
@@ -56,8 +56,10 @@ export default async function handler(req, res) {
     const decoded = await requireUser(req);
     requireRole(decoded, ["agent_car1", "agent_car2", "supervisor"]);
 
-    const { nameFirst, nameMiddle, nameLast, storeName, location, phone, whatsapp, storeClass, requestId } =
-      req.body || {};
+    const { nameFirst, nameMiddle, nameLast, storeName, location, storeClass, requestId } = req.body || {};
+    // Arabic-keyboard digits (٠١٢…) are accepted and stored as English digits.
+    const phone = normalizePhone(req.body?.phone);
+    const whatsapp = normalizePhone(req.body?.whatsapp);
     if (!isValidRequestId(requestId)) {
       return res.status(400).json({ error: "طلب غير صالح، يرجى تحديث الصفحة والمحاولة مرة أخرى" });
     }

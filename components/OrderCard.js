@@ -1,10 +1,11 @@
 import Link from "next/link";
-import { formatNumber } from "../lib/labels";
+import { formatNumber, formatQty } from "../lib/labels";
+import { hasDiscount, orderDiscount } from "../lib/invoiceDiscount";
 import Icon from "./Icon";
 
 function itemsSummary(items) {
-  if (items.length === 1) return `${items[0].name} ×${items[0].qty}`;
-  return `${items[0].name} ×${items[0].qty} +${items.length - 1} أخرى`;
+  if (items.length === 1) return `${items[0].name} ×${formatQty(items[0].qty)}`;
+  return `${items[0].name} ×${formatQty(items[0].qty)} +${items.length - 1} أخرى`;
 }
 
 // An invoice is either active or cancelled — no multi-step status to pick
@@ -56,9 +57,15 @@ export default function OrderCard({ order, name, location, badge, subtitle, edit
             <span className={`block text-sm text-ink-soft truncate mt-0.5 ${isCancelled ? "line-through" : ""}`}>
               {itemsSummary(order.items)}
             </span>
-            {(edited || order.pendingRequest) && (
+            {(edited || order.pendingRequest || hasDiscount(order)) && (
               <span className="flex flex-wrap gap-1.5 mt-1.5">
                 {edited && <span className="text-[11px] font-semibold text-amber-700 bg-amber-50 rounded-md px-1.5 py-0.5">معدّلة</span>}
+                {/* Same kind of tag as "معدّلة": this invoice has a discount. */}
+                {hasDiscount(order) && (
+                  <span className="text-[11px] font-semibold text-blue-700 bg-blue-50 rounded-md px-1.5 py-0.5">
+                    يوجد تخفيض {formatNumber(orderDiscount(order))}
+                  </span>
+                )}
                 {order.pendingRequest && (
                   <span className="text-[11px] font-semibold text-amber-700 bg-amber-50 rounded-md px-1.5 py-0.5">طلب بانتظار الموافقة</span>
                 )}

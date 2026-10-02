@@ -4,6 +4,7 @@ import Nav from "../../components/Nav";
 import StatusTabs from "../../components/StatusTabs";
 import PeriodTabs, { periodStartISO } from "../../components/PeriodTabs";
 import FilterPanel from "../../components/FilterPanel";
+import { hasDiscount } from "../../lib/invoiceDiscount";
 import OrderCard from "../../components/OrderCard";
 import QuickActions from "../../components/QuickActions";
 import { TodayHeader, ActionInbox, SectionTitle, todayStats } from "../../components/Today";
@@ -29,6 +30,7 @@ export default function Car2Dashboard() {
   const [nameQuery, setNameQuery] = useState("");
   const [locationQuery, setLocationQuery] = useState("");
   const [storeClass, setStoreClass] = useState("");
+  const [discountFilter, setDiscountFilter] = useState(""); // "" | "with" | "without"
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [period, setPeriod] = useState(7); // days; ignored when a custom date range is set
@@ -112,9 +114,11 @@ export default function Car2Dashboard() {
         if (!location.toLowerCase().includes(locationQuery.toLowerCase())) return false;
       }
       if (storeClass && clientsById[order.clientId]?.storeClass !== storeClass) return false;
+      if (discountFilter === "with" && !hasDiscount(order)) return false;
+      if (discountFilter === "without" && hasDiscount(order)) return false;
       return true;
     };
-  }, [clientsById, nameQuery, locationQuery, storeClass]);
+  }, [clientsById, nameQuery, locationQuery, storeClass, discountFilter]);
 
   const baseFiltered = useMemo(() => orders.filter(matchesFilters), [orders, matchesFilters]);
   const counts = useMemo(
@@ -187,7 +191,7 @@ export default function Car2Dashboard() {
         <QuickActions
           actions={[
             { href: "/place-order", label: "فاتورة جديدة", icon: "plus" },
-            { href: "/register-client", label: "إضافة عميل", icon: "userPlus" },
+            { href: "/clients", label: "العملاء", icon: "users" },
           ]}
         />
 
@@ -213,6 +217,8 @@ export default function Car2Dashboard() {
             onLocationChange={setLocationQuery}
             storeClass={storeClass}
             onStoreClassChange={setStoreClass}
+            discountFilter={discountFilter}
+            onDiscountFilterChange={setDiscountFilter}
             dateFrom={dateFrom}
             onDateFromChange={setDateFrom}
             dateTo={dateTo}
@@ -220,7 +226,7 @@ export default function Car2Dashboard() {
           />
         </div>
 
-        {(nameQuery || locationQuery || storeClass) && nextCursor && (
+        {(nameQuery || locationQuery || storeClass || discountFilter) && nextCursor && (
           <p className="text-xs text-amber-700 bg-amber-50 rounded-xl px-3 py-2 mb-3">
             البحث يشمل الفواتير المحمّلة فقط — اضغط &quot;تحميل المزيد&quot; أو حدد فترة لنتائج أشمل.
           </p>

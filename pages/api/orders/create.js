@@ -56,6 +56,8 @@ export default async function handler(req, res) {
         clientId,
         route: client.route,
         items: resolvedItems,
+        subtotal: total, // clients can't discount their own order
+        discount: 0,
         total,
         status: "active",
         deliveryDate: deliveryDate ? deliveryDate.toISOString() : null,
@@ -68,7 +70,8 @@ export default async function handler(req, res) {
       orderId: docRef.id,
       clientId,
       route: client.route,
-      items: resolvedItems,
+      // Never send supplier cost to the public order form.
+      items: resolvedItems.map(({ unitCost, ...rest }) => rest),
       total,
       status: "active",
       deliveryDate: deliveryDate ? deliveryDate.toISOString() : null,

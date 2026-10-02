@@ -1,3 +1,25 @@
+# Masar — round 3 (Oct 2026)
+
+`npm test` (5 suites, new `tests/run5.js`) passes; `next build` succeeds.
+
+1. **Goods received → supervisor's الطلبات.** New section "مستندات المخزن بانتظار اعتمادك" at the top of /requests. المخزون shows them only once approved (just a pointer while pending).
+2. **Invoice discount — one amount for the whole invoice** (`lib/invoiceDiscount.js`). Stored as `subtotal`, `discount`, `total`. Shown on the new-invoice form, edit form and invoice page (المجموع / خصم الفاتورة / الإجمالي). Server refuses a discount above the invoice. Counted in the sales report (per client and grand total), the margin report (spread across lines by value, so revenue and margin are after discount), edits and change requests. Tag "يوجد تخفيض" on invoices with a discount. Old invoices read as discount 0, unchanged.
+3. **Damage needs supervisor approval.** The keeper's تالف is saved pending; nothing leaves stock until the supervisor approves in الطلبات (balance re-checked then; double approval can't deduct twice). Keeper notified of the decision. A supervisor's own damage entry is still immediate.
+4. **"تسليم بضاعة"** for the document sent back to the agent (document page, archive, history filter, notifications). "أمر شحن" stays for the agent's request.
+5. **إضافة عميل inside العملاء.** Removed from the menu; big button on the العملاء page; the agents' home shortcut now opens العملاء.
+6. **Phones on an Arabic keyboard** — ٠-٩ (and ۰-۹) accepted and stored as English digits, on the forms and on the server (`lib/validation.js`).
+7. **SDG** on every amount via the shared `formatNumber` ("12,500.00 SDG", kept together inside Arabic text).
+8. **Note on a new invoice** before submitting.
+9. **No per-product discount** — refused by the server.
+10. **Discount filter** (فيها خصم / بدون خصم) on the car1, car2 and supervisor invoice lists.
+11. **Free sample removed** — refused by the server; old invoices keep their totals.
+
+Also: the public order form no longer returns supplier cost to the browser.
+
+Note: editing an OLD invoice that has a free-sample line re-prices that line normally (free samples no longer exist). Untouched old invoices stay as they are.
+
+---
+
 # Masar — field feedback round (Oct 2026)
 
 All tests pass (`npm test`, now 4 suites incl. new `tests/run4.js`) and `next build` succeeds.

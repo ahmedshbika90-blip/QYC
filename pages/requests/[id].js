@@ -8,7 +8,7 @@ import { PageLoading, Spinner } from "../../components/Loading";
 import { apiFetch } from "../../lib/apiFetch";
 import { invalidate } from "../../lib/apiCache";
 import { useLiveRefresh } from "../../lib/useLiveRefresh";
-import { formatDateTime, formatNumber } from "../../lib/labels";
+import { formatDateTime, formatNumber, formatQty } from "../../lib/labels";
 import { FIELD_LABELS } from "../../lib/clientFields";
 import SuccessScreen from "../../components/SuccessScreen";
 
@@ -36,7 +36,7 @@ function ClientDiff({ current, proposed }) {
   );
 }
 
-function ItemsTable({ title, items, total, tone = "gray" }) {
+function ItemsTable({ title, items, total, discount, tone = "gray" }) {
   return (
     <div className={`border rounded-lg overflow-hidden ${tone === "green" ? "border-green-200" : ""}`}>
       <p className={`text-sm font-medium px-3 py-2 ${tone === "green" ? "bg-green-50 text-green-800" : "bg-gray-50 text-gray-700"}`}>
@@ -47,11 +47,14 @@ function ItemsTable({ title, items, total, tone = "gray" }) {
           <div key={i} className="flex justify-between px-3 py-2 text-sm">
             <span className="text-gray-800">{it.name}</span>
             <span className="text-gray-600">
-              {it.qty} × {formatNumber(it.price)} = {formatNumber(it.subtotal ?? it.price * it.qty)}
+              {formatQty(it.qty)} × {formatNumber(it.price)} = {formatNumber(it.subtotal ?? it.price * it.qty)}
             </span>
           </div>
         ))}
       </div>
+      {discount > 0 && (
+        <p className="text-end text-sm text-blue-700 px-3 pt-2 border-t">خصم الفاتورة: − {formatNumber(discount)}</p>
+      )}
       <p className="text-end text-sm font-semibold px-3 py-2 border-t">الإجمالي: {formatNumber(total)}</p>
     </div>
   );
@@ -198,9 +201,16 @@ export default function RequestDetail() {
             title={r.status === "pending" ? "الفاتورة الآن" : "الفاتورة وقت الطلب"}
             items={r.status === "pending" && r.order ? r.order.items : r.currentItems}
             total={r.status === "pending" && r.order ? r.order.total : r.currentTotal}
+            discount={r.status === "pending" && r.order ? Number(r.order.discount) || 0 : Number(r.currentDiscount) || 0}
           />
           {r.type === "edit" && (
-            <ItemsTable title="التعديل المطلوب" items={r.proposedItems} total={r.proposedTotal} tone="green" />
+            <ItemsTable
+              title="التعديل المطلوب"
+              items={r.proposedItems}
+              total={r.proposedTotal}
+              discount={Number(r.proposedDiscount) || 0}
+              tone="green"
+            />
           )}
           </>
           )}

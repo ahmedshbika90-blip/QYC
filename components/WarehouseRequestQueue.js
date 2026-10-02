@@ -71,7 +71,7 @@ export default function WarehouseRequestQueue({ token, route, emptyText = "لا 
         hint={
           r.type === "offloading"
             ? `أُضيفت الكميات إلى المخزن — ${ROUTE_LABEL[r.route]}. لا حاجة لتأكيد إضافي.`
-            : `بانتظار تأكيد المندوب (${ROUTE_LABEL[r.route]}) لاستلام البضاعة على السيارة.`
+            : `أُرسل «تسليم بضاعة» للمندوب (${ROUTE_LABEL[r.route]}) — بانتظار تأكيده للاستلام.`
         }
         secondary={{ label: "فتح المستند", href: `/inventory/${done.docId}` }}
         primary={next}

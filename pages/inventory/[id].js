@@ -12,7 +12,8 @@ import { formatDateTime } from "../../lib/labels";
 
 const TYPE_LABELS = {
   received: "استلام بضاعة",
-  loading: "أمر شحن",
+  // What the warehouse sends BACK to the agent is a delivery, not an order.
+  loading: "تسليم بضاعة",
   offloading: "مرتجع بضاعة",
   damage: "تالف",
 };
@@ -79,7 +80,7 @@ export default function InventoryDocDetail() {
   }
 
   async function handleReject() {
-    if (!confirm("رفض هذا المستند؟ لن يُضاف إلى رصيد المخزن.")) return;
+    if (!confirm(doc.type === "damage" ? "رفض تسجيل التالف؟ لن يُخصم شيء من المخزن." : "رفض هذا المستند؟ لن يُضاف إلى رصيد المخزن.")) return;
     setActing(true);
     setError("");
     try {
@@ -177,6 +178,7 @@ export default function InventoryDocDetail() {
   if (!doc) return null;
 
   const canReviewReceived = role === "supervisor" && doc.type === "received" && doc.status === "pending";
+  const canReviewDamage = role === "supervisor" && doc.type === "damage" && doc.status === "pending";
   const isMovement = doc.type === "loading" || doc.type === "offloading";
   const canConfirmMovement =
     isMovement && doc.status === "pending" && ROLE_TO_ROUTE[role] === doc.route;
@@ -186,7 +188,7 @@ export default function InventoryDocDetail() {
   const seqLabel = { 1: "الأول", 2: "الثاني", 3: "الثالث", 4: "الرابع", 5: "الخامس" };
   const seqText =
     isMovement && doc.dailySeq
-      ? `${doc.type === "loading" ? "أمر الشحن" : "مرتجع البضاعة"} ${seqLabel[doc.dailySeq] || `رقم ${doc.dailySeq}`} اليوم`
+      ? `${doc.type === "loading" ? "تسليم البضاعة" : "مرتجع البضاعة"} ${seqLabel[doc.dailySeq] || `رقم ${doc.dailySeq}`} اليوم`
       : null;
 
   return (
@@ -244,6 +246,8 @@ export default function InventoryDocDetail() {
                 ? "ملغاة"
                 : doc.status === "disputed"
                 ? "متنازع عليها"
+                : doc.type === "received" || doc.type === "damage"
+                ? "بانتظار اعتماد المشرف"
                 : "بانتظار التأكيد"}
             </span>
           </div>
@@ -318,6 +322,33 @@ export default function InventoryDocDetail() {
                 >
                   {acting && <Spinner className="w-4 h-4" />}
                   اعتماد
+                </button>
+                <button
+                  onClick={handleReject}
+                  disabled={acting}
+                  className="text-base text-red-600 bg-red-50 active:bg-red-100 rounded-lg px-4 h-12"
+                >
+                  رفض
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Damage write-off approval — supervisor only. Nothing has left
+              stock yet; approving deducts it now (balance re-checked). */}
+          {canReviewDamage && (
+            <div className="mt-6 border-t pt-4 no-pdf">
+              <p className="text-sm text-gray-600 mb-3">
+                عند الاعتماد تُخصم الكميات أعلاه من {doc.source === "depot" ? "المخزن" : "السيارة"} وتُنقل إلى بند التالف.
+              </p>
+              <div className="flex gap-2">
+                <button
+                  onClick={handleApprove}
+                  disabled={acting}
+                  className="flex-1 bg-accent text-on-accent rounded-lg h-12 text-base font-medium active:bg-accent-strong disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  {acting && <Spinner className="w-4 h-4" />}
+                  اعتماد التالف
                 </button>
                 <button
                   onClick={handleReject}

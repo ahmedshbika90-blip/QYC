@@ -6,6 +6,10 @@ import FilterPanel from "../../components/FilterPanel";
 import FilterChips from "../../components/FilterChips";
 import PeriodTabs, { periodStartISO } from "../../components/PeriodTabs";
 import RequestCard from "../../components/RequestCard";
+import Link from "next/link";
+import Icon from "../../components/Icon";
+import { previewNames } from "../../components/InventoryDocCard";
+import { formatDateTime } from "../../lib/labels";
 import { PageLoading, SkeletonRows, Spinner } from "../../components/Loading";
 import { apiFetch } from "../../lib/apiFetch";
 import { cachedGet, invalidate } from "../../lib/apiCache";
@@ -98,6 +102,27 @@ export default function RequestsPage() {
     supLoad();
   });
 
+  // ---- Supervisor: stock documents waiting for approval ----
+  // Goods received and damage write-offs recorded by the warehouse keeper
+  // come HERE first (not to المخزون): nothing moves in stock until the
+  // supervisor approves. Once decided, they appear in المخزون's history.
+  const [stockDocs, setStockDocs] = useState([]);
+  async function loadStockDocs() {
+    try {
+      const d = await cachedGet(apiFetch, "/api/inventory/list?status=pending", token);
+      setStockDocs((d.docs || []).filter((x) => x.type === "received" || x.type === "damage"));
+    } catch {}
+  }
+  useEffect(() => {
+    if (!token || !isSupervisor) return;
+    loadStockDocs();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [token, isSupervisor]);
+  useLiveRefresh(token, isSupervisor ? ["inventory"] : [], () => {
+    invalidate("/api/inventory/list");
+    loadStockDocs();
+  });
+
   // ---- Agent: their own order change-requests ----
   const [agentOrderTab, setAgentOrderTab] = useState("pending");
   const [orderRequests, setOrderRequests] = useState([]);
@@ -139,7 +164,43 @@ export default function RequestsPage() {
       <div className="min-h-screen bg-gray-50">
         <Nav role={role} logout={logout} />        <div className="max-w-3xl mx-auto p-4 sm:p-8">
           <BackButton />
-          <h1 className="text-xl font-semibold mb-3 text-gray-800">طلبات التعديل والإلغاء</h1>
+          <h1 className="font-display text-2xl font-bold mb-3 text-ink">الطلبات</h1>
+
+          {stockDocs.length > 0 && (
+            <section aria-label="مستندات المخزن بانتظار اعتمادك" className="mb-5">
+              <h2 className="text-sm font-bold text-amber-700 mb-2">
+                مستندات المخزن بانتظار اعتمادك ({stockDocs.length})
+              </h2>
+              <ul className="bg-white rounded-2xl shadow divide-y divide-line overflow-hidden border border-amber-200">
+                {stockDocs.map((d) => (
+                  <li key={d.id}>
+                    <Link href={`/inventory/${d.id}`} className="flex items-center gap-3 px-3.5 py-3 min-h-[68px] hover:bg-surface-2">
+                      <span
+                        className={`w-11 h-11 rounded-xl flex items-center justify-center shrink-0 ${
+                          d.type === "damage" ? "bg-red-50 text-red-600" : "bg-amber-100 text-amber-700"
+                        }`}
+                      >
+                        <Icon name={d.type === "damage" ? "alert" : "warehouse"} size={20} />
+                      </span>
+                      <span className="flex-1 min-w-0">
+                        <span className="block text-[15px] font-semibold text-ink">
+                          {d.type === "damage" ? "تسجيل تالف" : "استلام بضاعة"} — أمين المخزن
+                        </span>
+                        <span className="block text-xs text-muted truncate mt-0.5">
+                          {previewNames(d.items)} · {formatDateTime(d.createdAt)}
+                        </span>
+                      </span>
+                      <span className="shrink-0 h-8 px-3 rounded-lg bg-amber-100 text-amber-700 text-[13px] font-bold flex items-center">
+                        راجِع
+                      </span>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
+
+          <h2 className="text-sm font-bold text-ink-soft mb-2">طلبات التعديل والإلغاء</h2>
 
           <div className="flex gap-1 mb-3 overflow-x-auto">
             {SUP_TABS.map(([key, label]) => (

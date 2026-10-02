@@ -5,6 +5,7 @@ import Icon from "../components/Icon";
 import BackButton from "../components/BackButton";
 import SuccessScreen from "../components/SuccessScreen";
 import { PageLoading, Spinner } from "../components/Loading";
+import { normalizePhone } from "../lib/validation";
 import { apiFetch } from "../lib/apiFetch";
 import { invalidateClients } from "../lib/clientsStore";
 import { useRequestId } from "../lib/useRequestId";
@@ -98,7 +99,7 @@ export default function RegisterClient() {
     <div className="min-h-screen bg-canvas">
       <Nav role={role} logout={logout} />
       <main className="max-w-md mx-auto px-4 pt-4 pb-8 sm:px-0">
-        {!result && <BackButton />}
+        {!result && <BackButton href="/clients" label="العملاء" />}
         <h1 className="font-display text-2xl font-bold mb-4 mt-1 text-ink">تسجيل عميل جديد</h1>
 
         {error && (
@@ -181,7 +182,7 @@ export default function RegisterClient() {
               maxLength={10}
               pattern="0\d{9}"
               value={form.phone}
-              onChange={(e) => setForm({ ...form, phone: e.target.value.replace(/\D/g, "").slice(0, 10) })}
+              onChange={(e) => setForm({ ...form, phone: normalizePhone(e.target.value) })}
               className="w-full border rounded-lg px-3 h-12 text-base tabular-ltr text-start"
               dir="ltr"
               placeholder="0912345678"
@@ -206,7 +207,7 @@ export default function RegisterClient() {
                 maxLength={10}
                 pattern="0\d{9}"
                 value={form.whatsapp}
-                onChange={(e) => setForm({ ...form, whatsapp: e.target.value.replace(/\D/g, "").slice(0, 10) })}
+                onChange={(e) => setForm({ ...form, whatsapp: normalizePhone(e.target.value) })}
                 className="w-full border rounded-lg px-3 h-12 text-base tabular-ltr text-start"
                 dir="ltr"
                 placeholder="رقم الواتساب إن كان مختلفًا"

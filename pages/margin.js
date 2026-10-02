@@ -98,9 +98,10 @@ export default function MarginPage() {
         ) : (
           <>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-3">
-              <Stat label="المبيعات" value={fmt(t.revenue)} />
+              <Stat label="المبيعات (بعد الخصم)" value={fmt(t.revenue)} />
               <Stat label="تكلفة المورد" value={fmt(t.cost)} />
               <Stat label="هامش التشغيل" value={fmt(t.margin)} strong />
+              {t.discount > 0 && <Stat label="خصومات الفواتير" value={fmt(t.discount)} />}
               <Stat label="نسبة الهامش" value={pct(t.marginPct)} strong />
             </div>
 

@@ -34,9 +34,10 @@ export default async function handler(req, res) {
     const items = [];
 
     if (role === "supervisor") {
-      const [pendingRequests, pendingReceived] = await Promise.all([
+      const [pendingRequests, pendingReceived, pendingDamage] = await Promise.all([
         adminDb.collection("changeRequests").where("status", "==", "pending").get(),
         adminDb.collection("inventoryDocs").where("type", "==", "received").where("status", "==", "pending").get(),
+        adminDb.collection("inventoryDocs").where("type", "==", "damage").where("status", "==", "pending").get(),
       ]);
       pendingRequests.docs.forEach((d) => {
         const r = d.data();
@@ -64,6 +65,19 @@ export default async function handler(req, res) {
           at: r.createdAt,
         });
       });
+      pendingDamage.docs.forEach((d) => {
+        const r = d.data();
+        items.push({
+          id: d.id,
+          bucket: "modification",
+          needsAction: true,
+          requestType: "تسجيل تالف",
+          from: "أمين المخزن",
+          state: "بانتظار اعتمادك",
+          href: `/inventory/${d.id}`,
+          at: r.createdAt,
+        });
+      });
     } else if (role === "warehouse_keeper") {
       const pendingWarehouse = await adminDb
         .collection("shipmentRequests")
@@ -85,6 +99,29 @@ export default async function handler(req, res) {
           at: r.requestedAt,
         });
       });
+
+      // The supervisor's decision on goods received / damage the keeper
+      // recorded — informational, shown once.
+      const mine = await adminDb.collection("inventoryDocs").where("createdBy", "==", decoded.uid).get();
+      mine.docs
+        .map((d) => ({ id: d.id, ...d.data() }))
+        .filter((r) => (r.type === "received" || r.type === "damage") && (r.status === "confirmed" || r.status === "rejected"))
+        .sort((a, b) => (b.finalizedAt || "").localeCompare(a.finalizedAt || ""))
+        .slice(0, RESOLVED_LIMIT)
+        .forEach((r) => {
+          items.push({
+            id: r.id,
+            bucket: "inventory",
+            needsAction: false,
+            requestType: r.type === "damage" ? "تسجيل تالف" : "استلام بضاعة",
+            from: "المشرف",
+            state: r.status === "confirmed" ? "تم الاعتماد" : "تم الرفض",
+            note: r.rejectReason || "",
+            tone: r.status === "confirmed" ? "good" : "bad",
+            href: `/inventory/${r.id}`,
+            at: r.finalizedAt,
+          });
+        });
     } else if (ROLE_TO_ROUTE[role]) {
       const myRoute = ROLE_TO_ROUTE[role];
 
@@ -123,11 +160,14 @@ export default async function handler(req, res) {
         .get();
       pendingConfirm.docs.forEach((d) => {
         const r = d.data();
+        if (r.type !== "loading") return; // e.g. a pending damage — supervisor's call
         items.push({
           id: d.id,
           bucket: "shipping",
           needsAction: true,
-          requestType: r.type === "offloading" ? "مرتجع بضاعة" : "أمر شحن",
+          // The document coming BACK from the warehouse is a delivery, not an
+          // order: "تسليم بضاعة". "أمر شحن" is only the agent's own request.
+          requestType: r.type === "offloading" ? "مرتجع بضاعة" : "تسليم بضاعة",
           from: "أمين المخزن",
           route: myRoute,
           state: "بانتظار تأكيدك",

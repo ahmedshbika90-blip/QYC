@@ -27,9 +27,10 @@ const L = {
   placeOrder: { href: "/place-order", label: "فاتورة جديدة", short: "فاتورة", icon: "plus" },
   requests: { href: "/requests", label: "الطلبات", icon: "inbox", badge: "modification" },
   documents: { href: "/documents", label: "المستندات", icon: "file", badge: "shipping" },
-  registerClient: { href: "/register-client", label: "إضافة عميل", icon: "userPlus" },
   sales: { href: "/reports/sales", label: "تقرير المبيعات", short: "التقارير", icon: "chart" },
-  clients: { href: "/clients", label: "العملاء", icon: "users" },
+  // Adding a client lives INSIDE العملاء (a button on that page), not as a
+  // separate menu item — /register-client still highlights العملاء.
+  clients: { href: "/clients", label: "العملاء", icon: "users", also: ["/register-client"] },
   products: { href: "/products", label: "المنتجات والأسعار", short: "المنتجات", icon: "tag" },
   inventory: { href: "/inventory", label: "المخزون", icon: "box" },
   margin: { href: "/margin", label: "هامش التشغيل", icon: "percent" },
@@ -55,14 +56,14 @@ function layoutFor(role) {
       return {
         tabs: [home, L.documents, L.clients],
         center: L.placeOrder,
-        more: [L.requests, L.registerClient, L.sales, L.products],
-        desktop: [home, L.placeOrder, L.documents, L.requests, L.clients, L.registerClient, L.sales, L.products],
+        more: [L.requests, L.sales, L.products],
+        desktop: [home, L.placeOrder, L.documents, L.requests, L.clients, L.sales, L.products],
       };
     case "supervisor":
       return {
         tabs: [home, L.requests, L.inventory, L.sales],
-        more: [L.margin, L.clients, L.products, L.registerClient],
-        desktop: [home, L.requests, L.inventory, L.sales, L.margin, L.clients, L.products, L.registerClient],
+        more: [L.margin, L.clients, L.products],
+        desktop: [home, L.requests, L.inventory, L.sales, L.margin, L.clients, L.products],
       };
     case "warehouse_keeper":
       return {
@@ -77,7 +78,8 @@ function layoutFor(role) {
   }
 }
 
-function isActive(pathname, href) {
+function isActive(pathname, href, also = []) {
+  if (also.some((p) => pathname === p || pathname.startsWith(p + "/"))) return true;
   if (!href) return false;
   if (href.startsWith("/dashboard")) return pathname === href;
   return pathname === href || pathname.startsWith(href + "/");
@@ -159,7 +161,7 @@ export default function Nav({ role, logout }) {
   const hasTabbar = layout.tabs.length > 0;
   const countFor = (link) => (link.badge ? counts[link.badge] || 0 : 0);
   const moreCount = layout.more.reduce((n, l) => n + countFor(l), 0);
-  const moreActive = layout.more.some((l) => isActive(router.pathname, l.href));
+  const moreActive = layout.more.some((l) => isActive(router.pathname, l.href, l.also));
 
   // Tell the page to leave room for the fixed tab bar on phones.
   useEffect(() => {
@@ -204,7 +206,7 @@ export default function Nav({ role, logout }) {
           {/* Desktop links */}
           <nav aria-label="التنقل الرئيسي" className="hidden md:flex items-center gap-0.5 min-w-0 overflow-x-auto no-scrollbar">
             {layout.desktop.map((link) => {
-              const active = isActive(router.pathname, link.href);
+              const active = isActive(router.pathname, link.href, link.also);
               const n = countFor(link);
               return (
                 <Link
@@ -284,7 +286,7 @@ export default function Nav({ role, logout }) {
                   </button>
                 );
               }
-              const active = isActive(router.pathname, link.href);
+              const active = isActive(router.pathname, link.href, link.also);
               const n = countFor(link);
               return (
                 <Link
@@ -319,7 +321,7 @@ export default function Nav({ role, logout }) {
             <div className="flex flex-col">
               {layout.more.map((link) => {
                 const n = countFor(link);
-                const active = isActive(router.pathname, link.href);
+                const active = isActive(router.pathname, link.href, link.also);
                 return (
                   <Link
                     key={link.href}

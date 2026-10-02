@@ -4,6 +4,7 @@ const { buildOrderFromItems } = require("../../../lib/orderCreation");
 const { isLocked } = require("../../../lib/invoiceLock");
 const { isValidRequestId } = require("../../../lib/requestId");
 const { bumpVersions, ordersKey } = require("../../../lib/versions");
+const { applyInvoiceDiscount, orderDiscount } = require("../../../lib/invoiceDiscount");
 
 const ROLE_TO_ROUTE = { agent_car1: "car1", agent_car2: "car2" };
 const MAX_REASON = 500;
@@ -29,7 +30,7 @@ export default async function handler(req, res) {
     const decoded = await requireUser(req);
     requireRole(decoded, ["agent_car1", "agent_car2"]);
 
-    const { orderId, type, items, reason, requestId } = req.body || {};
+    const { orderId, type, items, reason, requestId, discount } = req.body || {};
     if (!isValidRequestId(requestId)) fail(400, "طلب غير صالح، يرجى تحديث الصفحة والمحاولة مرة أخرى");
     if (!["edit", "cancel"].includes(type)) fail(400, "نوع الطلب غير صالح");
     if (typeof reason !== "string" || !reason.trim()) fail(400, "يرجى كتابة سبب الطلب");
@@ -62,10 +63,15 @@ export default async function handler(req, res) {
     // approval time, when the change actually happens.
     let proposedItems = null;
     let proposedTotal = null;
+    let proposedDiscount = null;
     if (type === "edit") {
       const built = await buildOrderFromItems(items, order.route, null, /* skipStockCheck */ true);
       proposedItems = built.resolvedItems;
-      proposedTotal = built.total;
+      // The invoice discount is part of the edit: unchanged unless the agent
+      // sent a new amount, and always re-checked against the new lines.
+      const money = applyInvoiceDiscount(proposedItems, discount === undefined ? orderDiscount(order) : discount);
+      proposedDiscount = money.discount;
+      proposedTotal = money.total;
     }
 
     const clientSnap = await adminDb.collection("clients").doc(order.clientId).get();
@@ -85,8 +91,10 @@ export default async function handler(req, res) {
         reason: reason.trim(),
         currentItems: fresh.items,
         currentTotal: fresh.total,
+        currentDiscount: orderDiscount(fresh),
         proposedItems,
         proposedTotal,
+        proposedDiscount,
         status: "pending",
         requestedBy: decoded.uid,
         requestedAt: now,

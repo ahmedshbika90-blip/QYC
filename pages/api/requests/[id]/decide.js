@@ -87,7 +87,9 @@ export default async function handler(req, res) {
       if (action === "approve") {
         if (request.type === "edit") {
           const items = request.proposedItems.map((it) => ({ productId: it.productId, qty: it.qty }));
-          await editItemsTx(tx, orderRef, items, decoded.uid, orderUpdate);
+          await editItemsTx(tx, orderRef, items, decoded.uid, orderUpdate, {
+            discount: request.proposedDiscount ?? undefined,
+          });
         } else {
           await cancelTx(tx, orderRef, decoded.uid, orderUpdate);
         }

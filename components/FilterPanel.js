@@ -14,6 +14,8 @@ export default function FilterPanel({
   onLocationChange,
   storeClass,
   onStoreClassChange,
+  discountFilter,
+  onDiscountFilterChange,
   dateFrom,
   onDateFromChange,
   dateTo,
@@ -23,7 +25,7 @@ export default function FilterPanel({
 }) {
   const [open, setOpen] = useState(false);
   const activeCount =
-    [nameQuery, locationQuery, storeClass, dateFrom, dateTo].filter(Boolean).length + extraActiveCount;
+    [nameQuery, locationQuery, storeClass, discountFilter, dateFrom, dateTo].filter(Boolean).length + extraActiveCount;
 
   const inputClass = "border rounded-lg px-3 h-11 text-base";
 
@@ -71,6 +73,17 @@ export default function FilterPanel({
               value={storeClass}
               onChange={onStoreClassChange}
               options={STORE_CLASSES.map((c) => [c, `تصنيف ${c}`])}
+            />
+          )}
+          {onDiscountFilterChange && (
+            <FilterChips
+              label="الخصم"
+              value={discountFilter}
+              onChange={onDiscountFilterChange}
+              options={[
+                ["with", "فيها خصم"],
+                ["without", "بدون خصم"],
+              ]}
             />
           )}
           {onDateFromChange && (

@@ -3,6 +3,8 @@ import { useAuth } from "../../lib/useAuth";
 import Nav from "../../components/Nav";
 import BackButton from "../../components/BackButton";
 import InventoryDocCard from "../../components/InventoryDocCard";
+import Link from "next/link";
+import Icon from "../../components/Icon";
 import InventoryHistory from "../../components/InventoryHistory";
 import { PageLoading } from "../../components/Loading";
 import { apiFetch } from "../../lib/apiFetch";
@@ -29,8 +31,10 @@ export default function InventoryPage() {
 
   if (loading) return <PageLoading />;
 
-  const awaitingApproval = pending.filter((d) => d.type === "received");
-  const awaitingAgents = pending.filter((d) => d.type !== "received");
+  // Received / damage documents awaiting approval live in الطلبات — this
+  // page shows them only once decided (history below). Just a pointer here.
+  const awaitingApproval = pending.filter((d) => d.type === "received" || d.type === "damage");
+  const awaitingAgents = pending.filter((d) => d.type === "loading" || d.type === "offloading");
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -40,14 +44,15 @@ export default function InventoryPage() {
         <h1 className="text-xl font-semibold mb-4 text-gray-800">المخزون</h1>
 
         {awaitingApproval.length > 0 && (
-          <div className="mb-5">
-            <p className="text-sm font-medium text-amber-700 mb-2">بانتظار اعتمادك ({awaitingApproval.length})</p>
-            <div className="bg-white rounded-lg shadow divide-y border border-amber-200">
-              {awaitingApproval.map((d) => (
-                <InventoryDocCard key={d.id} doc={d} />
-              ))}
-            </div>
-          </div>
+          <Link
+            href="/requests"
+            className="flex items-center justify-between gap-3 bg-amber-50 text-amber-700 rounded-xl px-4 py-3 mb-5 text-sm font-semibold"
+          >
+            <span>
+              {awaitingApproval.length} {awaitingApproval.length === 1 ? "مستند" : "مستندات"} (استلام / تالف) بانتظار اعتمادك في الطلبات
+            </span>
+            <Icon name="chevronLeft" size={18} />
+          </Link>
         )}
 
         {awaitingAgents.length > 0 && (

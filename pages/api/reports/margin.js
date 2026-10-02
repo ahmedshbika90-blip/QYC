@@ -2,6 +2,7 @@ const { adminDb } = require("../../../lib/firebaseAdmin");
 const { requireUser, requireRole } = require("../../../lib/apiAuth");
 const { fetchReportOrders } = require("../../../lib/reportQuery");
 const { isLocked } = require("../../../lib/invoiceLock");
+const { netLines, orderDiscount } = require("../../../lib/invoiceDiscount");
 
 const DEFAULT_WINDOW_DAYS = 7;
 const round = (n) => Math.round(n * 100) / 100;
@@ -47,12 +48,17 @@ export default async function handler(req, res) {
 
     const byProduct = new Map();
     const byRoute = {};
-    const totals = { revenue: 0, costedRevenue: 0, cost: 0, uncostedRevenue: 0, estimatedUnits: 0 };
+    const totals = { revenue: 0, costedRevenue: 0, cost: 0, uncostedRevenue: 0, estimatedUnits: 0, discount: 0 };
 
+    // Revenue is what the client actually pays: each invoice's discount is
+    // spread over its lines in proportion to their value (lib/invoiceDiscount
+    // netLines), so per-product revenue — and the margin — is after discount,
+    // and the products add up to the invoice totals exactly.
     for (const o of finalized) {
       byRoute[o.route] = byRoute[o.route] || { revenue: 0, costedRevenue: 0, cost: 0 };
-      for (const it of o.items) {
-        const revenue = it.subtotal ?? it.price * it.qty;
+      totals.discount += orderDiscount(o);
+      for (const it of netLines(o)) {
+        const revenue = it.netSubtotal;
         let unitCost = it.unitCost;
         let estimated = false;
         if (unitCost == null && fallback.has(it.productId)) {
@@ -116,7 +122,12 @@ export default async function handler(req, res) {
       to: req.query.to || null,
       invoiceCount: finalized.length,
       notFinalizedCount,
-      totals: { ...summarize(totals), uncostedRevenue: round(totals.uncostedRevenue), estimatedUnits: totals.estimatedUnits },
+      totals: {
+        ...summarize(totals),
+        discount: round(totals.discount),
+        uncostedRevenue: round(totals.uncostedRevenue),
+        estimatedUnits: totals.estimatedUnits,
+      },
       byRoute: Object.fromEntries(Object.entries(byRoute).map(([k, v]) => [k, summarize(v)])),
       products,
     });

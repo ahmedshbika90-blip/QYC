@@ -4,12 +4,14 @@ import { useAuth } from "../../lib/useAuth";
 import Nav from "../../components/Nav";
 import BackButton from "../../components/BackButton";
 import SuccessScreen from "../../components/SuccessScreen";
+import InvoiceTotals from "../../components/InvoiceTotals";
+import { hasDiscount, orderDiscount, orderSubtotal } from "../../lib/invoiceDiscount";
 import QtyStepper from "../../components/QtyStepper";
 import { PageLoading, Spinner } from "../../components/Loading";
 import { apiFetch } from "../../lib/apiFetch";
 import { invalidate } from "../../lib/apiCache";
 import { useLiveRefresh } from "../../lib/useLiveRefresh";
-import { formatDate, formatDateTime, formatNumber } from "../../lib/labels";
+import { formatDate, formatDateTime, formatNumber, formatQty } from "../../lib/labels";
 import { useRequestId } from "../../lib/useRequestId";
 
 export default function OrderDetail() {
@@ -33,6 +35,7 @@ export default function OrderDetail() {
   // Change requests (for locked invoices — agents only)
   const [reason, setReason] = useState("");
   const [cancelRequestOpen, setCancelRequestOpen] = useState(false);
+  const [editDiscount, setEditDiscount] = useState(""); // invoice-level discount while editing
   const [sendingRequest, setSendingRequest] = useState(false);
   const requestIds = useRequestId();
   const productBoxRef = useRef(null);
@@ -120,6 +123,7 @@ export default function OrderDetail() {
   async function startEditing() {
     setEditing(true);
     setCart(order.items.map((it) => ({ ...it })));
+    setEditDiscount(orderDiscount(order) ? String(orderDiscount(order)) : "");
     try {
       const res = await apiFetch(`/api/products/list?route=${order.route}`, {
         headers: { Authorization: `Bearer ${token}` },
@@ -155,41 +159,34 @@ export default function OrderDetail() {
   function addProduct(p) {
     setCart((prev) => [
       ...prev,
-      { productId: p.id, name: p.name, price: p.price, unit: p.unit, qty: 1, freeSample: false, discount: 0 },
+      { productId: p.id, name: p.name, price: p.price, unit: p.unit, qty: 1 },
     ]);
     setProductQuery("");
     setProductDropdownOpen(false);
   }
 
-  function toggleFreeSample(productId) {
-    setCart((prev) =>
-      prev.map((it) =>
-        it.productId === productId ? { ...it, freeSample: !it.freeSample, discount: !it.freeSample ? 0 : it.discount } : it
-      )
-    );
-  }
-
-  function setCartDiscount(productId, value) {
-    setCart((prev) => prev.map((it) => (it.productId === productId ? { ...it, discount: value } : it)));
-  }
-
   function lineTotal(it) {
-    if (it.freeSample) return 0;
-    return Math.max(0, (it.price || 0) * it.qty - (Number(it.discount) || 0));
+    return (it.price || 0) * it.qty;
   }
 
   // Agents can't change a locked invoice directly — they ask the supervisor.
   const needsRequest = order && role !== "supervisor" && order.locked;
   const [done, setDone] = useState(null); // "requested-edit" | "requested-cancel" | "saved"
 
-  async function sendChangeRequest(type, items) {
+  async function sendChangeRequest(type, items, discount) {
     if (!reason.trim()) {
       setError("اكتب سبب الطلب ليراه المشرف");
       return;
     }
     setSendingRequest(true);
     setError("");
-    const body = { orderId: id, type, reason: reason.trim(), ...(items ? { items } : {}) };
+    const body = {
+      orderId: id,
+      type,
+      reason: reason.trim(),
+      ...(items ? { items } : {}),
+      ...(discount !== undefined ? { discount: Number(discount) || 0 } : {}),
+    };
     try {
       const res = await apiFetch("/api/requests/create", {
         method: "POST",
@@ -217,7 +214,8 @@ export default function OrderDetail() {
     if (needsRequest) {
       return sendChangeRequest(
         "edit",
-        cart.map((it) => ({ productId: it.productId, qty: it.qty, freeSample: it.freeSample, discount: it.discount }))
+        cart.map((it) => ({ productId: it.productId, qty: it.qty })),
+        editDiscount
       );
     }
     setSavingItems(true);
@@ -231,6 +229,7 @@ export default function OrderDetail() {
         },
         body: JSON.stringify({
           items: cart.map((it) => ({ productId: it.productId, qty: it.qty })),
+          discount: Number(editDiscount) || 0,
         }),
       });
       const data = await res.json();
@@ -278,7 +277,7 @@ export default function OrderDetail() {
   }
 
   const isCancelled = order.status === "cancelled";
-  const cartTotal = cart.reduce((sum, it) => sum + it.price * it.qty, 0);
+  const cartSubtotal = Math.round(cart.reduce((sum, it) => sum + lineTotal(it), 0) * 100) / 100;
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -435,7 +434,7 @@ export default function OrderDetail() {
                         >
                           <span>{p.name}</span>
                           <span className="text-gray-400">
-                            {p.price} / {p.unit}
+                            {formatNumber(p.price)} / {p.unit}
                           </span>
                         </button>
                       ))
@@ -462,9 +461,7 @@ export default function OrderDetail() {
                 )}
               </div>
 
-              <div className="text-end text-base text-gray-600">
-                الإجمالي: <span className="font-semibold text-gray-900">{formatNumber(cartTotal)}</span>
-              </div>
+              <InvoiceTotals subtotal={cartSubtotal} discount={editDiscount} onDiscountChange={setEditDiscount} />
 
               {needsRequest && (
                 <textarea
@@ -512,7 +509,7 @@ export default function OrderDetail() {
                     <div className="min-w-0">
                       <p className="text-base text-gray-800 truncate">{it.name}</p>
                       <p className="text-sm text-gray-400">
-                        {it.qty} {it.unit || ""} × {formatNumber(it.price)}
+                        {formatQty(it.qty)} {it.unit || ""} × {formatNumber(it.price)}
                       </p>
                     </div>
                     <p className="text-base font-medium text-gray-800 shrink-0">
@@ -522,9 +519,12 @@ export default function OrderDetail() {
                 ))}
               </div>
 
-              <div className="text-end font-semibold text-gray-800 mb-4 text-base">
-                الإجمالي: {order.total ?? "—"}
-              </div>
+              {hasDiscount(order) && (
+                <p className="text-sm font-semibold text-blue-700 bg-blue-50 rounded-xl px-3 py-2 mb-3">
+                  يوجد تخفيض على هذه الفاتورة: {formatNumber(orderDiscount(order))}
+                </p>
+              )}
+              <InvoiceTotals subtotal={orderSubtotal(order)} discount={orderDiscount(order)} className="mb-4" />
             </>
           )}
 
@@ -547,7 +547,8 @@ export default function OrderDetail() {
                   <div key={i} className="text-gray-500">
                     <p className="text-xs text-gray-400">قبل التعديل — {formatDateTime(h.editedAt)}</p>
                     <p>
-                      {h.items.map((it) => `${it.name} ×${it.qty}`).join("، ")} — الإجمالي: {formatNumber(h.total)}
+                      {h.items.map((it) => `${it.name} ×${formatQty(it.qty)}`).join("، ")}
+                      {h.discount ? ` — خصم ${formatNumber(h.discount)}` : ""} — الإجمالي: {formatNumber(h.total)}
                     </p>
                   </div>
                 ))}

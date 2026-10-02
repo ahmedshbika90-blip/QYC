@@ -1,6 +1,7 @@
 const { adminDb } = require("../../../lib/firebaseAdmin");
 const { requireUser } = require("../../../lib/apiAuth");
 const { fetchReportOrders } = require("../../../lib/reportQuery");
+const { orderDiscount, round2 } = require("../../../lib/invoiceDiscount");
 
 // Builds a sales report from every invoice that ISN'T cancelled — with
 // the active/cancelled-only model, any non-cancelled invoice represents
@@ -25,9 +26,12 @@ export default async function handler(req, res) {
     const byClient = new Map();
     for (const order of orders) {
       if (!byClient.has(order.clientId)) {
-        byClient.set(order.clientId, { clientId: order.clientId, itemsByProduct: new Map() });
+        byClient.set(order.clientId, { clientId: order.clientId, itemsByProduct: new Map(), discount: 0 });
       }
       const entry = byClient.get(order.clientId);
+      // Invoice-level discounts are kept per client and taken off the
+      // client's total — the line amounts stay at their real prices.
+      entry.discount += orderDiscount(order);
       for (const item of order.items) {
         const key = item.productId || item.name;
         const existing = entry.itemsByProduct.get(key);
@@ -64,7 +68,9 @@ export default async function handler(req, res) {
         subtotal: Math.round(it.subtotal * 100) / 100,
       }));
       const totalUnits = items.reduce((sum, it) => sum + it.qty, 0);
-      const totalPrice = Math.round(items.reduce((sum, it) => sum + it.subtotal, 0) * 100) / 100;
+      const grossPrice = round2(items.reduce((sum, it) => sum + it.subtotal, 0));
+      const discount = round2(entry.discount);
+      const totalPrice = round2(grossPrice - discount);
       const info = clientInfo.get(clientId);
       return {
         clientId,
@@ -73,6 +79,8 @@ export default async function handler(req, res) {
         location: info?.location || "—",
         items,
         totalUnits,
+        grossPrice,
+        discount,
         totalPrice,
       };
     });
@@ -80,7 +88,8 @@ export default async function handler(req, res) {
     clients.sort((a, b) => b.totalPrice - a.totalPrice);
 
     const grandTotalUnits = clients.reduce((sum, c) => sum + c.totalUnits, 0);
-    const grandTotalPrice = Math.round(clients.reduce((sum, c) => sum + c.totalPrice, 0) * 100) / 100;
+    const grandTotalPrice = round2(clients.reduce((sum, c) => sum + c.totalPrice, 0));
+    const grandDiscount = round2(clients.reduce((sum, c) => sum + c.discount, 0));
 
     return res.status(200).json({
       from: from || null,
@@ -89,6 +98,7 @@ export default async function handler(req, res) {
       clients,
       grandTotalUnits,
       grandTotalPrice,
+      grandDiscount,
       orderCount: orders.length,
     });
   } catch (err) {

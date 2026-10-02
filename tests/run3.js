@@ -28,35 +28,50 @@ eval(header + `
   // 1. Damage write-off: moves qty OUT of a real bucket and INTO
   // "damaged" — never below zero, logged, and a repeat submission
   // doesn't double-count it.
+  const SUPV = { role: "supervisor", uid: "sup" };
   const dmg1 = await call("pages/api/inventory/damage.js", { method: "POST", ...WK, body: { source: "depot", items: [{ productId: "p1", qty: 5 }], requestId: "req-dmg-00000001" } });
   assert.strictEqual(dmg1.status, 201, JSON.stringify(dmg1.json));
+  assert.strictEqual(dmg1.json.status, "pending");
   const dmg2 = await call("pages/api/inventory/damage.js", { method: "POST", ...WK, body: { source: "depot", items: [{ productId: "p1", qty: 5 }], requestId: "req-dmg-00000001" } });
   assert.ok(dmg2.json.duplicate);
+  const beforeApproval = (await get("products", "p1")).stock;
+  assert.deepStrictEqual([beforeApproval.depot, beforeApproval.damaged], [100, 0]); // nothing moves yet
+  const supNotif = (await call("pages/api/notifications.js", SUPV)).json.items.find((it) => it.id === dmg1.json.id);
+  assert.deepStrictEqual([supNotif.needsAction, supNotif.requestType, supNotif.bucket], [true, "تسجيل تالف", "modification"]);
+  const ap1 = await call("pages/api/inventory/[id]/approve.js", { method: "PATCH", ...SUPV, query: { id: dmg1.json.id }, body: { action: "approve" } });
+  assert.strictEqual(ap1.status, 200, JSON.stringify(ap1.json));
+  await call("pages/api/inventory/[id]/approve.js", { method: "PATCH", ...SUPV, query: { id: dmg1.json.id }, body: { action: "approve" } });
   const afterDmg = (await get("products", "p1")).stock;
-  assert.deepStrictEqual([afterDmg.depot, afterDmg.damaged], [95, 5]);
+  assert.deepStrictEqual([afterDmg.depot, afterDmg.damaged], [95, 5]); // moved once, on approval
+  const wkInfo = (await call("pages/api/notifications.js", WK)).json.items.find((it) => it.id === dmg1.json.id);
+  assert.deepStrictEqual([wkInfo.needsAction, wkInfo.state], [false, "تم الاعتماد"]);
   const tooMuch = await call("pages/api/inventory/damage.js", { method: "POST", ...WK, body: { source: "depot", items: [{ productId: "p1", qty: 9999 }], requestId: "req-dmg-00000002" } });
   assert.strictEqual(tooMuch.status, 400);
-  ok("damage write-off: depot 100→95, damaged 0→5, repeat doesn't double it, can't go negative");
+  ok("damage: keeper's record waits for the supervisor (stock untouched), approval moves depot 100→95 once, keeper notified");
 
-  // 2. Free sample (zero revenue, stock still moves) and a per-line
-  // discount (reduced revenue, stock still moves) — both computed
-  // server-side, never trusted from the client's own subtotal.
+  // 2. No free samples / per-line discounts any more — refused. One
+  // invoice-level discount instead, computed server-side; stock still moves
+  // by the full quantity.
   await db.collection("clients").doc("2000").set({ name: "C", storeName: "S", location: "L", route: "car1", phone: "0900000000", whatsapp: "0900000000", storeClass: "A", active: true });
+  const sample = await call("pages/api/orders/create-staff.js", { method: "POST", ...A1, body: { clientId: "2000", items: [{ productId: "p1", qty: 2, freeSample: true }], requestId: "req-freesample-00" } });
+  assert.strictEqual(sample.status, 400);
+  const lineDisc = await call("pages/api/orders/create-staff.js", { method: "POST", ...A1, body: { clientId: "2000", items: [{ productId: "p1", qty: 2, discount: 5 }], requestId: "req-linedisc-00" } });
+  assert.strictEqual(lineDisc.status, 400);
+  const tooBig = await call("pages/api/orders/create-staff.js", { method: "POST", ...A1, body: { clientId: "2000", items: [{ productId: "p1", qty: 5 }], discount: 51, requestId: "req-bigdisc-000" } });
+  assert.strictEqual(tooBig.status, 400); // discount above the invoice
   const ord = await call("pages/api/orders/create-staff.js", { method: "POST", ...A1, body: {
     clientId: "2000",
-    items: [
-      { productId: "p1", qty: 2, freeSample: true },
-      { productId: "p1", qty: 3, discount: 5 },
-    ],
+    items: [{ productId: "p1", qty: 5 }],
+    discount: 5,
+    notes: "التسليم بعد العصر",
     requestId: "req-freesample-01",
   }});
   assert.strictEqual(ord.status, 201, JSON.stringify(ord.json));
-  assert.strictEqual(ord.json.items[0].subtotal, 0); // 2 × 10, free sample
-  assert.strictEqual(ord.json.items[1].subtotal, 25); // 3 × 10 − 5 discount
-  assert.strictEqual(ord.json.total, 25);
+  assert.deepStrictEqual([ord.json.subtotal, ord.json.discount, ord.json.total], [50, 5, 45]);
+  assert.strictEqual((await get("orders", "req-freesample-01")).notes, "التسليم بعد العصر"); // note saved at creation
   const afterSale = (await get("products", "p1")).stock;
-  assert.strictEqual(afterSale.car1, 5); // both lines still moved real stock (2 + 3)
-  ok("free sample (0 revenue) + line discount (25 not 30), both still move stock, total computed server-side");
+  assert.strictEqual(afterSale.car1, 5); // full quantity moved
+  ok("free sample & per-line discount refused; invoice discount 50 − 5 = 45; note saved with the new invoice");
 
   // 3. Shipment-request workflow: car1 skips straight to the warehouse
   // keeper; car2 needs car1's approval first, and only car1 (not the

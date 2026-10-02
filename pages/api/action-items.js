@@ -29,11 +29,12 @@ export default async function handler(req, res) {
     let count = 0;
 
     if (role === "supervisor") {
-      const [pendingRequests, pendingReceived] = await Promise.all([
+      const [pendingRequests, pendingReceived, pendingDamage] = await Promise.all([
         adminDb.collection("changeRequests").where("status", "==", "pending").get(),
         adminDb.collection("inventoryDocs").where("type", "==", "received").where("status", "==", "pending").get(),
+        adminDb.collection("inventoryDocs").where("type", "==", "damage").where("status", "==", "pending").get(),
       ]);
-      count = pendingRequests.size + pendingReceived.size;
+      count = pendingRequests.size + pendingReceived.size + pendingDamage.size;
     } else if (role === "warehouse_keeper") {
       const pendingWarehouse = await adminDb
         .collection("shipmentRequests")

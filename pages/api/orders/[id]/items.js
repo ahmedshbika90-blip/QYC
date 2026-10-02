@@ -22,7 +22,7 @@ export default async function handler(req, res) {
   try {
     const decoded = await requireUser(req);
     const { id } = req.query;
-    const { items } = req.body || {};
+    const { items, discount } = req.body || {};
 
     const orderRef = adminDb.collection("orders").doc(id);
     const snap = await orderRef.get();
@@ -42,7 +42,7 @@ export default async function handler(req, res) {
       return res.status(403).json({ error: "الفاتورة مقفلة — أرسل طلب تعديل إلى المشرف", locked: true });
     }
 
-    const result = await adminDb.runTransaction((tx) => editItemsTx(tx, orderRef, items, decoded.uid));
+    const result = await adminDb.runTransaction((tx) => editItemsTx(tx, orderRef, items, decoded.uid, {}, { discount }));
     if (result.changed) await bumpVersions([ordersKey(order.route)]);
 
     return res.status(200).json({

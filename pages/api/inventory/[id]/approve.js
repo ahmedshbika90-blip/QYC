@@ -3,8 +3,9 @@ const { requireUser, requireRole } = require("../../../../lib/apiAuth");
 const { applyStockMovements } = require("../../../../lib/inventory");
 const { bumpVersions } = require("../../../../lib/versions");
 
-// Only the supervisor can approve a Goods Received document — this is
-// the actual gate that moves stock. Quantities are never re-trusted from
+// Only the supervisor can approve a Goods Received or a Damage document —
+// this is the actual gate that moves stock. Both arrive in his الطلبات
+// queue as "pending" and only show in المخزون once decided. Quantities are never re-trusted from
 // the request here (they come from the warehouse keeper's original
 // document, which is already in Firestore); only the supplier price per
 // unit is supplied here, since that's supervisor-only information the
@@ -30,8 +31,8 @@ export default async function handler(req, res) {
       return res.status(404).json({ error: "المستند غير موجود" });
     }
     const doc = docSnap.data();
-    if (doc.type !== "received") {
-      return res.status(400).json({ error: "هذا الإجراء خاص بمستندات استلام البضاعة فقط" });
+    if (doc.type !== "received" && doc.type !== "damage") {
+      return res.status(400).json({ error: "هذا الإجراء خاص بمستندات استلام البضاعة والتالف فقط" });
     }
     // Repeat of an already-completed decision (weak-connection retry) succeeds quietly.
     if (action === "approve" && doc.status === "confirmed") return res.status(200).json({ ok: true });
@@ -48,6 +49,26 @@ export default async function handler(req, res) {
         rejectReason: rejectReason || "",
         confirmedBy: decoded.uid,
         finalizedAt: now,
+      });
+      await bumpVersions(["inventory"]);
+      return res.status(200).json({ ok: true });
+    }
+
+    // Damage: move source → damaged, re-checking the balance NOW (stock
+    // may have moved since the keeper recorded it). Double approval can't
+    // deduct twice — the status is re-checked inside the transaction.
+    if (doc.type === "damage") {
+      await adminDb.runTransaction(async (tx) => {
+        const fresh = await tx.get(docRef);
+        if (fresh.data().status !== "pending") return;
+        await applyStockMovements(
+          tx,
+          doc.items.flatMap((it) => [
+            { productId: it.productId, field: doc.source, delta: -it.qty },
+            { productId: it.productId, field: "damaged", delta: it.qty },
+          ])
+        );
+        tx.update(docRef, { status: "confirmed", confirmedBy: decoded.uid, finalizedAt: now });
       });
       await bumpVersions(["inventory"]);
       return res.status(200).json({ ok: true });

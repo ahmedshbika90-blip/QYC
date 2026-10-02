@@ -63,7 +63,7 @@ export default function WarehouseDashboard() {
     icon: d.type === "received" ? "warehouse" : d.type === "offloading" ? "box" : "truck",
     tone: "accent",
     title: `${TYPE_LABELS[d.type] || d.type}${d.route ? ` · ${d.route === "car1" ? "جملة" : "تجزئة"}` : ""}`,
-    meta: `${previewNames(d.items)} · ${d.type === "received" ? "بانتظار اعتماد المشرف" : "بانتظار تأكيد المندوب"}`,
+    meta: `${previewNames(d.items)} · ${d.type === "received" || d.type === "damage" ? "بانتظار اعتماد المشرف" : "بانتظار تأكيد المندوب"}`,
   }));
 
   return (

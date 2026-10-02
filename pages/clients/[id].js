@@ -4,6 +4,7 @@ import { useAuth } from "../../lib/useAuth";
 import Nav from "../../components/Nav";
 import BackButton from "../../components/BackButton";
 import { PageLoading, Spinner } from "../../components/Loading";
+import { normalizePhone } from "../../lib/validation";
 import { apiFetch } from "../../lib/apiFetch";
 import { formatDate, formatDateTime, STORE_CLASSES } from "../../lib/labels";
 import { invalidateClients } from "../../lib/clientsStore";
@@ -205,7 +206,7 @@ export default function ClientDetail() {
               maxLength={10}
               pattern="0\d{9}"
               value={form.phone}
-              onChange={(e) => setForm({ ...form, phone: e.target.value.replace(/\D/g, "").slice(0, 10) })}
+              onChange={(e) => setForm({ ...form, phone: normalizePhone(e.target.value) })}
               className="w-full border rounded-lg px-3 h-12 text-base tabular-ltr text-start"
               dir="ltr"
               required
@@ -217,7 +218,7 @@ export default function ClientDetail() {
             <input
               type="tel"
               value={form.whatsapp}
-              onChange={(e) => setForm({ ...form, whatsapp: e.target.value.replace(/\D/g, "").slice(0, 10) })}
+              onChange={(e) => setForm({ ...form, whatsapp: normalizePhone(e.target.value) })}
               className="w-full border rounded-lg px-3 h-12 text-base tabular-ltr text-start"
               dir="ltr"
               placeholder="اتركه كما هو إذا كان نفس رقم الهاتف"

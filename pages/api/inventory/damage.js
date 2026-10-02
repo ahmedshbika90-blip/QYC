@@ -9,10 +9,15 @@ const { bumpVersions } = require("../../../lib/versions");
 // Records damaged goods as a write-off: quantity moves OUT of a real stock
 // bucket (depot, car1, or car2) and INTO "damaged", which counts as gone —
 // never sellable, never loadable, never part of "available" anywhere else.
-// Takes effect immediately (unlike loading/offloading) since there's only
-// one party involved and nothing to dual-confirm; still goes through
-// applyStockMovements so it can never push a balance below zero, and is
-// logged as an inventoryDocs entry for the history/audit trail.
+//
+// From the WAREHOUSE KEEPER it's only a request: the document is saved as
+// "pending" and NOTHING moves until the supervisor approves it in الطلبات
+// (see [id]/approve.js, which does the actual stock movement and re-checks
+// the balance at that moment). Only then does it show in المخزون.
+// From the SUPERVISOR it takes effect immediately — he is the approver.
+//
+// The quantity is checked against the current balance now as well, so the
+// keeper is told straight away instead of the supervisor finding out later.
 export default async function handler(req, res) {
   if (req.method !== "POST") {
     return res.status(405).json({ error: "طريقة الطلب غير مسموح بها" });
@@ -50,8 +55,15 @@ export default async function handler(req, res) {
       return { productId: it.productId, name: snap.data().name, unit: snap.data().unit, qty: roundQty(parseDecimal(it.qty)) };
     });
 
+    const sourceSnaps = await adminDb.getAll(...resolvedItems.map((it) => adminDb.collection("products").doc(it.productId)));
+    const short = resolvedItems.find((it, i) => it.qty > (sourceSnaps[i].data().stock?.[source] || 0));
+    if (short) {
+      return res.status(400).json({ error: `رصيد "${short.name}" غير كافٍ لتسجيل هذا التالف` });
+    }
+
     const docRef = adminDb.collection("inventoryDocs").doc(requestId);
     const now = new Date().toISOString();
+    const immediate = decoded.role === "supervisor";
 
     const result = await createOnce(
       docRef,
@@ -60,17 +72,17 @@ export default async function handler(req, res) {
         route: source === "depot" ? null : source,
         source,
         items: resolvedItems,
-        status: "confirmed", // immediate — see comment above
+        status: immediate ? "confirmed" : "pending", // keeper → waits for the supervisor
         createdBy: decoded.uid,
         createdByRole: decoded.role,
         createdAt: now,
         note: note || "",
-        finalizedAt: now,
+        finalizedAt: immediate ? now : null,
       },
       { ownerField: "createdBy", ownerId: decoded.uid }
     );
 
-    if (!result.duplicate) {
+    if (!result.duplicate && immediate) {
       await adminDb.runTransaction((tx) =>
         applyStockMovements(
           tx,
@@ -80,10 +92,10 @@ export default async function handler(req, res) {
           ])
         )
       );
-      await bumpVersions(["inventory"]);
     }
+    if (!result.duplicate) await bumpVersions(["inventory"]);
 
-    return res.status(result.duplicate ? 200 : 201).json({ id: docRef.id, duplicate: result.duplicate });
+    return res.status(result.duplicate ? 200 : 201).json({ id: docRef.id, duplicate: result.duplicate, status: immediate ? "confirmed" : "pending" });
   } catch (err) {
     const status = err.statusCode || 500;
     return res.status(status).json({ error: err.message });

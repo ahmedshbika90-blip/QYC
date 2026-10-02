@@ -4,6 +4,9 @@ const { buildOrderFromItems, getActiveClient, calculateDeliveryDate } = require(
 const { applyStockMovements } = require("../../../lib/inventory");
 const { isValidRequestId } = require("../../../lib/requestId");
 const { stripCost } = require("../../../lib/invoiceLock");
+const { applyInvoiceDiscount } = require("../../../lib/invoiceDiscount");
+
+const MAX_NOTES = 1000;
 const { bumpVersions, ordersKey } = require("../../../lib/versions");
 
 const ROLE_TO_ROUTE = {
@@ -23,9 +26,14 @@ export default async function handler(req, res) {
     const decoded = await requireUser(req);
     requireRole(decoded, ["agent_car1", "agent_car2"]);
 
-    const { clientId, items, requestId } = req.body || {};
+    const { clientId, items, requestId, discount, notes } = req.body || {};
     if (!isValidRequestId(requestId)) {
       return res.status(400).json({ error: "طلب غير صالح، يرجى تحديث الصفحة والمحاولة مرة أخرى" });
+    }
+    // A note can be written on the invoice before it's submitted (it used
+    // to be possible only afterwards, from the invoice page).
+    if (notes !== undefined && (typeof notes !== "string" || notes.length > MAX_NOTES)) {
+      return res.status(400).json({ error: `الملاحظة يجب ألا تتجاوز ${MAX_NOTES} حرف` });
     }
 
     const client = await getActiveClient(clientId);
@@ -41,7 +49,7 @@ export default async function handler(req, res) {
     // finds the invoice already exists and returns it — no duplicate
     // invoice, no stock reserved twice.
     const docRef = adminDb.collection("orders").doc(requestId);
-    let resolvedItems, total;
+    let resolvedItems, total, money;
     let existing = null;
 
     // Stock check, stock decrement, and the order write all happen inside
@@ -54,7 +62,8 @@ export default async function handler(req, res) {
       }
       const built = await buildOrderFromItems(items, client.route, tx);
       resolvedItems = built.resolvedItems;
-      total = built.total;
+      money = applyInvoiceDiscount(resolvedItems, discount);
+      total = money.total;
 
       await applyStockMovements(
         tx,
@@ -65,7 +74,10 @@ export default async function handler(req, res) {
         clientId,
         route: client.route,
         items: resolvedItems,
+        subtotal: money.subtotal,
+        discount: money.discount,
         total,
+        notes: (notes || "").trim(),
         status: "active",
         deliveryDate: deliveryDate ? deliveryDate.toISOString() : null,
         createdAt: new Date().toISOString(),
@@ -86,6 +98,8 @@ export default async function handler(req, res) {
       clientId,
       route: client.route,
       items: stripCost(resolvedItems),
+      subtotal: money.subtotal,
+      discount: money.discount,
       total,
       status: "active",
       deliveryDate: deliveryDate ? deliveryDate.toISOString() : null,

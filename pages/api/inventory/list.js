@@ -49,6 +49,10 @@ export default async function handler(req, res) {
       docs = snap.docs
         .map((doc) => ({ id: doc.id, ...doc.data() }))
         .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+      // An agent's "awaiting you" list is only what HE has to confirm (a
+      // delivery to his car). A pending damage write-off is the
+      // supervisor's decision, never the agent's.
+      if (restrictedRoute) docs = docs.filter((d) => d.type === "loading");
     } else {
       let query = coll.orderBy("createdAt", "desc");
       if (restrictedRoute) query = query.where("route", "==", restrictedRoute);

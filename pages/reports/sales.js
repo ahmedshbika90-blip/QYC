@@ -288,6 +288,11 @@ export default function SalesReport() {
                             }`}
                           >
                             {formatNumber(c.totalPrice)}
+                            {c.discount > 0 && (
+                              <span className="block text-xs font-normal text-blue-700 whitespace-nowrap">
+                                بعد خصم {formatNumber(c.discount)}
+                              </span>
+                            )}
                           </td>
                         </tr>
                       ))}
@@ -312,6 +317,11 @@ export default function SalesReport() {
                         </td>
                         <td className="text-center px-4 py-4 font-bold">
                           {formatNumber(report.grandTotalPrice)}
+                          {report.grandDiscount > 0 && (
+                            <span className="block text-xs font-normal opacity-80 whitespace-nowrap">
+                              بعد خصومات {formatNumber(report.grandDiscount)}
+                            </span>
+                          )}
                         </td>
                       </tr>
                     </tfoot>

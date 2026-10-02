@@ -106,7 +106,7 @@ export default function ShippingDetail() {
         <SuccessScreen
           title={r.type === "offloading" ? "تم استلام مرتجع البضاعة" : "تم تنفيذ أمر الشحن"}
           number={done.dailySeq ? `#${done.dailySeq}` : undefined}
-          hint={r.type === "offloading" ? "أُضيفت الكميات إلى المخزن." : "بانتظار تأكيد المندوب للاستلام."}
+          hint={r.type === "offloading" ? "أُضيفت الكميات إلى المخزن." : "أُرسل «تسليم بضاعة» للمندوب — بانتظار تأكيده للاستلام."}
           secondary={{ label: "فتح المستند", href: `/inventory/${done.docId}` }}
           primary={back}
         />

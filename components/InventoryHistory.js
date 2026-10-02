@@ -106,7 +106,7 @@ export default function InventoryHistory({
             onChange={setTypeFilter}
             options={[
               ["received", "استلام بضاعة"],
-              ["loading", "أمر شحن"],
+              ["loading", "تسليم بضاعة"],
               ["offloading", "مرتجع بضاعة"],
               ["damage", "تالف"],
             ]}

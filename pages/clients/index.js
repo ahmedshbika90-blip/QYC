@@ -79,9 +79,10 @@ export default function ClientsList() {
           <h1 className="font-display text-2xl font-bold text-ink">العملاء</h1>
           <Link
             href="/register-client"
-            className="text-sm bg-accent text-on-accent rounded-lg px-4 min-h-[44px] flex items-center active:bg-accent-strong shrink-0"
+            className="inline-flex items-center gap-2 h-12 px-4 rounded-2xl bg-accent text-on-accent text-[15px] font-bold shadow-sm hover:bg-accent-strong active:bg-accent-strong shrink-0"
           >
-            + إضافة عميل
+            <Icon name="userPlus" size={20} />
+            إضافة عميل
           </Link>
         </div>
 

@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import QtyStepper from "../components/QtyStepper";
 import { Spinner } from "../components/Loading";
 import { apiFetch } from "../lib/apiFetch";
-import { formatDate } from "../lib/labels";
+import { formatDate, formatNumber } from "../lib/labels";
 
 function cacheKey(route) {
   return `cachedProductCatalog_${route}`;
@@ -269,7 +269,7 @@ export default function NewOrder() {
                 <p className="text-green-800 font-medium">
                   تم استلام طلبك! رقم الفاتورة: <span className="tabular-ltr">{result.orderId}</span>
                 </p>
-                <p className="text-green-700 text-sm mt-1">الإجمالي: {result.total}</p>
+                <p className="text-green-700 text-sm mt-1">الإجمالي: {formatNumber(result.total)}</p>
                 {result.deliveryDate ? (
                   <p className="text-green-700 text-sm mt-1">
                     تاريخ التسليم المتوقع: {formatDate(result.deliveryDate)}
@@ -300,7 +300,7 @@ export default function NewOrder() {
                           <div className="min-w-0">
                             <p className="text-base text-gray-800 truncate">{p.name}</p>
                             <p className="text-sm text-gray-400">
-                              {p.price} / {p.unit}
+                              {formatNumber(p.price)} / {p.unit}
                               {" · "}
                               <span className={available > 0 ? "" : "text-red-500"}>
                                 المتاح: {available}
@@ -321,7 +321,7 @@ export default function NewOrder() {
 
               {selectedItems.length > 0 && (
                 <div className="text-end text-base text-gray-600">
-                  الإجمالي: <span className="font-semibold text-gray-900">{total.toFixed(2)}</span>
+                  الإجمالي: <span className="font-semibold text-gray-900">{formatNumber(total)}</span>
                 </div>
               )}
 

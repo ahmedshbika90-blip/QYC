@@ -5,6 +5,7 @@ import FilterChips from "../../components/FilterChips";
 import StatusTabs from "../../components/StatusTabs";
 import PeriodTabs, { periodStartISO } from "../../components/PeriodTabs";
 import FilterPanel from "../../components/FilterPanel";
+import { hasDiscount } from "../../lib/invoiceDiscount";
 import OrderCard from "../../components/OrderCard";
 import QuickActions from "../../components/QuickActions";
 import { TodayHeader, ActionInbox, SectionTitle, todayStats } from "../../components/Today";
@@ -31,6 +32,7 @@ export default function SupervisorDashboard() {
   const [nameQuery, setNameQuery] = useState("");
   const [locationQuery, setLocationQuery] = useState("");
   const [storeClass, setStoreClass] = useState("");
+  const [discountFilter, setDiscountFilter] = useState(""); // "" | "with" | "without"
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [period, setPeriod] = useState(7); // days; ignored when a custom date range is set
@@ -114,9 +116,11 @@ export default function SupervisorDashboard() {
         if (!location.toLowerCase().includes(locationQuery.toLowerCase())) return false;
       }
       if (storeClass && clientsById[order.clientId]?.storeClass !== storeClass) return false;
+      if (discountFilter === "with" && !hasDiscount(order)) return false;
+      if (discountFilter === "without" && hasDiscount(order)) return false;
       return true;
     };
-  }, [clientsById, routeFilter, nameQuery, locationQuery, storeClass]);
+  }, [clientsById, routeFilter, nameQuery, locationQuery, storeClass, discountFilter]);
 
   const baseFiltered = useMemo(() => orders.filter(matchesFilters), [orders, matchesFilters]);
   const counts = useMemo(
@@ -214,6 +218,8 @@ export default function SupervisorDashboard() {
           onLocationChange={setLocationQuery}
           storeClass={storeClass}
           onStoreClassChange={setStoreClass}
+          discountFilter={discountFilter}
+          onDiscountFilterChange={setDiscountFilter}
           dateFrom={dateFrom}
           onDateFromChange={setDateFrom}
           dateTo={dateTo}
@@ -221,7 +227,7 @@ export default function SupervisorDashboard() {
           />
         </div>
 
-        {(nameQuery || locationQuery || storeClass) && nextCursor && (
+        {(nameQuery || locationQuery || storeClass || discountFilter) && nextCursor && (
           <p className="text-xs text-amber-600 mb-3">
             البحث يشمل الفواتير المحمّلة فقط — اضغط "تحميل المزيد" أو حدد فترة لنتائج أشمل.
           </p>
