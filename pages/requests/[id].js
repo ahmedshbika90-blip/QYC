@@ -3,6 +3,7 @@ import Link from "next/link";
 import { useRouter } from "next/router";
 import { useAuth } from "../../lib/useAuth";
 import Nav from "../../components/Nav";
+import BackButton from "../../components/BackButton";
 import { PageLoading, Spinner } from "../../components/Loading";
 import { apiFetch } from "../../lib/apiFetch";
 import { invalidate } from "../../lib/apiCache";
@@ -109,6 +110,7 @@ export default function RequestDetail() {
       <div className="max-w-2xl mx-auto p-4 sm:p-8">
         <div className="bg-white rounded-lg shadow p-5 sm:p-6 space-y-4">
           <div>
+            <BackButton />
             <h1 className="text-xl font-semibold text-gray-800">
               {r.type === "cancel" ? "طلب إلغاء فاتورة" : "طلب تعديل فاتورة"}
             </h1>

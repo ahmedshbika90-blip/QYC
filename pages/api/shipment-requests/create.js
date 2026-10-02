@@ -49,6 +49,16 @@ export default async function handler(req, res) {
 
     const productRefs = items.map((it) => adminDb.collection("products").doc(it.productId));
     const productSnaps = await adminDb.getAll(...productRefs);
+
+    // Availability check. LOADING draws from the depot; OFFLOADING draws
+    // from this car's own remaining stock. Checked here so the agent is
+    // told immediately instead of the request sitting in a queue only to
+    // fail at fulfil time — and checked AGAIN inside the fulfil
+    // transaction, which is the one that actually protects the balances
+    // (stock can move between the two moments).
+    const sourceField = type === "loading" ? "depot" : route;
+    const shortages = [];
+
     const resolvedItems = items.map((it, i) => {
       const snap = productSnaps[i];
       if (!snap.exists) {
@@ -56,8 +66,25 @@ export default async function handler(req, res) {
         err.statusCode = 400;
         throw err;
       }
-      return { productId: it.productId, name: snap.data().name, unit: snap.data().unit, qty: Number(it.qty) };
+      const data = snap.data();
+      const qty = Number(it.qty);
+      const available = data.stock?.[sourceField] ?? 0;
+      if (qty > available) {
+        shortages.push({ productId: it.productId, name: data.name, requested: qty, available });
+      }
+      return { productId: it.productId, name: data.name, unit: data.unit, qty };
     });
+
+    if (shortages.length) {
+      const where = type === "loading" ? "المخزن" : "العربة";
+      const detail = shortages
+        .map((s) => `${s.name}: المتاح ${s.available}، المطلوب ${s.requested}`)
+        .join("، ");
+      const err = new Error(`الكمية غير متوفرة في ${where} — ${detail}`);
+      err.statusCode = 409;
+      err.shortages = shortages;
+      throw err;
+    }
 
     const docRef = adminDb.collection("shipmentRequests").doc(requestId);
     const now = new Date().toISOString();
@@ -83,6 +110,6 @@ export default async function handler(req, res) {
     return res.status(result.duplicate ? 200 : 201).json({ id: docRef.id, duplicate: result.duplicate });
   } catch (err) {
     const status = err.statusCode || 500;
-    return res.status(status).json({ error: err.message });
+    return res.status(status).json({ error: err.message, shortages: err.shortages });
   }
 }

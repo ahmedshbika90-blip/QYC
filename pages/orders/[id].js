@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/router";
 import { useAuth } from "../../lib/useAuth";
 import Nav from "../../components/Nav";
+import BackButton from "../../components/BackButton";
 import QtyStepper from "../../components/QtyStepper";
 import { PageLoading, Spinner } from "../../components/Loading";
 import { apiFetch } from "../../lib/apiFetch";
@@ -257,6 +258,7 @@ export default function OrderDetail() {
         <div className={`bg-white rounded-lg shadow p-5 sm:p-6 ${isCancelled ? "opacity-60" : ""}`}>
           <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-3 mb-4">
             <div>
+              <BackButton />
               <h1 className="text-xl font-semibold text-gray-800">
                 فاتورة رقم <span className="tabular-ltr">{order.id}</span>
               </h1>

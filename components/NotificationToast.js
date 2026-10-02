@@ -19,6 +19,11 @@ import Icon from "./Icon";
 // timeout there too — this component tolerates it, but the cleanest fix
 // is to stop dispatching it. (Search for setTimeout(...dismissToast) or
 // similar in lib/useNotifications.)
+// Layering note: this sits ABOVE PendingActionModal (z-50). They used to
+// share z-50, and since the modal renders first in <Nav> its full-screen
+// backdrop could cover the toasts — they looked visible but ignored every
+// click on desktop. pointer-events-none on the wrapper keeps the empty
+// column from eating clicks on the page behind it.
 export default function NotificationToastStack({ toasts, uid, onDismiss, refreshSeen }) {
   const router = useRouter();
 
@@ -69,7 +74,7 @@ export default function NotificationToastStack({ toasts, uid, onDismiss, refresh
       role="region"
       aria-label="تنبيهات"
       aria-live="polite"
-      className="fixed top-3 inset-x-3 z-50 flex flex-col gap-2.5 pointer-events-none sm:inset-x-auto sm:top-4 sm:left-1/2 sm:-translate-x-1/2 sm:w-[26rem] sm:max-w-[calc(100vw-2rem)]"
+      className="fixed top-3 inset-x-3 z-[60] flex flex-col gap-2.5 pointer-events-none sm:inset-x-auto sm:top-4 sm:left-1/2 sm:-translate-x-1/2 sm:w-[26rem] sm:max-w-[calc(100vw-2rem)]"
     >
       {live.map((t) => (
         <ToastCard key={t._toastId} toast={t} onOpen={() => open(t)} onDismiss={() => remove(t._toastId)} />

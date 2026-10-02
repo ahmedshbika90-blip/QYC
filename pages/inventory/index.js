@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useAuth } from "../../lib/useAuth";
 import Nav from "../../components/Nav";
+import BackButton from "../../components/BackButton";
 import InventoryDocCard from "../../components/InventoryDocCard";
 import InventoryHistory from "../../components/InventoryHistory";
 import { PageLoading } from "../../components/Loading";
@@ -35,6 +36,7 @@ export default function InventoryPage() {
     <div className="min-h-screen bg-gray-50">
       <Nav role={role} logout={logout} />
       <div className="max-w-3xl mx-auto p-4 sm:p-8">
+        <BackButton />
         <h1 className="text-xl font-semibold mb-4 text-gray-800">المخزون</h1>
 
         {awaitingApproval.length > 0 && (

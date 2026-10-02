@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useAuth } from "../lib/useAuth";
 import Nav from "../components/Nav";
+import BackButton from "../components/BackButton";
 import FilterPanel from "../components/FilterPanel";
 import PeriodTabs, { periodStartISO } from "../components/PeriodTabs";
 import { PageLoading, SkeletonRows } from "../components/Loading";
@@ -59,8 +60,8 @@ export default function MarginPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <Nav role={role} logout={logout} />
-      <div className="max-w-4xl mx-auto p-4 sm:p-8">
+      <Nav role={role} logout={logout} />     <div className="max-w-4xl mx-auto p-4 sm:p-8">
+        <BackButton />
         <h1 className="text-xl font-semibold mb-1 text-gray-800">هامش التشغيل</h1>
         <p className="text-xs text-gray-400 mb-3">
           سعر البيع − سعر المورد، من الفواتير المقفلة فقط (ضمن تقرير تمت مشاركته أو مضى عليها ٩ ساعات)، بدون الملغاة.

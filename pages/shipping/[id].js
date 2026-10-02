@@ -3,6 +3,7 @@ import { useRouter } from "next/router";
 import Link from "next/link";
 import { useAuth } from "../../lib/useAuth";
 import Nav from "../../components/Nav";
+import BackButton from "../../components/BackButton";
 import { PageLoading, Spinner } from "../../components/Loading";
 import { apiFetch } from "../../lib/apiFetch";
 import { invalidate } from "../../lib/apiCache";
@@ -136,6 +137,7 @@ export default function ShippingDetail() {
         <div className="bg-white rounded-lg shadow p-5 sm:p-6 space-y-4">
           <div className="flex items-start justify-between gap-2">
             <div>
+              <BackButton />
               <h1 className="text-xl font-semibold text-gray-800">{TYPE_LABEL[r.type]}</h1>
               <p className="text-sm text-gray-500 mt-1">من: {ROUTE_LABEL[r.route]}</p>
               <p className="text-xs text-gray-400 mt-1">طُلب {formatDateTime(r.requestedAt)}</p>

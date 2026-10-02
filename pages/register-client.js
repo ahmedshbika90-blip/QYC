@@ -1,6 +1,10 @@
 import { useState } from "react";
 import { useAuth } from "../lib/useAuth";
+import Link from "next/link";
 import Nav from "../components/Nav";
+import Icon from "../components/Icon";
+import BackButton from "../components/BackButton";
+import SuccessToast from "../components/SuccessToast";
 import { PageLoading, Spinner } from "../components/Loading";
 import { apiFetch } from "../lib/apiFetch";
 import { invalidateClients } from "../lib/clientsStore";
@@ -94,25 +98,50 @@ export default function RegisterClient() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-canvas">
       <Nav role={role} logout={logout} />
-      <div className="max-w-md mx-auto mt-4 sm:mt-8 bg-white p-5 sm:p-8 rounded-lg shadow-md">
-        <h1 className="text-xl font-semibold mb-6 text-gray-800">تسجيل عميل جديد</h1>
+      <SuccessToast message={result ? "تم تسجيل العميل بنجاح" : ""} />
+      <main className="max-w-md mx-auto px-4 pt-4 pb-8 sm:px-0">
+        <BackButton />
+        <h1 className="font-display text-2xl font-bold mb-4 mt-1 text-ink">تسجيل عميل جديد</h1>
 
-        {error && <p className="text-red-600 text-sm mb-4">{error}</p>}
-        {result && (
-          <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-4">
-            <p className="text-green-800 font-medium">
-              تم تسجيل العميل — الرقم:{" "}
-              <span className="font-mono text-lg tabular-ltr">{result.clientId}</span>
-            </p>
-            <p className="text-green-700 text-sm mt-1">
-              أعطِ هذا الرقم للعميل، سيستخدمه لتقديم الطلبات.
-            </p>
+        {error && (
+          <div role="alert" className="flex items-start gap-2 text-red-600 bg-red-50 rounded-xl px-3 py-2.5 text-sm mb-4">
+            <Icon name="alert" size={18} className="mt-0.5" />
+            <span>{error}</span>
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        {/* The client's number is the whole point of this screen — it has
+            to be big, copyable and impossible to miss, so it gets a panel
+            of its own rather than a line of green text. */}
+        {result && (
+          <div className="bg-white rounded-2xl shadow p-5 mb-4 text-center">
+            <span className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-accent-soft text-accent-ink mb-3">
+              <Icon name="check" size={26} strokeWidth={3} />
+            </span>
+            <p className="font-semibold text-ink">تم تسجيل العميل</p>
+            <p className="num text-4xl font-bold text-ink my-2 tabular-ltr tracking-wide">{result.clientId}</p>
+            <p className="text-sm text-muted">أعطِ هذا الرقم للعميل — سيستخدمه لتقديم الطلبات.</p>
+            <div className="grid grid-cols-2 gap-2 mt-4">
+              <Link
+                href="/clients"
+                className="h-11 rounded-xl bg-surface-2 text-ink text-sm font-semibold flex items-center justify-center"
+              >
+                قائمة العملاء
+              </Link>
+              <button
+                type="button"
+                onClick={() => setResult(null)}
+                className="h-11 rounded-xl bg-accent text-on-accent text-sm font-semibold flex items-center justify-center"
+              >
+                تسجيل عميل آخر
+              </button>
+            </div>
+          </div>
+        )}
+
+        <form onSubmit={handleSubmit} className="bg-white rounded-2xl shadow p-5 space-y-4">
           <div>
             <label className="block text-sm text-gray-600 mb-1">اسم العميل (ثلاثي)</label>
             <div className="grid grid-cols-3 gap-2">
@@ -259,7 +288,7 @@ export default function RegisterClient() {
             {submitting ? "جارٍ التسجيل..." : "تسجيل العميل"}
           </button>
         </form>
-      </div>
+      </main>
     </div>
   );
 }

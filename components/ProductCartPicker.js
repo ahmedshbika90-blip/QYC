@@ -7,7 +7,12 @@ import QtyStepper from "./QtyStepper";
 // `salesMode` shows the free-sample checkbox and per-line discount input —
 // only meaningful for a client sale, not for warehouse receiving/loading
 // carts, so it defaults to off.
-export default function ProductCartPicker({ products, cart, setCart, hint, salesMode = false }) {
+// `maxFor(product)` caps a line's quantity at what's actually available
+// (depot stock for a loading request, van stock for a return). Products
+// with nothing available are shown greyed out and can't be added at all,
+// so an impossible request can't even be typed.
+export default function ProductCartPicker({ products, cart, setCart, hint, salesMode = false, maxFor }) {
+  const capOf = (productId) => (maxFor ? maxFor(products.find((p) => p.id === productId)) : undefined);
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
   const boxRef = useRef(null);
@@ -31,6 +36,7 @@ export default function ProductCartPicker({ products, cart, setCart, hint, sales
     .slice(0, 8);
 
   function add(p) {
+    if (maxFor && (maxFor(p) ?? 0) <= 0) return;
     setCart((prev) => [...prev, { productId: p.id, name: p.name, unit: p.unit, qty: 1, freeSample: false, discount: 0 }]);
     setQuery("");
     setOpen(false);
@@ -41,7 +47,9 @@ export default function ProductCartPicker({ products, cart, setCart, hint, sales
       setCart((prev) => prev.filter((it) => it.productId !== productId));
       return;
     }
-    setCart((prev) => prev.map((it) => (it.productId === productId ? { ...it, qty } : it)));
+    const cap = capOf(productId);
+    const capped = cap === undefined ? qty : Math.min(qty, cap);
+    setCart((prev) => prev.map((it) => (it.productId === productId ? { ...it, qty: capped } : it)));
   }
 
   function toggleFreeSample(productId) {
@@ -80,10 +88,15 @@ export default function ProductCartPicker({ products, cart, setCart, hint, sales
                   type="button"
                   key={p.id}
                   onClick={() => add(p)}
-                  className="w-full text-start px-3 py-3 text-base active:bg-gray-100 border-b last:border-0 flex justify-between gap-2 min-h-[44px]"
+                  disabled={maxFor ? (maxFor(p) ?? 0) <= 0 : false}
+                  className="w-full text-start px-3 py-3 text-base active:bg-surface-2 border-b last:border-0 flex justify-between gap-2 min-h-[44px] disabled:opacity-45 disabled:cursor-not-allowed"
                 >
                   <span>{p.name}</span>
-                  {hint && <span className="text-gray-400 text-sm shrink-0">{hint(p)}</span>}
+                  {maxFor && (maxFor(p) ?? 0) <= 0 ? (
+                    <span className="text-amber-700 text-sm shrink-0">غير متوفر</span>
+                  ) : (
+                    hint && <span className="text-gray-400 text-sm shrink-0">{hint(p)}</span>
+                  )}
                 </button>
               ))
             )}
@@ -99,8 +112,11 @@ export default function ProductCartPicker({ products, cart, setCart, hint, sales
                 <p className="text-base text-gray-800 truncate">
                   {it.name} <span className="text-xs text-gray-400">({it.unit})</span>
                 </p>
-                <QtyStepper value={it.qty} onChange={(v) => setQty(it.productId, v)} min={0} />
+                <QtyStepper value={it.qty} onChange={(v) => setQty(it.productId, v)} min={0} max={capOf(it.productId)} />
               </div>
+              {capOf(it.productId) !== undefined && it.qty >= capOf(it.productId) && (
+                <p className="text-xs text-amber-700">هذا كل المتاح ({capOf(it.productId)})</p>
+              )}
               {salesMode && (
                 <div className="flex items-center gap-3 text-sm">
                   <label className="flex items-center gap-1.5 text-gray-600">

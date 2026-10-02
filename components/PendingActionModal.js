@@ -57,7 +57,9 @@ export default function PendingActionModal({ role, uid, items, refreshSeen }) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4">
+    <div role="dialog"
+      aria-modal="true"
+      className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4">
       <div className="bg-white rounded-2xl shadow-xl max-w-sm w-full max-h-[80vh] flex flex-col">
         <div className="p-5 pb-3">
           <p className="text-lg font-semibold text-gray-800">

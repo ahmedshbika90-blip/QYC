@@ -8,6 +8,9 @@ import { invalidate } from "../../lib/apiCache";
 import { useLiveRefresh } from "../../lib/useLiveRefresh";
 import { useRequestId } from "../../lib/useRequestId";
 import { formatDateTime } from "../../lib/labels";
+import BackButton from "../../components/BackButton";
+import SuccessToast from "../../components/SuccessToast";
+import Icon from "../../components/Icon";
 
 const STATUS_LABELS = {
   pending_car1: "بانتظار موافقة مبيعات الجملة",
@@ -27,13 +30,13 @@ function RequestRow({ r }) {
     <div className="p-4">
       <div className="flex justify-between items-start gap-2">
         <div className="min-w-0">
-          <p className="font-medium text-gray-800">{r.type === "loading" ? "تحميل" : "تفريغ"}</p>
-          <p className="text-sm text-gray-500 truncate mt-0.5">
+          <p className="font-semibold text-ink">{r.type === "loading" ? "أمر شحن" : "مرتجع بضاعة"}</p>
+          <p className="text-sm text-muted truncate mt-0.5">
             {r.items.map((it) => `${it.name} ×${it.qty}`).join("، ")}
           </p>
-          <p className="text-xs text-gray-400 mt-1">{formatDateTime(r.requestedAt)}</p>
+          <p className="text-xs text-muted mt-1">{formatDateTime(r.requestedAt)}</p>
         </div>
-        <span className={`text-xs px-2 py-1 rounded-lg shrink-0 ${STATUS_TONE[r.status] || ""}`}>
+        <span className={`text-xs font-semibold px-2.5 py-1 rounded-lg shrink-0 ${STATUS_TONE[r.status] || ""}`}>
           {STATUS_LABELS[r.status] || r.status}
         </span>
       </div>
@@ -57,6 +60,29 @@ export default function ShipmentRequests() {
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState("");
   const requestIds = useRequestId();
+
+  // What's available depends on the direction of the movement:
+  // LOADING draws on the depot, OFFLOADING on what's still in this car.
+  // Car stock is the live balance the system maintains (morning loading
+  // minus the day's sales) — not recomputed here, so the two can never
+  // drift apart silently.
+  const myRoute = role === "agent_car1" ? "car1" : "car2";
+  const sourceField = type === "loading" ? "depot" : myRoute;
+  const availableOf = (p) => (p ? p.stock?.[sourceField] ?? 0 : 0);
+  const sourceLabel = type === "loading" ? "المخزن" : "العربة";
+
+  // For a return, the picker lists ONLY what's still on the van, so the
+  // agent starts from reality instead of a blank product catalogue.
+  const availableProducts = products.filter((p) => availableOf(p) > 0);
+
+  // Switching direction invalidates the cart: the quantities were capped
+  // against a different source.
+  function changeType(next) {
+    if (next === type) return;
+    setType(next);
+    setCart([]);
+    setError("");
+  }
 
   async function loadLists() {
     setFetching(true);
@@ -166,18 +192,20 @@ export default function ShipmentRequests() {
   ];
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-canvas">
       <Nav role={role} logout={logout} />
-      <div className="max-w-3xl mx-auto p-4 sm:p-8">
-        <h1 className="text-xl font-semibold mb-3 text-gray-800">طلبات الشحن</h1>
+      <SuccessToast message={success} onDone={() => setSuccess("")} />
+      <main className="max-w-3xl mx-auto px-4 pt-4 pb-8 sm:px-8">
+        <BackButton href={role === "agent_car1" ? "/dashboard/car1" : "/dashboard/car2"} />
+        <h1 className="font-display text-2xl font-bold mb-3 mt-1 text-ink">طلبات الشحن</h1>
 
-        <div className="flex gap-1 mb-4 overflow-x-auto">
+        <div role="tablist" className="inline-flex gap-1 p-1 mb-4 rounded-xl bg-surface-2 overflow-x-auto no-scrollbar">
           {tabs.map(([key, label]) => (
             <button
               key={key}
               onClick={() => setTab(key)}
-              className={`whitespace-nowrap min-h-[40px] px-3 rounded-lg text-sm ${
-                tab === key ? "bg-gray-900 text-white font-medium" : "bg-white text-gray-600"
+              className={`whitespace-nowrap h-10 px-4 rounded-lg text-sm ${
+                tab === key ? "bg-white text-ink font-semibold shadow-sm" : "text-muted"
               }`}
             >
               {label}
@@ -185,10 +213,15 @@ export default function ShipmentRequests() {
           ))}
         </div>
 
-        {error && <p className="text-red-600 text-sm mb-4">{error}</p>}
+        {error && (
+          <div role="alert" className="flex items-start gap-2 text-red-600 bg-red-50 rounded-xl px-3 py-2.5 text-sm mb-4">
+            <Icon name="alert" size={18} className="mt-0.5" />
+            <span>{error}</span>
+          </div>
+        )}
 
         {tab === "new" && (
-          <form onSubmit={submit} className="bg-white rounded-lg shadow p-4 space-y-4">
+          <form onSubmit={submit} className="bg-white rounded-2xl shadow p-4 space-y-4">
             <div className="grid grid-cols-2 gap-2">
               {[
                 ["loading", "تحميل", "من المخزن إلى السيارة"],
@@ -197,18 +230,36 @@ export default function ShipmentRequests() {
                 <button
                   type="button"
                   key={value}
-                  onClick={() => setType(value)}
-                  className={`rounded-lg py-2 border text-center ${
-                    type === value ? "bg-gray-900 text-white border-gray-900" : "bg-white text-gray-600"
+                  onClick={() => changeType(value)}
+                  className={`rounded-xl py-2.5 border text-center ${
+                    type === value ? "bg-accent text-on-accent border-accent" : "bg-white text-ink-soft border-line"
                   }`}
                 >
                   <span className="block text-base font-medium">{label}</span>
-                  <span className={`block text-xs ${type === value ? "text-gray-300" : "text-gray-400"}`}>{sub}</span>
+                  <span className={`block text-xs ${type === value ? "opacity-80" : "text-muted"}`}>{sub}</span>
                 </button>
               ))}
             </div>
 
-            <ProductCartPicker products={products} cart={cart} setCart={setCart} />
+            {type === "offloading" && (
+              <p className="text-sm text-ink-soft bg-surface-2 rounded-xl px-3 py-2.5">
+                المتبقي في العربة الآن — اختر ما تريد إرجاعه للمخزن.
+              </p>
+            )}
+
+            <ProductCartPicker
+              products={availableProducts}
+              cart={cart}
+              setCart={setCart}
+              maxFor={availableOf}
+              hint={(p) => `${sourceLabel}: ${availableOf(p)}`}
+            />
+
+            {availableProducts.length === 0 && (
+              <p className="text-sm text-amber-700 bg-amber-50 rounded-xl px-3 py-2.5">
+                {type === "offloading" ? "لا توجد بضاعة متبقية في العربة." : "لا توجد كميات متاحة في المخزن."}
+              </p>
+            )}
 
             <textarea
               value={note}
@@ -217,8 +268,6 @@ export default function ShipmentRequests() {
               placeholder="ملاحظتك (اختياري)"
               className="w-full border rounded-lg px-3 py-2 text-base"
             />
-
-            {success && <p className="text-green-700 text-sm">{success}</p>}
 
             <button
               type="submit"
@@ -258,7 +307,7 @@ export default function ShipmentRequests() {
                     {r.items.map((it) => `${it.name} ×${it.qty}`).join("، ")}
                   </p>
                   {r.note && <p className="text-xs text-gray-400 mt-1">ملاحظة: {r.note}</p>}
-                  <p className="text-xs text-gray-400 mt-1">{formatDateTime(r.requestedAt)}</p>
+                  <p className="text-xs text-muted mt-1">{formatDateTime(r.requestedAt)}</p>
                   <div className="flex gap-2 mt-3">
                     <button
                       onClick={() => decide(r.id, "approve")}
@@ -280,7 +329,7 @@ export default function ShipmentRequests() {
               ))}
             </div>
           ))}
-      </div>
+      </main>
     </div>
   );
 }

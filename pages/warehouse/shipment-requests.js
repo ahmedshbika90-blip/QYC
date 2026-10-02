@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useAuth } from "../../lib/useAuth";
 import Nav from "../../components/Nav";
+import BackButton from "../../components/BackButton";
 import { PageLoading, SkeletonRows, Spinner } from "../../components/Loading";
 import { apiFetch } from "../../lib/apiFetch";
 import { invalidate } from "../../lib/apiCache";
@@ -93,6 +94,7 @@ export default function ShipmentRequestQueue() {
     <div className="min-h-screen bg-gray-50">
       <Nav role={role} logout={logout} />
       <div className="max-w-3xl mx-auto p-4 sm:p-8">
+        <BackButton />
         <h1 className="text-xl font-semibold mb-3 text-gray-800">طلبات بانتظار التنفيذ</h1>
 
         {error && <p className="text-red-600 text-sm mb-4">{error}</p>}
@@ -102,7 +104,7 @@ export default function ShipmentRequestQueue() {
             <p className="text-green-700 text-sm">
               {justFulfilled.type === "offloading"
                 ? "تم تسجيل مرتجع البضاعة واستلامه في المخزن — لا حاجة لتأكيد إضافي."
-                : "تم إنشاء تسليم الشحنة — بانتظار تأكيد المندوب."}
+                : "تم إنشاء أمر الشحن — بانتظار تأكيد المندوب."}
             </p>
             <Link href={`/inventory/${justFulfilled.id}`} className="text-sm text-green-800 underline">
               فتح المستند ←

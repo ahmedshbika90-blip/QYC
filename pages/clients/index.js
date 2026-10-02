@@ -3,6 +3,8 @@ import Link from "next/link";
 import { useAuth } from "../../lib/useAuth";
 import Nav from "../../components/Nav";
 import FilterPanel from "../../components/FilterPanel";
+import Icon from "../../components/Icon";
+import SuccessToast from "../../components/SuccessToast";
 import { PageLoading, SkeletonRows } from "../../components/Loading";
 import { apiFetch } from "../../lib/apiFetch";
 import { getClients } from "../../lib/clientsStore";
@@ -21,6 +23,17 @@ export default function ClientsList() {
   const [locationQuery, setLocationQuery] = useState("");
   const [storeClass, setStoreClass] = useState("");
   const [routeFilter, setRouteFilter] = useState("");
+
+  // Any filter active? Used to offer a single "clear everything" action,
+  // so nobody is left staring at a short list wondering why.
+  const activeFilters = [search, nameQuery, locationQuery, storeClass, routeFilter].filter(Boolean).length;
+  function clearFilters() {
+    setSearch("");
+    setNameQuery("");
+    setLocationQuery("");
+    setStoreClass("");
+    setRouteFilter("");
+  }
 
   useEffect(() => {
     if (!token || !user) return;
@@ -59,11 +72,11 @@ export default function ClientsList() {
   if (loading) return <PageLoading />;
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-canvas">
       <Nav role={role} logout={logout} />
       <div className="max-w-3xl mx-auto p-4 sm:p-8">
         <div className="flex justify-between items-center mb-4 gap-3">
-          <h1 className="text-xl font-semibold text-gray-800">العملاء</h1>
+          <h1 className="font-display text-2xl font-bold text-ink">العملاء</h1>
           <Link
             href="/register-client"
             className="text-sm bg-accent text-on-accent rounded-lg px-4 min-h-[44px] flex items-center active:bg-accent-strong shrink-0"
@@ -72,13 +85,25 @@ export default function ClientsList() {
           </Link>
         </div>
 
-        <input
-          type="text"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="ابحث بالاسم أو المتجر أو الرقم أو الهاتف..."
-          className="w-full border rounded-lg px-3 h-12 text-base mb-3"
-        />
+        <div className="relative mb-3">
+          <input
+            type="search"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="ابحث بالاسم أو المتجر أو الرقم أو الهاتف..."
+            className="w-full border border-line rounded-xl ps-3 pe-11 h-12 text-base"
+          />
+          {search && (
+            <button
+              type="button"
+              onClick={() => setSearch("")}
+              aria-label="مسح البحث"
+              className="absolute inset-y-0 end-0 w-11 flex items-center justify-center text-gray-400 hover:text-ink"
+            >
+              <Icon name="x" size={18} />
+            </button>
+          )}
+        </div>
 
         <FilterPanel
           nameQuery={nameQuery}
@@ -102,8 +127,25 @@ export default function ClientsList() {
           )}
         </FilterPanel>
 
+        {activeFilters > 0 && (
+          <div className="flex items-center justify-between gap-3 mt-2 mb-1 text-sm">
+            <span className="text-muted">
+              <span className="num font-semibold text-ink">{visible.length}</span> من{" "}
+              <span className="num">{clients.length}</span> عميل
+            </span>
+            <button
+              type="button"
+              onClick={clearFilters}
+              className="inline-flex items-center gap-1.5 h-9 px-3 rounded-lg bg-surface-2 text-ink font-semibold"
+            >
+              <Icon name="x" size={15} />
+              إلغاء الفلتر
+            </button>
+          </div>
+        )}
+
         {error && (
-          <div className="text-red-600 text-sm mb-4 flex items-center gap-2">
+          <div role="alert" className="text-red-600 bg-red-50 rounded-xl px-3 py-2.5 text-sm mb-4 flex items-center justify-between gap-2">
             <span>{error}</span>
             <button onClick={fetchClients} className="underline shrink-0">إعادة المحاولة</button>
           </div>

@@ -149,15 +149,24 @@ export default function Car2Dashboard() {
 
   const today = useMemo(() => todayStats(orders), [orders]);
   const inbox = [
-    ...pendingMovements.map((d) => ({
-      key: d.id,
-      href: `/inventory/${d.id}`,
-      icon: d.type === "offloading" ? "box" : "truck",
-      tone: "warn",
-      title: `${TYPE_LABELS[d.type] || d.type} بانتظار تأكيدك`,
-      meta: `${previewNames(d.items)} · ${formatDateTime(d.createdAt)}`,
-      cta: "أكّد",
-    })),
+    // Unconfirmed loading/offloading documents live in الأرشيف
+    // (/documents), not here — one entry points there rather than
+    // listing each document twice in two places.
+    ...(pendingMovements.length > 0
+      ? [
+          {
+            key: "pendingdocs",
+            href: "/documents?tab=archive",
+            icon: "truck",
+            tone: "warn",
+            title: `${pendingMovements.length} ${
+              pendingMovements.length === 1 ? "مستند بانتظار تأكيدك" : "مستندات بانتظار تأكيدك"
+            }`,
+            meta: "في المستندات ← الأرشيف",
+            cta: "افتح",
+          },
+        ]
+      : []),
   ];
 
   if (loading) return <PageLoading />;

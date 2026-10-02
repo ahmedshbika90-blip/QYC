@@ -54,6 +54,35 @@ export default async function handler(req, res) {
       }
     }
 
+    // Second availability check (the first ran when the agent made the
+    // request — stock can move in between). For OFFLOADING the write
+    // itself is guarded inside createMovementDoc's transaction; for
+    // LOADING the depot isn't debited until the agent confirms, so
+    // without this the shortage would only surface at confirmation,
+    // after the goods are already on the van. Tell the keeper now.
+    const sourceField = request.type === "loading" ? "depot" : request.route;
+    const checkSnaps = await adminDb.getAll(
+      ...finalItems.map((it) => adminDb.collection("products").doc(it.productId))
+    );
+    const shortages = [];
+    finalItems.forEach((it, i) => {
+      const snap = checkSnaps[i];
+      if (!snap.exists) return;
+      const available = snap.data().stock?.[sourceField] ?? 0;
+      if (Number(it.qty) > available) {
+        shortages.push({ name: snap.data().name, requested: Number(it.qty), available });
+      }
+    });
+    if (shortages.length) {
+      const where = request.type === "loading" ? "المخزن" : "العربة";
+      return res.status(409).json({
+        error:
+          `الكمية غير متوفرة في ${where} — ` +
+          shortages.map((x) => `${x.name}: المتاح ${x.available}، المطلوب ${x.requested}`).join("، "),
+        shortages,
+      });
+    }
+
     const result = await createMovementDoc({
       decoded,
       type: request.type,

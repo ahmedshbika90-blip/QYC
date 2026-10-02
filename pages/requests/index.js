@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useAuth } from "../../lib/useAuth";
 import Nav from "../../components/Nav";
+import BackButton from "../../components/BackButton";
 import FilterPanel from "../../components/FilterPanel";
 import PeriodTabs, { periodStartISO } from "../../components/PeriodTabs";
 import RequestCard from "../../components/RequestCard";
@@ -135,8 +136,8 @@ export default function RequestsPage() {
   if (isSupervisor) {
     return (
       <div className="min-h-screen bg-gray-50">
-        <Nav role={role} logout={logout} />
-        <div className="max-w-3xl mx-auto p-4 sm:p-8">
+        <Nav role={role} logout={logout} />        <div className="max-w-3xl mx-auto p-4 sm:p-8">
+          <BackButton />
           <h1 className="text-xl font-semibold mb-3 text-gray-800">طلبات التعديل والإلغاء</h1>
 
           <div className="flex gap-1 mb-3 overflow-x-auto">

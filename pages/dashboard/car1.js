@@ -8,7 +8,7 @@ import FilterPanel from "../../components/FilterPanel";
 import OrderCard from "../../components/OrderCard";
 import QuickActions from "../../components/QuickActions";
 import { TodayHeader, ActionInbox, SectionTitle, todayStats } from "../../components/Today";
-import { TYPE_LABELS, previewNames } from "../../components/InventoryDocCard";
+import { previewNames } from "../../components/InventoryDocCard";
 import { PageLoading, SkeletonRows, Spinner } from "../../components/Loading";
 import Icon from "../../components/Icon";
 import { apiFetch } from "../../lib/apiFetch";
@@ -150,15 +150,26 @@ export default function Car1Dashboard() {
   // that mixed two very different jobs. They now live in their own
   // "بانتظار موافقتي" section below, with an amber dot on the section
   // title while anything is unapproved.
-  const inbox = pendingMovements.map((d) => ({
-    key: d.id,
-    href: `/inventory/${d.id}`,
-    icon: d.type === "offloading" ? "box" : "truck",
-    tone: "warn",
-    title: `${TYPE_LABELS[d.type] || d.type} بانتظار تأكيدك`,
-    meta: `${previewNames(d.items)} · ${formatDateTime(d.createdAt)}`,
-    cta: "أكّد",
-  }));
+  // The documents themselves live in المستندات ← الأرشيف, pinned at the
+  // top there with a direct confirm link and a dot on the tab. This is a
+  // single pointer to that queue rather than a second copy of the same
+  // list in two places.
+  const inbox =
+    pendingMovements.length > 0
+      ? [
+          {
+            key: "pendingdocs",
+            href: "/documents?tab=archive",
+            icon: "truck",
+            tone: "warn",
+            title: `${pendingMovements.length} ${
+              pendingMovements.length === 1 ? "مستند بانتظار تأكيدك" : "مستندات بانتظار تأكيدك"
+            }`,
+            meta: "في المستندات ← الأرشيف",
+            cta: "افتح",
+          },
+        ]
+      : [];
 
   const toDecideCount = toDecide.length;
 

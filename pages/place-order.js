@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useAuth } from "../lib/useAuth";
 import Nav from "../components/Nav";
+import BackButton from "../components/BackButton";
 import QtyStepper from "../components/QtyStepper";
 import { PageLoading, Spinner } from "../components/Loading";
 import { apiFetch } from "../lib/apiFetch";
@@ -379,6 +380,7 @@ export default function PlaceOrder() {
       <Nav role={role} logout={logout} />
       <div className="max-w-lg mx-auto p-4 sm:p-8">
         <div className="bg-white p-5 sm:p-8 rounded-lg shadow-md">
+          <BackButton />
           <h1 className="text-xl font-semibold mb-6 text-gray-800">تسجيل فاتورة لعميل</h1>
 
           {queue.length > 0 && (

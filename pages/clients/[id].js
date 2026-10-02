@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/router";
 import { useAuth } from "../../lib/useAuth";
 import Nav from "../../components/Nav";
+import BackButton from "../../components/BackButton";
 import { PageLoading, Spinner } from "../../components/Loading";
 import { apiFetch } from "../../lib/apiFetch";
 import { formatDate, STORE_CLASSES } from "../../lib/labels";
@@ -85,6 +86,7 @@ export default function ClientDetail() {
     <div className="min-h-screen bg-gray-50">
       <Nav role={role} logout={logout} />
       <div className="max-w-md mx-auto mt-4 sm:mt-8 bg-white p-5 sm:p-8 rounded-lg shadow-md">
+        <BackButton />
         <h1 className="text-xl font-semibold mb-1 text-gray-800">
           العميل رقم <span className="tabular-ltr">{client.id}</span>
         </h1>
