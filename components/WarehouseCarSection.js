@@ -1,42 +1,45 @@
-import Link from "next/link";
 import { useAuth } from "../lib/useAuth";
 import Nav from "./Nav";
+import BackButton from "./BackButton";
 import InventoryHistory from "./InventoryHistory";
+import WarehouseRequestQueue from "./WarehouseRequestQueue";
 import { PageLoading } from "./Loading";
+import { SectionTitle } from "./Today";
 
 const CAR_LABEL = { car1: "مبيعات جملة", car2: "مبيعات تجزئة" };
 
-// One car's section for the warehouse keeper: movement HISTORY only.
-// Loading/offloading can no longer be created from here directly — every
-// one of them must start as an agent's shipment request (see
-// /warehouse/shipment-requests, the fulfillment queue) and, for car2,
-// also pass car1's approval first. This page is read-only by design so
-// that rule can't quietly be routed around.
+// One car's section for the warehouse keeper. Requests that came from
+// THIS car and are waiting on him show up here first (a wholesale request
+// under مبيعات جملة, a retail one under مبيعات تجزئة) — the nav item for
+// the section carries a dot while any are waiting. Then that car's
+// movement history.
+//
+// Loading/offloading still can't be created from here: every one starts
+// as an agent's request, and the keeper only accepts or cancels it.
 export default function WarehouseCarSection({ route }) {
   const { role, token, loading, logout } = useAuth(["warehouse_keeper"]);
 
   if (loading) return <PageLoading />;
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-canvas">
       <Nav role={role} logout={logout} />
-      <div className="max-w-3xl mx-auto p-4 sm:p-8">
-        <h1 className="text-xl font-semibold mb-4 text-gray-800">{CAR_LABEL[route]}</h1>
+      <main className="max-w-3xl mx-auto px-4 pt-5 pb-8 sm:px-8">
+        <BackButton href="/dashboard/warehouse" />
+        <h1 className="font-display text-2xl font-bold mb-4 text-ink">{CAR_LABEL[route]}</h1>
 
-        <Link
-          href="/warehouse/shipment-requests"
-          className="block bg-accent text-on-accent rounded-lg p-4 mb-6 active:bg-accent-strong"
-        >
-          <p className="font-medium">تنفيذ طلب بانتظارك ←</p>
-          <p className="text-xs text-gray-300 mt-0.5">
-            كل أمر شحن أو مرتجع بضاعة يبدأ بطلب من المندوب — لا يمكن إنشاؤه من هنا مباشرة. أمر الشحن يحتاج
-            تأكيد المندوب لاحقًا؛ مرتجع البضاعة يُستلَم مباشرة عند تنفيذه.
-          </p>
-        </Link>
+        <SectionTitle>بانتظار تنفيذك</SectionTitle>
+        <div className="mb-8">
+          <WarehouseRequestQueue
+            token={token}
+            route={route}
+            emptyText={`لا توجد طلبات من ${CAR_LABEL[route]} بانتظارك.`}
+          />
+        </div>
 
-        <h2 className="font-medium text-gray-800 mb-3">حركات {CAR_LABEL[route]}</h2>
+        <SectionTitle>حركات {CAR_LABEL[route]}</SectionTitle>
         <InventoryHistory token={token} fixedRoute={route} />
-      </div>
+      </main>
     </div>
   );
 }

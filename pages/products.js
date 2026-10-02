@@ -202,6 +202,8 @@ export default function Products() {
             />
             <input
               type="number"
+              step="0.01"
+              inputMode="decimal"
               min="0"
               placeholder="الرصيد الافتتاحي بالمخزن (اختياري)"
               value={addForm.depotStock}
@@ -269,6 +271,8 @@ export default function Products() {
                   />
                   <input
                     type="number"
+                    step="0.01"
+                    inputMode="decimal"
                     min="0"
                     value={editForm.depotStock}
                     onChange={(e) => setEditForm({ ...editForm, depotStock: e.target.value })}

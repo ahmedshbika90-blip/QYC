@@ -5,8 +5,12 @@ import Nav from "../../components/Nav";
 import BackButton from "../../components/BackButton";
 import { PageLoading, Spinner } from "../../components/Loading";
 import { apiFetch } from "../../lib/apiFetch";
-import { formatDate, STORE_CLASSES } from "../../lib/labels";
+import { formatDate, formatDateTime, STORE_CLASSES } from "../../lib/labels";
 import { invalidateClients } from "../../lib/clientsStore";
+import { useRequestId } from "../../lib/useRequestId";
+import { isClientEditLocked, clientEditDeadline, CLIENT_EDIT_WINDOW_HOURS } from "../../lib/clientEditLock";
+import SuccessScreen from "../../components/SuccessScreen";
+import Icon from "../../components/Icon";
 
 export default function ClientDetail() {
   const { role, token, loading, logout } = useAuth();
@@ -18,7 +22,9 @@ export default function ClientDetail() {
   const [fetching, setFetching] = useState(true);
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
-  const [saved, setSaved] = useState(false);
+  const [done, setDone] = useState(null); // "saved" | "requested"
+  const [reason, setReason] = useState("");
+  const requestIds = useRequestId();
 
   useEffect(() => {
     if (!token || !id) return;
@@ -52,28 +58,47 @@ export default function ClientDetail() {
     }
   }
 
+  // After 12 hours an agent's save becomes a request to the supervisor
+  // (lib/clientEditLock.js). The supervisor always saves directly.
+  const locked = role !== "supervisor" && client && isClientEditLocked(client);
+  const pending = Boolean(client?.pendingRequest);
+
   async function handleSave(e) {
     e.preventDefault();
     setSaving(true);
-    setSaved(false);
     setError("");
     try {
-      const res = await apiFetch(`/api/clients/${id}`, {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        // Clients registered before store classes existed have none yet —
-        // omit it rather than sending "" (which the server rejects).
-        body: JSON.stringify({ ...form, storeClass: form.storeClass || undefined }),
-      });
+      // Clients registered before store classes existed have none yet —
+      // omit it rather than sending "" (which the server rejects).
+      const fields = { ...form, storeClass: form.storeClass || undefined };
+      let res;
+      if (locked) {
+        const { route, ...rest } = fields; // route changes are supervisor-only
+        const payload = { ...rest, reason };
+        res = await apiFetch(`/api/clients/${id}/edit-request`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ ...payload, requestId: requestIds.idFor(payload) }),
+        });
+      } else {
+        res = await apiFetch(`/api/clients/${id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+          body: JSON.stringify(fields),
+        });
+      }
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error);
-      setSaved(true);
+      if (!res.ok) {
+        if (data.code === "CLIENT_LOCKED") fetchClient(); // the window closed while editing
+        throw new Error(data.error);
+      }
+      if (locked) requestIds.reset();
+      setReason("");
+      setDone(locked ? "requested" : "saved");
       invalidateClients();
       fetchClient();
     } catch (err) {
+      if (locked && !err.isNetworkError) requestIds.reset();
       setError(err.message);
     } finally {
       setSaving(false);
@@ -94,10 +119,51 @@ export default function ClientDetail() {
           تاريخ التسجيل: {formatDate(client.createdAt)}
         </p>
 
-        {error && <p className="text-red-600 text-sm mb-4">{error}</p>}
-        {saved && <p className="text-green-600 text-sm mb-4">تم الحفظ.</p>}
+        {done ? (
+          <SuccessScreen
+            tone={done === "requested" ? "warn" : "success"}
+            title={done === "requested" ? "أُرسل طلب التعديل للمشرف" : "تم حفظ بيانات العميل"}
+            number={client.id}
+            hint={
+              done === "requested"
+                ? "لن تتغير بيانات العميل حتى يوافق المشرف. ستصلك رسالة بالقرار."
+                : "التعديلات محفوظة وتظهر في كل الشاشات."
+            }
+            secondary={{ label: "قائمة العملاء", href: "/clients" }}
+            primary={{ label: "عرض العميل", onClick: () => setDone(null) }}
+          />
+        ) : (
+        <>
+        {error && (
+          <div role="alert" className="flex items-start gap-2 text-red-600 bg-red-50 rounded-xl px-3 py-2.5 text-sm mb-4">
+            <Icon name="alert" size={18} className="mt-0.5 shrink-0" />
+            <span>{error}</span>
+          </div>
+        )}
+
+        {pending && role !== "supervisor" ? (
+          <div className="flex items-start gap-2 bg-amber-50 text-amber-700 rounded-xl px-3 py-3 text-sm mb-4">
+            <Icon name="lock" size={18} className="mt-0.5 shrink-0" />
+            <span>يوجد طلب تعديل لهذا العميل بانتظار موافقة المشرف — لا يمكن تعديله حتى يصدر القرار.</span>
+          </div>
+        ) : locked ? (
+          <div className="flex items-start gap-2 bg-amber-50 text-amber-700 rounded-xl px-3 py-3 text-sm mb-4">
+            <Icon name="lock" size={18} className="mt-0.5 shrink-0" />
+            <span>
+              مرّ أكثر من {CLIENT_EDIT_WINDOW_HOURS} ساعة على تسجيل هذا العميل — أي تعديل يُرسل للمشرف للموافقة أولًا.
+            </span>
+          </div>
+        ) : (
+          role !== "supervisor" &&
+          clientEditDeadline(client) && (
+            <p className="text-xs text-muted mb-4">
+              يمكنك التعديل مباشرة حتى {formatDateTime(clientEditDeadline(client).toISOString())}، بعدها يحتاج التعديل موافقة المشرف.
+            </p>
+          )
+        )}
 
         <form onSubmit={handleSave} className="space-y-4">
+        <fieldset disabled={pending && role !== "supervisor"} className="space-y-4 disabled:opacity-60">
           <div>
             <label className="block text-sm text-gray-600 mb-1">اسم العميل</label>
             <input
@@ -206,15 +272,36 @@ export default function ClientDetail() {
             نشط (ألغِ التحديد لمنع هذا العميل من تقديم طلبات جديدة)
           </label>
 
+          {locked && (
+            <div>
+              <label className="block text-sm text-gray-600 mb-1" htmlFor="edit-reason">
+                سبب التعديل (يظهر للمشرف)
+              </label>
+              <textarea
+                id="edit-reason"
+                value={reason}
+                onChange={(e) => setReason(e.target.value)}
+                rows={2}
+                maxLength={500}
+                required
+                className="w-full border rounded-lg px-3 py-2 text-base"
+                placeholder="مثال: العميل غيّر رقم هاتفه"
+              />
+            </div>
+          )}
+
           <button
             type="submit"
             disabled={saving}
             className="w-full bg-accent text-on-accent rounded-lg h-12 text-base font-medium active:bg-accent-strong disabled:opacity-50 flex items-center justify-center gap-2"
           >
             {saving && <Spinner className="w-4 h-4" />}
-            {saving ? "جارٍ الحفظ..." : "حفظ التغييرات"}
+            {saving ? "جارٍ الإرسال..." : locked ? "إرسال طلب التعديل للمشرف" : "حفظ التغييرات"}
           </button>
+        </fieldset>
         </form>
+        </>
+        )}
       </div>
     </div>
   );

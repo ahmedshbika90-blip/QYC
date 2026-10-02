@@ -97,16 +97,20 @@ function ToastCard({ toast, onOpen, onDismiss }) {
   const THRESHOLD = 90; // px past which we count it as dismiss
   const AXIS_LOCK = 8;  // px of movement before we decide horizontal vs vertical
 
+  // Desktop click bug (fixed): this used to call setPointerCapture on EVERY
+  // pointerdown. With the pointer captured by the card, the browser
+  // delivers the follow-up click to the card itself — never to the X or
+  // the body button inside it — so on a mouse neither did anything. Touch
+  // hid the problem. Now the pointer is only captured once a real
+  // sideways swipe has started; a plain click/tap is left alone and
+  // reaches the button under it.
   function onPointerDown(e) {
-    // Ignore right-clicks and modifier drags.
-    if (e.button != null && e.button !== 0) return;
+    if (e.button != null && e.button !== 0) return; // right-click etc.
+    if (e.target.closest?.("[data-toast-close]")) return; // the X never starts a swipe
     startX.current = e.clientX;
     startY.current = e.clientY;
     dragging.current = true;
     decidedAxis.current = false;
-    try {
-      e.currentTarget.setPointerCapture?.(e.pointerId);
-    } catch {}
   }
 
   function onPointerMove(e) {
@@ -122,6 +126,9 @@ function ToastCard({ toast, onOpen, onDismiss }) {
         return;
       }
       decidedAxis.current = true;
+      try {
+        e.currentTarget.setPointerCapture?.(e.pointerId);
+      } catch {}
     }
     setDx(deltaX);
   }
@@ -129,6 +136,7 @@ function ToastCard({ toast, onOpen, onDismiss }) {
   function endDrag(e) {
     if (!dragging.current) return;
     dragging.current = false;
+    if (!decidedAxis.current) return; // a plain click — nothing was dragged
     try {
       e?.currentTarget?.releasePointerCapture?.(e.pointerId);
     } catch {}
@@ -177,12 +185,17 @@ function ToastCard({ toast, onOpen, onDismiss }) {
             }
             onOpen();
           }}
-          className="flex-1 text-start min-w-0"
+          className="flex-1 text-start min-w-0 cursor-pointer"
         >
           <p className="text-[15px] font-bold text-ink leading-snug truncate">{toast.requestType}</p>
           <p className="text-xs text-muted truncate mt-0.5">
             من: {toast.from} · {toast.state}
           </p>
+          {toast.note && (
+            <p className={`text-[13px] mt-1 leading-snug line-clamp-2 ${toast.tone === "bad" ? "text-red-600" : "text-ink-soft"}`}>
+              {toast.note}
+            </p>
+          )}
           <p className="text-[11px] text-amber-700/80 mt-1.5 font-medium">
             اسحب جانبًا للإغلاق · اضغط للفتح
           </p>
@@ -190,8 +203,12 @@ function ToastCard({ toast, onOpen, onDismiss }) {
 
         <button
           type="button"
-          onClick={onDismiss}
-          className="w-10 h-10 rounded-lg text-gray-400 flex items-center justify-center shrink-0 active:bg-surface-2"
+          data-toast-close
+          onClick={(e) => {
+            e.stopPropagation();
+            onDismiss();
+          }}
+          className="w-11 h-11 rounded-xl text-gray-500 flex items-center justify-center shrink-0 hover:bg-surface-2 hover:text-ink active:bg-surface-2 cursor-pointer"
           aria-label="إغلاق التنبيه"
         >
           <Icon name="x" size={18} />

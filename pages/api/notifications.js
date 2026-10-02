@@ -4,6 +4,8 @@ const { requireUser } = require("../../lib/apiAuth");
 const ROLE_TO_ROUTE = { agent_car1: "car1", agent_car2: "car2" };
 const ROUTE_LABEL = { car1: "مبيعات جملة", car2: "مبيعات تجزئة" };
 const RESOLVED_LIMIT = 20; // bounded — just enough recent history to notify on
+const CHANGE_LABEL = { cancel: "طلب إلغاء فاتورة", edit: "طلب تعديل فاتورة", client_edit: "طلب تعديل بيانات عميل" };
+const changeLabel = (type) => CHANGE_LABEL[type] || "طلب تعديل";
 
 // Every notification item: { id, bucket, needsAction, requestType, from,
 // state, href, at }.
@@ -42,7 +44,7 @@ export default async function handler(req, res) {
           id: d.id,
           bucket: "modification",
           needsAction: true,
-          requestType: r.type === "cancel" ? "طلب إلغاء فاتورة" : "طلب تعديل فاتورة",
+          requestType: changeLabel(r.type),
           from: ROUTE_LABEL[r.route] || "",
           state: "بانتظار قرارك",
           href: `/requests/${d.id}`,
@@ -75,6 +77,9 @@ export default async function handler(req, res) {
           needsAction: true,
           requestType: r.type === "offloading" ? "مرتجع بضاعة" : "أمر شحن",
           from: ROUTE_LABEL[r.route] || "",
+          // Which car it came from — the keeper's nav lights up the matching
+          // section (مبيعات جملة / مبيعات تجزئة), not just "طلبات الشحن".
+          route: r.route,
           state: "بانتظار التنفيذ",
           href: `/shipping/${d.id}`,
           at: r.requestedAt,
@@ -99,9 +104,11 @@ export default async function handler(req, res) {
             id: r.id,
             bucket: "modification",
             needsAction: false,
-            requestType: r.type === "cancel" ? "طلب إلغاء فاتورة" : "طلب تعديل فاتورة",
+            requestType: changeLabel(r.type),
             from: "المشرف",
             state: r.status === "approved" ? "تمت الموافقة" : "تم الرفض",
+            note: r.decisionNote || "",
+            tone: r.status === "approved" ? "good" : "bad",
             href: `/requests/${r.id}`,
             at: r.decidedAt,
           });
@@ -120,8 +127,9 @@ export default async function handler(req, res) {
           id: d.id,
           bucket: "shipping",
           needsAction: true,
-          requestType: "أمر شحن",
+          requestType: r.type === "offloading" ? "مرتجع بضاعة" : "أمر شحن",
           from: "أمين المخزن",
+          route: myRoute,
           state: "بانتظار تأكيدك",
           href: `/inventory/${d.id}`,
           at: r.createdAt,
@@ -142,6 +150,7 @@ export default async function handler(req, res) {
             needsAction: true,
             requestType: "أمر شحن",
             from: "مبيعات تجزئة",
+            route: "car2",
             state: "بانتظار موافقتك",
             href: `/shipping/${d.id}`,
             at: r.requestedAt,
@@ -156,19 +165,26 @@ export default async function handler(req, res) {
         .get();
       myShipments.docs
         .map((d) => ({ id: d.id, ...d.data() }))
-        .filter((r) => r.status === "rejected" || r.status === "fulfilled")
-        .sort((a, b) => (b.fulfilledAt || b.requestedAt || "").localeCompare(a.fulfilledAt || a.requestedAt || ""))
+        .filter((r) => ["rejected", "fulfilled", "cancelled"].includes(r.status))
+        .map((r) => ({ ...r, _at: r.cancelledAt || r.fulfilledAt || r.car1Decision?.at || r.requestedAt || "" }))
+        .sort((a, b) => b._at.localeCompare(a._at))
         .slice(0, RESOLVED_LIMIT)
         .forEach((r) => {
+          const cancelled = r.status === "cancelled";
           items.push({
             id: r.id,
             bucket: "shipping",
             needsAction: false,
             requestType: r.type === "offloading" ? "مرتجع بضاعة" : "أمر شحن",
             from: r.status === "rejected" ? "مبيعات جملة" : "أمين المخزن",
-            state: r.status === "rejected" ? "تم الرفض" : "تم التنفيذ",
+            route: r.route,
+            state: cancelled ? "تم الإلغاء" : r.status === "rejected" ? "تم الرفض" : "تم التنفيذ",
+            // The keeper's reason travels with the notification itself, so
+            // the agent reads WHY without having to open anything.
+            note: cancelled ? r.cancelNote || "" : r.status === "rejected" ? r.car1Decision?.note || "" : "",
+            tone: cancelled || r.status === "rejected" ? "bad" : "good",
             href: `/shipping/${r.id}`,
-            at: r.fulfilledAt || r.requestedAt,
+            at: r._at,
           });
         });
     }

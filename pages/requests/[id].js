@@ -9,6 +9,32 @@ import { apiFetch } from "../../lib/apiFetch";
 import { invalidate } from "../../lib/apiCache";
 import { useLiveRefresh } from "../../lib/useLiveRefresh";
 import { formatDateTime, formatNumber } from "../../lib/labels";
+import { FIELD_LABELS } from "../../lib/clientFields";
+import SuccessScreen from "../../components/SuccessScreen";
+
+const fmtField = (k, v) => (k === "active" ? (v ? "نشط" : "موقوف") : v || "—");
+
+// Client-details change: each changed field, now vs requested.
+function ClientDiff({ current, proposed }) {
+  return (
+    <div className="border rounded-lg overflow-hidden">
+      <div className="grid grid-cols-3 text-xs font-semibold bg-gray-50 text-gray-600 px-3 py-2">
+        <span>الحقل</span>
+        <span>الآن</span>
+        <span className="text-green-700">المطلوب</span>
+      </div>
+      <div className="divide-y">
+        {Object.keys(proposed || {}).map((k) => (
+          <div key={k} className="grid grid-cols-3 gap-2 px-3 py-2.5 text-sm">
+            <span className="text-gray-600">{FIELD_LABELS[k] || k}</span>
+            <span className="text-gray-800 break-words">{fmtField(k, current?.[k])}</span>
+            <span className="text-green-800 font-semibold break-words">{fmtField(k, proposed[k])}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 function ItemsTable({ title, items, total, tone = "gray" }) {
   return (
@@ -40,6 +66,7 @@ export default function RequestDetail() {
   const [fetching, setFetching] = useState(true);
   const [acting, setActing] = useState(false);
   const [error, setError] = useState("");
+  const [decided, setDecided] = useState(null); // "approve" | "reject"
 
   useEffect(() => {
     if (!token || !id) return;
@@ -65,9 +92,13 @@ export default function RequestDetail() {
   async function decide(action) {
     const msg =
       action === "approve"
-        ? r.type === "cancel"
+        ? r.type === "client_edit"
+          ? "الموافقة ستغيّر بيانات العميل كما طلب المندوب. متابعة؟"
+          : r.type === "cancel"
           ? "الموافقة ستلغي الفاتورة وتعيد كمياتها إلى السيارة. متابعة؟"
           : "الموافقة ستعدّل الفاتورة وتحدّث المخزون. متابعة؟"
+        : r.type === "client_edit"
+        ? "رفض الطلب؟ تبقى بيانات العميل كما هي."
         : "رفض الطلب؟ تبقى الفاتورة كما هي.";
     if (!confirm(msg)) return;
     setActing(true);
@@ -82,6 +113,7 @@ export default function RequestDetail() {
       if (!res.ok) throw new Error(data.error);
       invalidate("/api/requests");
       invalidate("/api/orders/list");
+      setDecided(action);
       load();
     } catch (err) {
       setError(err.message);
@@ -102,7 +134,31 @@ export default function RequestDetail() {
     );
   }
 
-  const invoiceChanged = r.order && r.status === "pending" && r.order.total !== r.currentTotal;
+  const isClientEdit = r.type === "client_edit";
+  const invoiceChanged = !isClientEdit && r.order && r.status === "pending" && r.order.total !== r.currentTotal;
+
+  if (decided) {
+    return (
+      <div className="min-h-screen bg-canvas">
+        <Nav role={role} logout={logout} />
+        <main className="max-w-lg mx-auto px-4 pt-5 pb-8 sm:px-0">
+          <SuccessScreen
+            tone={decided === "approve" ? "success" : "warn"}
+            title={decided === "approve" ? "تمت الموافقة على الطلب" : "تم رفض الطلب"}
+            hint={
+              decided === "approve"
+                ? isClientEdit
+                  ? "تم تحديث بيانات العميل وأُبلغ المندوب."
+                  : "تم تطبيق التغيير على الفاتورة وأُبلغ المندوب."
+                : "أُبلغ المندوب بالقرار."
+            }
+            secondary={{ label: "عرض الطلب", onClick: () => setDecided(null) }}
+            primary={{ label: "الطلبات المعلقة", href: "/requests" }}
+          />
+        </main>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -112,12 +168,12 @@ export default function RequestDetail() {
           <div>
             <BackButton />
             <h1 className="text-xl font-semibold text-gray-800">
-              {r.type === "cancel" ? "طلب إلغاء فاتورة" : "طلب تعديل فاتورة"}
+              {isClientEdit ? "طلب تعديل بيانات عميل" : r.type === "cancel" ? "طلب إلغاء فاتورة" : "طلب تعديل فاتورة"}
             </h1>
             <p className="text-sm text-gray-500 mt-1">
               {r.clientName} — {r.route === "car1" ? "مبيعات جملة" : "مبيعات تجزئة"} ·{" "}
-              <Link href={`/orders/${r.orderId}`} className="underline">
-                فتح الفاتورة
+              <Link href={isClientEdit ? `/clients/${r.clientId}` : `/orders/${r.orderId}`} className="underline">
+                {isClientEdit ? `فتح العميل #${r.clientId}` : "فتح الفاتورة"}
               </Link>
             </p>
             <p className="text-xs text-gray-400 mt-1">طُلب {formatDateTime(r.requestedAt)}</p>
@@ -134,6 +190,10 @@ export default function RequestDetail() {
             </p>
           )}
 
+          {isClientEdit ? (
+            <ClientDiff current={r.status === "pending" && r.client ? r.client : r.currentClient} proposed={r.proposedClient} />
+          ) : (
+          <>
           <ItemsTable
             title={r.status === "pending" ? "الفاتورة الآن" : "الفاتورة وقت الطلب"}
             items={r.status === "pending" && r.order ? r.order.items : r.currentItems}
@@ -141,6 +201,8 @@ export default function RequestDetail() {
           />
           {r.type === "edit" && (
             <ItemsTable title="التعديل المطلوب" items={r.proposedItems} total={r.proposedTotal} tone="green" />
+          )}
+          </>
           )}
 
           {error && <p className="text-red-600 text-sm">{error}</p>}
@@ -156,7 +218,9 @@ export default function RequestDetail() {
                 className="w-full border rounded-lg px-3 py-2 text-base"
               />
               <p className="text-xs text-gray-400">
-                {r.type === "edit"
+                {isClientEdit
+                  ? "عند الموافقة تُحدَّث بيانات العميل بالقيم المطلوبة."
+                  : r.type === "edit"
                   ? "عند الموافقة يُطبَّق التعديل بالأسعار الحالية ويُتحقق من كفاية المخزون."
                   : "عند الموافقة تُلغى الفاتورة وتعود كمياتها إلى السيارة."}
               </p>

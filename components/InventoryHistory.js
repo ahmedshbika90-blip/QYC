@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import InventoryDocCard from "./InventoryDocCard";
 import FilterPanel from "./FilterPanel";
+import FilterChips from "./FilterChips";
 import { SkeletonRows, Spinner } from "./Loading";
 import { apiFetch } from "../lib/apiFetch";
 import { cachedGet } from "../lib/apiCache";
@@ -99,27 +100,31 @@ export default function InventoryHistory({
         extraActiveCount={extraActive}
       >
         {!fixedType && (
-          <select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)} className={selectClass}>
-            <option value="">كل الأنواع</option>
-            <option value="received">استلام بضاعة</option>
-            <option value="loading">أمر شحن</option>
-            <option value="offloading">مرتجع بضاعة</option>
-            <option value="damage">تالف</option>
-          </select>
+          <FilterChips
+            label="نوع المستند"
+            value={typeFilter}
+            onChange={setTypeFilter}
+            options={[
+              ["received", "استلام بضاعة"],
+              ["loading", "أمر شحن"],
+              ["offloading", "مرتجع بضاعة"],
+              ["damage", "تالف"],
+            ]}
+          />
         )}
         {!fixedRoute && showRouteFilter && (
-          <select value={routeFilter} onChange={(e) => setRouteFilter(e.target.value)} className={selectClass}>
-            <option value="">كل السيارات</option>
-            <option value="car1">مبيعات جملة</option>
-            <option value="car2">مبيعات تجزئة</option>
-          </select>
+          <FilterChips label="السيارة" value={routeFilter} onChange={setRouteFilter} options={[["car1", "مبيعات جملة"], ["car2", "مبيعات تجزئة"]]} />
         )}
-        <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className={selectClass}>
-          <option value="">كل الحالات</option>
-          {!excludePending && <option value="pending">بانتظار التأكيد</option>}
-          <option value="confirmed">مؤكدة</option>
-          <option value="rejected">مرفوضة</option>
-        </select>
+        <FilterChips
+          label="الحالة"
+          value={statusFilter}
+          onChange={setStatusFilter}
+          options={[
+            ...(excludePending ? [] : [["pending", "بانتظار التأكيد"]]),
+            ["confirmed", "مؤكدة"],
+            ["rejected", "مرفوضة"],
+          ]}
+        />
       </FilterPanel>
 
       {!dateFrom && <p className="text-xs text-gray-400 mb-3">يعرض آخر ٣٠ يومًا — حدد "من تاريخ" لفترة أقدم.</p>}

@@ -233,3 +233,13 @@ html.theme-transition * {
 @media (prefers-reduced-motion: reduce) {
   .toast-card { animation: none; }
 }
+
+/* Success card: one confirming motion when it replaces the form. */
+.success-screen { animation: success-in 260ms cubic-bezier(.2,.9,.3,1) both; }
+@keyframes success-in {
+  from { opacity: 0; transform: translateY(10px) scale(0.985); }
+  to   { opacity: 1; transform: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .success-screen { animation: none; }
+}

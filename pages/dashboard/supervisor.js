@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "../../lib/useAuth";
 import Nav from "../../components/Nav";
+import FilterChips from "../../components/FilterChips";
 import StatusTabs from "../../components/StatusTabs";
 import PeriodTabs, { periodStartISO } from "../../components/PeriodTabs";
 import FilterPanel from "../../components/FilterPanel";
@@ -166,20 +167,14 @@ export default function SupervisorDashboard() {
       <main className="max-w-5xl mx-auto px-4 pt-5 pb-8 sm:px-8">
         <TodayHeader
           title="نظرة اليوم"
-          subtitle="كل المسارات"
+          subtitle={routeFilter === "car1" ? "مبيعات جملة" : routeFilter === "car2" ? "مبيعات تجزئة" : "كل المسارات"}
           aside={
-            <label className="shrink-0">
-              <span className="sr-only">المسار</span>
-              <select
-                value={routeFilter}
-                onChange={(e) => setRouteFilter(e.target.value)}
-                className="border border-line rounded-xl px-3 h-11 text-sm font-medium"
-              >
-                <option value="all">كل المسارات</option>
-                <option value="car1">مبيعات جملة</option>
-                <option value="car2">مبيعات تجزئة</option>
-              </select>
-            </label>
+            <FilterChips
+              className="shrink-0"
+              value={routeFilter === "all" ? "" : routeFilter}
+              onChange={(v) => setRouteFilter(v || "all")}
+              options={[["car1", "جملة"], ["car2", "تجزئة"]]}
+            />
           }
           stats={[
             { label: "فواتير اليوم", value: fetching ? "…" : today.count },

@@ -6,7 +6,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "test": "node tests/run.js && node tests/run2.js && node tests/run3.js"
+    "test": "node tests/run.js && node tests/run2.js && node tests/run3.js && node tests/run4.js"
   },
   "dependencies": {
     "dotenv": "^16.4.5",

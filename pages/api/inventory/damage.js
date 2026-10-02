@@ -1,4 +1,5 @@
 const { adminDb } = require("../../../lib/firebaseAdmin");
+const { roundQty, parseDecimal, isValidQty } = require("../../../lib/qty");
 const { requireUser, requireRole } = require("../../../lib/apiAuth");
 const { isValidRequestId } = require("../../../lib/requestId");
 const { createOnce } = require("../../../lib/idempotentCreate");
@@ -32,7 +33,7 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: "يجب إضافة منتج واحد على الأقل" });
     }
     for (const it of items) {
-      if (!it.productId || !it.qty || it.qty <= 0) {
+      if (!it.productId || !isValidQty(it.qty)) {
         return res.status(400).json({ error: "كل منتج يجب أن تكون له كمية صحيحة" });
       }
     }
@@ -46,7 +47,7 @@ export default async function handler(req, res) {
         err.statusCode = 400;
         throw err;
       }
-      return { productId: it.productId, name: snap.data().name, unit: snap.data().unit, qty: Number(it.qty) };
+      return { productId: it.productId, name: snap.data().name, unit: snap.data().unit, qty: roundQty(parseDecimal(it.qty)) };
     });
 
     const docRef = adminDb.collection("inventoryDocs").doc(requestId);

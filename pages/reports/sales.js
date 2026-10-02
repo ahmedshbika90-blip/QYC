@@ -2,6 +2,7 @@ import { useMemo, useRef, useState } from "react";
 import { useAuth } from "../../lib/useAuth";
 import Nav from "../../components/Nav";
 import BackButton from "../../components/BackButton";
+import FilterChips from "../../components/FilterChips";
 import { PageLoading, Spinner } from "../../components/Loading";
 import { apiFetch } from "../../lib/apiFetch";
 import { invalidate } from "../../lib/apiCache";
@@ -163,16 +164,13 @@ export default function SalesReport() {
             </div>
             {role === "supervisor" && (
               <div>
-                <label className="block text-sm text-gray-600 mb-1">المسار</label>
-                <select
-                  value={routeFilter}
-                  onChange={(e) => setRouteFilter(e.target.value)}
-                  className="w-full border rounded-lg px-3 h-12 text-base"
-                >
-                  <option value="all">كل المسارات</option>
-                  <option value="car1">مبيعات جملة</option>
-                  <option value="car2">مبيعات تجزئة</option>
-                </select>
+                {/* Nothing selected = every route; tap the selected one again to clear. */}
+                <FilterChips
+                  label="المسار"
+                  value={routeFilter === "all" ? "" : routeFilter}
+                  onChange={(v) => setRouteFilter(v || "all")}
+                  options={[["car1", "مبيعات جملة"], ["car2", "مبيعات تجزئة"]]}
+                />
               </div>
             )}
             <button

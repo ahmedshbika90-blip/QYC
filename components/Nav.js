@@ -17,9 +17,12 @@ const ROLE_HOME = {
   depot_viewer: "/warehouse/view-stock",
 };
 
-// Every destination, once. `badge` names which notification counter
-// lights it up: "modification" (invoice edit/cancel requests) or
-// "shipping" (shipping orders / cargo returns).
+// Every destination, once. `badge` says which notifications light it up:
+//   "modification"  invoice / client change requests (الطلبات)
+//   "shipping"      shipping orders & cargo returns, any car
+//   "shipping:car1" / "shipping:car2"  only that car's — the warehouse
+//                   keeper's مبيعات جملة / مبيعات تجزئة sections each get
+//                   their own dot, on top of the طلبات الشحن one.
 const L = {
   placeOrder: { href: "/place-order", label: "فاتورة جديدة", short: "فاتورة", icon: "plus" },
   requests: { href: "/requests", label: "الطلبات", icon: "inbox", badge: "modification" },
@@ -32,8 +35,8 @@ const L = {
   margin: { href: "/margin", label: "هامش التشغيل", icon: "percent" },
   whInventory: { href: "/warehouse/inventory", label: "المخزون", icon: "box" },
   whShip: { href: "/warehouse/shipment-requests", label: "طلبات الشحن", short: "شحن", icon: "truck", badge: "shipping" },
-  whCar1: { href: "/warehouse/car1", label: "مبيعات جملة", short: "جملة", icon: "warehouse" },
-  whCar2: { href: "/warehouse/car2", label: "مبيعات تجزئة", short: "تجزئة", icon: "warehouse" },
+  whCar1: { href: "/warehouse/car1", label: "مبيعات جملة", short: "جملة", icon: "warehouse", badge: "shipping:car1" },
+  whCar2: { href: "/warehouse/car2", label: "مبيعات تجزئة", short: "تجزئة", icon: "warehouse", badge: "shipping:car2" },
   viewStock: { href: "/warehouse/view-stock", label: "المخزن الرئيسي", icon: "box" },
 };
 
@@ -124,7 +127,7 @@ export default function Nav({ role, logout }) {
   const [auth, setAuth] = useState({ token: null, uid: null });
   const [sheetOpen, setSheetOpen] = useState(false);
   useEffect(() => subscribeAuth(setAuth), []);
-  const { items, modificationCount, shippingCount, refreshSeen, toasts, dismissToast } = useNotifications(
+  const { items, loaded, refreshSeen, toasts, dismissToast } = useNotifications(
     auth.token,
     role,
     auth.uid
@@ -132,39 +135,28 @@ export default function Nav({ role, logout }) {
   const { pref, isDark, choose, toggle } = useTheme();
 
   // The badge on a nav item is a "you have work here" indicator, not a
-  // ticker of everything that ever happened. Once something is decided
-  // (approved / rejected / fulfilled / confirmed), it stops counting —
-  // only items that still need YOUR action light up the dot.
+  // ticker of everything that ever happened: only items that still need
+  // YOUR action count. Resolved ones (approved / rejected / fulfilled /
+  // cancelled) are informational and never light a dot.
   //
-  // We derive counts from `items` (which carries needsAction and badge)
-  // instead of trusting the hook's raw counts, which historically
-  // included resolved-but-unseen items too.
-  const { modificationCountActive, shippingCountActive } = useMemo(() => {
-    const list = items || [];
-    const isActionable = (it) => {
-      if (it?.needsAction === true) return true;
-      if (it?.needsAction === false) return false;
-      // Fallback for items that don't set needsAction: infer from state.
-      const s = String(it?.state || it?.status || "").toLowerCase();
-      if (!s) return true;
-      return !/(approved|rejected|fulfilled|confirmed|cancelled|resolved|done)/.test(s);
-    };
-    let mod = 0;
-    let ship = 0;
-    for (const it of list) {
-      if (!isActionable(it)) continue;
-      if (it.badge === "modification") mod += 1;
-      else if (it.badge === "shipping") ship += 1;
+  // Bug fixed here: this used to read `it.badge`, but the server sends the
+  // category as `it.bucket` — so the shipping count was always 0 and the
+  // المستندات dot never appeared.
+  const counts = useMemo(() => {
+    const c = { modification: 0, shipping: 0, "shipping:car1": 0, "shipping:car2": 0 };
+    for (const it of items || []) {
+      if (!it?.needsAction) continue;
+      if (it.bucket === "modification") c.modification += 1;
+      if (it.bucket === "shipping") {
+        c.shipping += 1;
+        if (it.route === "car1" || it.route === "car2") c[`shipping:${it.route}`] += 1;
+      }
     }
-    return {
-      modificationCountActive: mod || modificationCount || 0,
-      shippingCountActive: ship, // authoritative — resolved never counts
-    };
-  }, [items, modificationCount]);
+    return c;
+  }, [items]);
 
   const layout = layoutFor(role);
   const hasTabbar = layout.tabs.length > 0;
-  const counts = { modification: modificationCountActive, shipping: shippingCountActive };
   const countFor = (link) => (link.badge ? counts[link.badge] || 0 : 0);
   const moreCount = layout.more.reduce((n, l) => n + countFor(l), 0);
   const moreActive = layout.more.some((l) => isActive(router.pathname, l.href));
@@ -193,7 +185,7 @@ export default function Nav({ role, logout }) {
 
   return (
     <>
-      <PendingActionModal role={role} uid={auth.uid} items={items} refreshSeen={refreshSeen} />
+      <PendingActionModal role={role} uid={auth.uid} items={items} loaded={loaded} refreshSeen={refreshSeen} />
       <NotificationToastStack toasts={toasts} uid={auth.uid} onDismiss={dismissToast} refreshSeen={refreshSeen} />
 
       {/* ── Top bar ───────────────────────────────────────────────── */}

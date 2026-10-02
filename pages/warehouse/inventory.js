@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "../../lib/useAuth";
 import Nav from "../../components/Nav";
 import BackButton from "../../components/BackButton";
+import SuccessScreen from "../../components/SuccessScreen";
 import ProductCartPicker from "../../components/ProductCartPicker";
 import InventoryHistory from "../../components/InventoryHistory";
 import { PageLoading, SkeletonRows, Spinner } from "../../components/Loading";
@@ -198,7 +199,16 @@ export default function WarehouseInventory() {
           </>
         )}
 
-        {tab === "damage" && (
+        {tab === "damage" && damageSuccess && (
+          <SuccessScreen
+            title="تم تسجيل التالف"
+            hint="خُصمت الكميات من رصيد المخزن ونُقلت إلى بند التالف."
+            secondary={{ label: "رصيد المخزن", onClick: () => { setDamageSuccess(""); setTab("stock"); } }}
+            primary={{ label: "تسجيل تالف آخر", onClick: () => setDamageSuccess("") }}
+          />
+        )}
+
+        {tab === "damage" && !damageSuccess && (
           <form onSubmit={submitDamage} className="bg-white rounded-lg shadow p-4 space-y-4">
             <p className="text-xs text-gray-400">يُخصم فورًا من رصيد المخزن وينتقل إلى بند التالف — لا رجوع.</p>
             <ProductCartPicker products={products} cart={damageCart} setCart={setDamageCart} />
@@ -210,7 +220,6 @@ export default function WarehouseInventory() {
               className="w-full border rounded-lg px-3 py-2 text-base"
             />
             {damageError && <p className="text-red-600 text-sm">{damageError}</p>}
-            {damageSuccess && <p className="text-green-700 text-sm">{damageSuccess}</p>}
             <button
               type="submit"
               disabled={damageSubmitting}
@@ -222,7 +231,16 @@ export default function WarehouseInventory() {
           </form>
         )}
 
-        {tab === "receive" && (
+        {tab === "receive" && success && (
+          <SuccessScreen
+            title="تم تسجيل الاستلام"
+            hint="بانتظار اعتماد المشرف — يُضاف إلى رصيد المخزن بعد الاعتماد."
+            secondary={{ label: "سجل الاستلام", onClick: () => { setSuccess(""); setTab("history"); } }}
+            primary={{ label: "استلام آخر", onClick: () => setSuccess("") }}
+          />
+        )}
+
+        {tab === "receive" && !success && (
           <form onSubmit={submit} className="bg-white rounded-lg shadow p-4 space-y-4">
             <p className="text-xs text-gray-400">يُضاف إلى رصيد المخزن بعد اعتماد المشرف.</p>
             <ProductCartPicker products={products} cart={cart} setCart={setCart} />
@@ -234,7 +252,6 @@ export default function WarehouseInventory() {
               className="w-full border rounded-lg px-3 py-2 text-base"
             />
             {error && <p className="text-red-600 text-sm">{error}</p>}
-            {success && <p className="text-green-700 text-sm">{success}</p>}
             <button
               type="submit"
               disabled={submitting}

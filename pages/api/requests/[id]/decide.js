@@ -2,6 +2,7 @@ const { admin, adminDb } = require("../../../../lib/firebaseAdmin");
 const { requireUser, requireRole } = require("../../../../lib/apiAuth");
 const { editItemsTx, cancelTx } = require("../../../../lib/invoiceChanges");
 const { bumpVersions, ordersKey } = require("../../../../lib/versions");
+const { buildClientUpdates } = require("../../../../lib/clientFields");
 
 const MAX_NOTE = 500;
 
@@ -37,6 +38,7 @@ export default async function handler(req, res) {
     const requestRef = adminDb.collection("changeRequests").doc(id);
     let outcome = null;
     let route = null;
+    let isClientRequest = false;
 
     await adminDb.runTransaction(async (tx) => {
       const snap = await tx.get(requestRef);
@@ -52,6 +54,30 @@ export default async function handler(req, res) {
       if (request.status !== "pending") fail(400, "تم اتخاذ قرار بشأن هذا الطلب مسبقًا");
 
       const now = new Date().toISOString();
+
+      // Client-details change (12-hour lock). Approving writes exactly the
+      // proposed fields, re-validated now; rejecting leaves the client as is.
+      if (request.type === "client_edit") {
+        isClientRequest = true;
+        const clientRef = adminDb.collection("clients").doc(request.clientId);
+        const clientSnap = await tx.get(clientRef);
+        if (clientSnap.exists) {
+          const clientUpdate = { pendingRequest: admin.firestore.FieldValue.delete() };
+          if (action === "approve") {
+            Object.assign(clientUpdate, buildClientUpdates(request.proposedClient, clientSnap.data()), {
+              updatedAt: now,
+              updatedBy: decoded.uid,
+            });
+          }
+          tx.update(clientRef, clientUpdate);
+        } else if (action === "approve") {
+          fail(404, "العميل لم يعد موجودًا");
+        }
+        tx.update(requestRef, { status: target, decidedBy: decoded.uid, decidedAt: now, decisionNote: note || "" });
+        outcome = target;
+        return;
+      }
+
       const orderRef = adminDb.collection("orders").doc(request.orderId);
       const orderUpdate = {
         pendingRequest: admin.firestore.FieldValue.delete(),
@@ -79,7 +105,9 @@ export default async function handler(req, res) {
       outcome = target;
     });
 
-    if (outcome !== "repeat") await bumpVersions(["requests", ordersKey(route)]);
+    if (outcome !== "repeat") {
+      await bumpVersions(isClientRequest ? ["requests", "clients"] : ["requests", ordersKey(route)]);
+    }
     return res.status(200).json({ ok: true, status: outcome });
   } catch (err) {
     const status = err.statusCode || 500;

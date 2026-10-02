@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useAuth } from "../lib/useAuth";
 import Nav from "../components/Nav";
 import BackButton from "../components/BackButton";
+import SuccessScreen from "../components/SuccessScreen";
 import QtyStepper from "../components/QtyStepper";
 import { PageLoading, Spinner } from "../components/Loading";
 import { apiFetch } from "../lib/apiFetch";
@@ -380,8 +381,8 @@ export default function PlaceOrder() {
       <Nav role={role} logout={logout} />
       <div className="max-w-lg mx-auto p-4 sm:p-8">
         <div className="bg-white p-5 sm:p-8 rounded-lg shadow-md">
-          <BackButton />
-          <h1 className="text-xl font-semibold mb-6 text-gray-800">تسجيل فاتورة لعميل</h1>
+          {!result && <BackButton />}
+          <h1 className="font-display text-2xl font-bold mb-6 text-ink">تسجيل فاتورة لعميل</h1>
 
           {queue.length > 0 && (
             <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-4">
@@ -442,31 +443,27 @@ export default function PlaceOrder() {
               </button>
             </div>
           )}
-          {result?.queued && (
-            <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-4">
-              <p className="text-amber-800 font-medium">لم تُرسل الفاتورة بعد — لا يوجد اتصال</p>
-              <p className="text-amber-700 text-sm mt-1">
-                تم حفظها على هذا الجهاز وستُرسل تلقائيًا عند عودة الاتصال. يمكنك متابعة تسجيل فواتير أخرى.
-              </p>
-            </div>
-          )}
-          {result && !result.queued && (
-            <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-4">
-              <p className="text-green-800 font-medium">
-                تم إنشاء الفاتورة! الرقم: <span className="tabular-ltr">{result.orderId}</span>
-              </p>
-              <p className="text-green-700 text-sm mt-1">الإجمالي: {formatNumber(result.total)}</p>
-              {result.deliveryDate ? (
-                <p className="text-green-700 text-sm mt-1">
-                  تاريخ التسليم: {formatDate(result.deliveryDate)}
-                </p>
-              ) : (
-                <p className="text-green-700 text-sm mt-1">حسب الطلب — تواصل مع العميل لتحديد الموعد.</p>
-              )}
-            </div>
-          )}
-
-          {fetching ? (
+          {/* Success (or saved-offline) replaces the form: the invoice number
+              and the two next steps, nothing else. */}
+          {result?.queued ? (
+            <SuccessScreen
+              tone="warn"
+              title="حُفظت الفاتورة على الجهاز"
+              hint="لا يوجد اتصال الآن — ستُرسل تلقائيًا عند عودته، ولن تتكرر."
+              secondary={{ label: "الرئيسية", href: role === "agent_car1" ? "/dashboard/car1" : "/dashboard/car2" }}
+              primary={{ label: "فاتورة جديدة", onClick: () => setResult(null) }}
+            />
+          ) : result ? (
+            <SuccessScreen
+              title="تم تسجيل الفاتورة"
+              number={result.orderId}
+              hint={`الإجمالي ${formatNumber(result.total)} — ${
+                result.deliveryDate ? `التسليم ${formatDate(result.deliveryDate)}` : "حسب الطلب، تواصل مع العميل لتحديد الموعد"
+              }`}
+              secondary={{ label: "عرض الفاتورة", href: `/orders/${result.orderId}` }}
+              primary={{ label: "فاتورة جديدة", onClick: () => setResult(null) }}
+            />
+          ) : fetching ? (
             <div className="flex items-center gap-2 text-gray-400 text-sm py-4">
               <Spinner className="w-4 h-4" /> جارٍ تحميل العملاء والمنتجات...
             </div>

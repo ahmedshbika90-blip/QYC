@@ -68,7 +68,7 @@ export default async function handler(req, res) {
       if (Number.isNaN(n) || n < 0) {
         return res.status(400).json({ error: "رصيد المخزن يجب أن يكون رقمًا موجبًا" });
       }
-      updates["stock.depot"] = n;
+      updates["stock.depot"] = Math.round(n * 100) / 100;
     }
 
     if (minStock !== undefined && minStock !== "") {

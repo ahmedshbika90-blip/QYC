@@ -1,8 +1,9 @@
 const { adminDb } = require("../../../lib/firebaseAdmin");
 const { requireUser, requireRole } = require("../../../lib/apiAuth");
 const { isValidRequestId } = require("../../../lib/requestId");
-const { createOnce } = require("../../../lib/idempotentCreate");
 const { bumpVersions } = require("../../../lib/versions");
+const { roundQty, parseDecimal, isValidQty } = require("../../../lib/qty");
+const { isOpenStatus, SHIPMENT_TYPE_LABELS } = require("../../../lib/shipmentStatus");
 
 const ROLE_TO_ROUTE = { agent_car1: "car1", agent_car2: "car2" };
 
@@ -17,6 +18,15 @@ const ROLE_TO_ROUTE = { agent_car1: "car1", agent_car2: "car2" };
 // OFFLOADING (car -> depot): always goes straight to the warehouse
 // keeper's queue, for EITHER car — it's unsold stock coming back, not
 // stock going out to sell, so there's nothing for car1 to gate here.
+//
+// ONE OPEN REQUEST PER AGENT: a new request (either type) is refused while
+// the agent still has one that nobody has closed — i.e. it hasn't been
+// fulfilled or cancelled by the warehouse keeper (or rejected by car1).
+// Enforced with a per-agent pointer doc, `agentOpenShipment/{uid}`, read
+// and written in the same transaction as the request itself, so two taps
+// from two devices can't both slip through. The pointer is self-healing:
+// it's only trusted while the request it points at is actually still open,
+// so nothing else has to remember to clear it.
 //
 // Either way, nothing here moves stock; this is only a request. The
 // actual document (and its stock effect) is created when the warehouse
@@ -42,9 +52,28 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: "يجب إضافة منتج واحد على الأقل" });
     }
     for (const it of items) {
-      if (!it.productId || !it.qty || it.qty <= 0) {
-        return res.status(400).json({ error: "كل منتج يجب أن تكون له كمية صحيحة" });
+      if (!it.productId || !isValidQty(it.qty)) {
+        return res.status(400).json({ error: "كل منتج يجب أن تكون له كمية أكبر من صفر" });
       }
+    }
+    const seen = new Set();
+    for (const it of items) {
+      if (seen.has(it.productId)) {
+        return res.status(400).json({ error: "المنتج مكرر في الطلب — اجمع كميته في سطر واحد" });
+      }
+      seen.add(it.productId);
+    }
+
+    // Fast, friendly refusal before any stock checks. This also covers
+    // requests created before the pointer doc existed; the transactional
+    // check below is the one that's race-proof.
+    const mine = await adminDb.collection("shipmentRequests").where("requestedBy", "==", decoded.uid).get();
+    const alreadyOpen = mine.docs.find((d) => d.id !== requestId && isOpenStatus(d.data().status));
+    if (alreadyOpen) {
+      return res.status(409).json({
+        error: `لديك ${SHIPMENT_TYPE_LABELS[alreadyOpen.data().type] || "طلب"} مفتوح لم يُنفَّذ أو يُلغَ بعد — لا يمكن إرسال طلب جديد حتى يتم تنفيذه أو إلغاؤه.`,
+        openRequestId: alreadyOpen.id,
+      });
     }
 
     const productRefs = items.map((it) => adminDb.collection("products").doc(it.productId));
@@ -67,7 +96,7 @@ export default async function handler(req, res) {
         throw err;
       }
       const data = snap.data();
-      const qty = Number(it.qty);
+      const qty = roundQty(parseDecimal(it.qty));
       const available = data.stock?.[sourceField] ?? 0;
       if (qty > available) {
         shortages.push({ productId: it.productId, name: data.name, requested: qty, available });
@@ -87,11 +116,38 @@ export default async function handler(req, res) {
     }
 
     const docRef = adminDb.collection("shipmentRequests").doc(requestId);
+    const lockRef = adminDb.collection("agentOpenShipment").doc(decoded.uid);
     const now = new Date().toISOString();
+    const result = { duplicate: false };
 
-    const result = await createOnce(
-      docRef,
-      {
+    await adminDb.runTransaction(async (tx) => {
+      const [existing, lock] = await Promise.all([tx.get(docRef), tx.get(lockRef)]);
+
+      // Repeat of a request that already went through (weak connection).
+      if (existing.exists) {
+        if (existing.data().requestedBy !== decoded.uid) {
+          const err = new Error("تعارض في رقم الطلب، يرجى المحاولة مرة أخرى");
+          err.statusCode = 409;
+          throw err;
+        }
+        result.duplicate = true;
+        return;
+      }
+
+      if (lock.exists && lock.data().requestId) {
+        const openSnap = await tx.get(adminDb.collection("shipmentRequests").doc(lock.data().requestId));
+        if (openSnap.exists && isOpenStatus(openSnap.data().status)) {
+          const open = openSnap.data();
+          const err = new Error(
+            `لديك ${SHIPMENT_TYPE_LABELS[open.type] || "طلب"} مفتوح لم يُنفَّذ أو يُلغَ بعد — لا يمكن إرسال طلب جديد حتى يتم تنفيذه أو إلغاؤه.`
+          );
+          err.statusCode = 409;
+          err.openRequestId = openSnap.id;
+          throw err;
+        }
+      }
+
+      tx.set(docRef, {
         route,
         type,
         items: resolvedItems,
@@ -102,14 +158,17 @@ export default async function handler(req, res) {
         car1Decision: null,
         fulfilledDocId: null,
         fulfilledAt: null,
-      },
-      { ownerField: "requestedBy", ownerId: decoded.uid }
-    );
+        cancelledAt: null,
+        cancelledBy: null,
+        cancelNote: "",
+      });
+      tx.set(lockRef, { requestId, at: now });
+    });
 
     if (!result.duplicate) await bumpVersions(["shipmentRequests"]);
     return res.status(result.duplicate ? 200 : 201).json({ id: docRef.id, duplicate: result.duplicate });
   } catch (err) {
     const status = err.statusCode || 500;
-    return res.status(status).json({ error: err.message, shortages: err.shortages });
+    return res.status(status).json({ error: err.message, shortages: err.shortages, openRequestId: err.openRequestId });
   }
 }

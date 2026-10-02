@@ -1,3 +1,27 @@
+# Masar — field feedback round (Oct 2026)
+
+All tests pass (`npm test`, now 4 suites incl. new `tests/run4.js`) and `next build` succeeds.
+
+## Rules (enforced on the server, shown on screen)
+- **Warehouse keeper can't change a request.** Shipping orders and cargo returns are read-only for him: accept as-is or cancel. `fulfill.js` ignores any `items` sent.
+- **Cancel with a note** — `PATCH /api/shipment-requests/[id]/cancel` (keeper only, note required). Nothing moves. The agent is notified with the note (toast, app-open prompt, request page).
+- **One open request per agent.** A new shipping order / return is refused (409) while one is `pending_car1` or `pending_warehouse`. Race-proof via `agentOpenShipment/{uid}` in the create transaction. Accept vs cancel can't both happen (status re-checked inside the document transaction).
+- **Cargo return = only what's on the car**, each line capped at the car's quantity (screen + server). Duplicate lines refused.
+- **Client edits lock 12 h after registration** for agents (`lib/clientEditLock.js`). After that the save becomes a request (`POST /api/clients/[id]/edit-request`, type `client_edit` in `changeRequests`) that the supervisor approves in الطلبات. Supervisor edits directly.
+- **Decimal quantities** (2 places) everywhere: invoices, requests, receiving, damage, product stock. Arabic digits and `٫` accepted. Balances rounded so float noise never gets stored (`lib/qty.js`).
+
+## Screens
+- **One success card** (`components/SuccessScreen.js`, matches the reference): replaces the form on the same page — client registered, invoice, shipping order/return, keeper accept/cancel, car1 approve/reject, goods received, damage, client edit, invoice change request, supervisor decision. The **new tab on client registration is gone**.
+- **Warehouse keeper**: each car's section (مبيعات جملة / تجزئة) now shows that car's waiting requests first; each nav item has its own dot, plus طلبات الشحن.
+- **Agent**: المستندات nav item now gets the dot (bug: Nav read `badge`, server sends `bucket`).
+- **App-open prompt**: items needing action show every time the app opens (or returns after 10 min in background); resolved items show once, then never again.
+- **Floating notifications**: click and ✕ work on desktop (bug: pointer capture on every press swallowed the click). No auto-dismiss.
+- **Back button**: big, labelled, 48 px, same on phone and desktop.
+- **Filters**: no more "الكل / كل الأنواع" options — tap a choice to filter, tap it again to clear.
+- `/shipment-requests` (orphaned, out of sync) now redirects to المستندات.
+
+---
+
 # Masar — notification & flow changes
 
 Seven files touched. Drop them in over the same paths in your repo.

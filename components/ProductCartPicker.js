@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import QtyStepper from "./QtyStepper";
+import { formatQty } from "../lib/labels";
 
 // Search a product, tap to add it, adjust quantity with a stepper.
 // `hint(product)` optionally returns small text shown next to each result
@@ -37,7 +38,9 @@ export default function ProductCartPicker({ products, cart, setCart, hint, sales
 
   function add(p) {
     if (maxFor && (maxFor(p) ?? 0) <= 0) return;
-    setCart((prev) => [...prev, { productId: p.id, name: p.name, unit: p.unit, qty: 1, freeSample: false, discount: 0 }]);
+    // Start at 1, or at everything available if that's less (e.g. 0.5 kg).
+    const startQty = maxFor ? Math.min(1, maxFor(p)) : 1;
+    setCart((prev) => [...prev, { productId: p.id, name: p.name, unit: p.unit, qty: startQty, freeSample: false, discount: 0 }]);
     setQuery("");
     setOpen(false);
   }
@@ -115,7 +118,7 @@ export default function ProductCartPicker({ products, cart, setCart, hint, sales
                 <QtyStepper value={it.qty} onChange={(v) => setQty(it.productId, v)} min={0} max={capOf(it.productId)} />
               </div>
               {capOf(it.productId) !== undefined && it.qty >= capOf(it.productId) && (
-                <p className="text-xs text-amber-700">هذا كل المتاح ({capOf(it.productId)})</p>
+                <p className="text-xs text-amber-700">هذا كل المتاح ({formatQty(capOf(it.productId))})</p>
               )}
               {salesMode && (
                 <div className="flex items-center gap-3 text-sm">

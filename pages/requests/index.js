@@ -3,6 +3,7 @@ import { useAuth } from "../../lib/useAuth";
 import Nav from "../../components/Nav";
 import BackButton from "../../components/BackButton";
 import FilterPanel from "../../components/FilterPanel";
+import FilterChips from "../../components/FilterChips";
 import PeriodTabs, { periodStartISO } from "../../components/PeriodTabs";
 import RequestCard from "../../components/RequestCard";
 import { PageLoading, SkeletonRows, Spinner } from "../../components/Loading";
@@ -171,15 +172,7 @@ export default function RequestsPage() {
               : {})}
             extraActiveCount={supRoute ? 1 : 0}
           >
-            <select
-              value={supRoute}
-              onChange={(e) => setSupRoute(e.target.value)}
-              className="border rounded-lg px-3 h-11 text-base"
-            >
-              <option value="">كل السيارات</option>
-              <option value="car1">مبيعات جملة</option>
-              <option value="car2">مبيعات تجزئة</option>
-            </select>
+            <FilterChips label="السيارة" value={supRoute} onChange={setSupRoute} options={[["car1", "مبيعات جملة"], ["car2", "مبيعات تجزئة"]]} />
           </FilterPanel>
 
           {supError && (

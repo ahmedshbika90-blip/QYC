@@ -48,7 +48,8 @@ export default function WarehouseDashboard() {
   // the other side" bucket, which is really just a tracker.
   const actionable = incomingReqs.map((r) => ({
     key: `req-${r.id}`,
-    href: `/warehouse/shipment-requests`,
+    // Straight to that car's own section, where the request is waiting.
+    href: `/warehouse/${r.route}`,
     icon: r.type === "loading" ? "truck" : "box",
     tone: "warn",
     title: `${r.type === "loading" ? "أمر شحن جديد" : "مرتجع بضاعة جديد"} · ${r.route === "car1" ? "مبيعات جملة" : "مبيعات تجزئة"}`,

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { STORE_CLASSES } from "../lib/labels";
 import Icon from "./Icon";
+import FilterChips from "./FilterChips";
 
 // Collapsible filter panel shared by invoices and clients. Every field is
 // optional — pass only the handlers for the filters a page actually uses
@@ -65,18 +66,12 @@ export default function FilterPanel({
             />
           )}
           {onStoreClassChange && (
-            <select
+            <FilterChips
+              label="تصنيف المتجر"
               value={storeClass}
-              onChange={(e) => onStoreClassChange(e.target.value)}
-              className={inputClass}
-            >
-              <option value="">كل التصنيفات</option>
-              {STORE_CLASSES.map((c) => (
-                <option key={c} value={c}>
-                  تصنيف {c}
-                </option>
-              ))}
-            </select>
+              onChange={onStoreClassChange}
+              options={STORE_CLASSES.map((c) => [c, `تصنيف ${c}`])}
+            />
           )}
           {onDateFromChange && (
             <input

@@ -3,6 +3,7 @@ import { useRouter } from "next/router";
 import { useAuth } from "../../lib/useAuth";
 import Nav from "../../components/Nav";
 import BackButton from "../../components/BackButton";
+import SuccessScreen from "../../components/SuccessScreen";
 import QtyStepper from "../../components/QtyStepper";
 import { PageLoading, Spinner } from "../../components/Loading";
 import { apiFetch } from "../../lib/apiFetch";
@@ -179,6 +180,7 @@ export default function OrderDetail() {
 
   // Agents can't change a locked invoice directly — they ask the supervisor.
   const needsRequest = order && role !== "supervisor" && order.locked;
+  const [done, setDone] = useState(null); // "requested-edit" | "requested-cancel" | "saved"
 
   async function sendChangeRequest(type, items) {
     if (!reason.trim()) {
@@ -200,6 +202,7 @@ export default function OrderDetail() {
       setReason("");
       setEditing(false);
       setCancelRequestOpen(false);
+      setDone(type === "cancel" ? "requested-cancel" : "requested-edit");
       invalidate("/api/orders/list");
       fetchOrder();
     } catch (err) {
@@ -233,6 +236,7 @@ export default function OrderDetail() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
       setEditing(false);
+      setDone("saved");
       invalidate("/api/orders/list");
       fetchOrder();
     } catch (err) {
@@ -247,6 +251,31 @@ export default function OrderDetail() {
   useLiveRefresh(token, order ? [`orders_${order.route}`] : [], fetchOrder);
 
   if (loading || fetching || !order) return <PageLoading />;
+
+  if (done) {
+    const requested = done !== "saved";
+    return (
+      <div className="min-h-screen bg-canvas">
+        <Nav role={role} logout={logout} />
+        <main className="max-w-lg mx-auto px-4 pt-5 pb-8 sm:px-0">
+          <SuccessScreen
+            tone={requested ? "warn" : "success"}
+            title={
+              done === "requested-cancel"
+                ? "أُرسل طلب إلغاء الفاتورة للمشرف"
+                : done === "requested-edit"
+                ? "أُرسل طلب تعديل الفاتورة للمشرف"
+                : "تم حفظ تعديل الفاتورة"
+            }
+            number={order.id}
+            hint={requested ? "لن تتغير الفاتورة حتى يوافق المشرف. ستصلك رسالة بالقرار." : "تم تحديث الكميات والمخزون."}
+            secondary={{ label: "الفواتير", href: role === "supervisor" ? "/dashboard/supervisor" : `/dashboard/${order.route}` }}
+            primary={{ label: "عرض الفاتورة", onClick: () => setDone(null) }}
+          />
+        </main>
+      </div>
+    );
+  }
 
   const isCancelled = order.status === "cancelled";
   const cartTotal = cart.reduce((sum, it) => sum + it.price * it.qty, 0);

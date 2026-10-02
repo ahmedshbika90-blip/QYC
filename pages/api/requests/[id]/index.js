@@ -23,6 +23,13 @@ export default async function handler(req, res) {
       }
     }
 
+    if (request.type === "client_edit") {
+      // The client as it is NOW — it may have changed since the request.
+      const clientSnap = await adminDb.collection("clients").doc(request.clientId).get();
+      const client = clientSnap.exists ? { id: clientSnap.id, ...clientSnap.data() } : null;
+      return res.status(200).json({ id: snap.id, ...request, client });
+    }
+
     const orderSnap = await adminDb.collection("orders").doc(request.orderId).get();
     const order = orderSnap.exists ? { id: orderSnap.id, ...orderSnap.data() } : null;
 

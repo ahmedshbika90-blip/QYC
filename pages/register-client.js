@@ -1,10 +1,9 @@
 import { useState } from "react";
 import { useAuth } from "../lib/useAuth";
-import Link from "next/link";
 import Nav from "../components/Nav";
 import Icon from "../components/Icon";
 import BackButton from "../components/BackButton";
-import SuccessToast from "../components/SuccessToast";
+import SuccessScreen from "../components/SuccessScreen";
 import { PageLoading, Spinner } from "../components/Loading";
 import { apiFetch } from "../lib/apiFetch";
 import { invalidateClients } from "../lib/clientsStore";
@@ -83,10 +82,8 @@ export default function RegisterClient() {
         whatsapp: "",
       });
       setSameAsPhone(true);
-      // Success confirmation + a fresh tab ready for the next client, so
-      // an agent registering several clients in a row never has to wait
-      // on this one before starting the next.
-      window.open(window.location.href, "_blank");
+      // No new tab: the success card replaces the form right here, and
+      // "تسجيل عميل آخر" brings back an empty form.
     } catch (err) {
       // Connection failure: keep the same request ID so "retry" is safe.
       // Server rejection: a fresh ID next time.
@@ -100,9 +97,8 @@ export default function RegisterClient() {
   return (
     <div className="min-h-screen bg-canvas">
       <Nav role={role} logout={logout} />
-      <SuccessToast message={result ? "تم تسجيل العميل بنجاح" : ""} />
       <main className="max-w-md mx-auto px-4 pt-4 pb-8 sm:px-0">
-        <BackButton />
+        {!result && <BackButton />}
         <h1 className="font-display text-2xl font-bold mb-4 mt-1 text-ink">تسجيل عميل جديد</h1>
 
         {error && (
@@ -112,35 +108,17 @@ export default function RegisterClient() {
           </div>
         )}
 
-        {/* The client's number is the whole point of this screen — it has
-            to be big, copyable and impossible to miss, so it gets a panel
-            of its own rather than a line of green text. */}
-        {result && (
-          <div className="bg-white rounded-2xl shadow p-5 mb-4 text-center">
-            <span className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-accent-soft text-accent-ink mb-3">
-              <Icon name="check" size={26} strokeWidth={3} />
-            </span>
-            <p className="font-semibold text-ink">تم تسجيل العميل</p>
-            <p className="num text-4xl font-bold text-ink my-2 tabular-ltr tracking-wide">{result.clientId}</p>
-            <p className="text-sm text-muted">أعطِ هذا الرقم للعميل — سيستخدمه لتقديم الطلبات.</p>
-            <div className="grid grid-cols-2 gap-2 mt-4">
-              <Link
-                href="/clients"
-                className="h-11 rounded-xl bg-surface-2 text-ink text-sm font-semibold flex items-center justify-center"
-              >
-                قائمة العملاء
-              </Link>
-              <button
-                type="button"
-                onClick={() => setResult(null)}
-                className="h-11 rounded-xl bg-accent text-on-accent text-sm font-semibold flex items-center justify-center"
-              >
-                تسجيل عميل آخر
-              </button>
-            </div>
-          </div>
-        )}
-
+        {/* Success replaces the form entirely — the client's number is the
+            whole point of this moment, so it's the only thing on screen. */}
+        {result ? (
+          <SuccessScreen
+            title="تم تسجيل العميل"
+            number={result.clientId}
+            hint="أعطِ هذا الرقم للعميل — سيستخدمه لتقديم الطلبات."
+            secondary={{ label: "قائمة العملاء", href: "/clients" }}
+            primary={{ label: "تسجيل عميل آخر", onClick: () => setResult(null) }}
+          />
+        ) : (
         <form onSubmit={handleSubmit} className="bg-white rounded-2xl shadow p-5 space-y-4">
           <div>
             <label className="block text-sm text-gray-600 mb-1">اسم العميل (ثلاثي)</label>
@@ -288,6 +266,7 @@ export default function RegisterClient() {
             {submitting ? "جارٍ التسجيل..." : "تسجيل العميل"}
           </button>
         </form>
+        )}
       </main>
     </div>
   );

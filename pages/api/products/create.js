@@ -43,6 +43,7 @@ export default async function handler(req, res) {
       if (Number.isNaN(openingQty) || openingQty < 0) {
         return res.status(400).json({ error: "الرصيد الافتتاحي يجب أن يكون رقمًا موجبًا" });
       }
+      openingQty = Math.round(openingQty * 100) / 100;
     }
 
     let minStockQty = 0;

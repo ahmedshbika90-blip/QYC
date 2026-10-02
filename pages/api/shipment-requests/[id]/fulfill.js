@@ -7,10 +7,13 @@ const { bumpVersions } = require("../../../../lib/versions");
 // Turns an agent's approved shipment request into the actual
 // loading/offloading document — this is the ONLY way one gets created;
 // there is no direct/manual path anymore (see lib/movementDoc.js). The car
-// agent still has to confirm before any stock actually moves. The
-// warehouse keeper can adjust quantities here if what's physically going
-// out differs from what was requested; leaving `items` out reuses the
-// request's original quantities as-is.
+// agent still has to confirm before any stock actually moves (loading).
+//
+// The warehouse keeper CANNOT change the request: no quantities, no added
+// or removed lines. He either accepts it exactly as the agent sent it
+// (this endpoint) or cancels it with a note (./cancel.js). Any `items` in
+// the body are ignored on purpose — the request's own items are the only
+// source of truth, so a modified client can't route around the rule.
 export default async function handler(req, res) {
   if (req.method !== "PATCH") {
     return res.status(405).json({ error: "طريقة الطلب غير مسموح بها" });
@@ -21,7 +24,7 @@ export default async function handler(req, res) {
     requireRole(decoded, ["warehouse_keeper"]);
 
     const { id } = req.query;
-    const { items, note, requestId } = req.body || {};
+    const { note, requestId } = req.body || {};
     if (!isValidRequestId(requestId)) {
       return res.status(400).json({ error: "طلب غير صالح، يرجى تحديث الصفحة والمحاولة مرة أخرى" });
     }
@@ -41,18 +44,14 @@ export default async function handler(req, res) {
         .status(200)
         .json({ id: request.fulfilledDocId, dailySeq: existingDoc.exists ? existingDoc.data().dailySeq : null, duplicate: true });
     }
+    if (request.status === "cancelled") {
+      return res.status(400).json({ error: "تم إلغاء هذا الطلب — لا يمكن تنفيذه" });
+    }
     if (request.status !== "pending_warehouse") {
       return res.status(400).json({ error: "هذا الطلب ليس جاهزًا للتنفيذ" });
     }
 
-    const finalItems = Array.isArray(items) && items.length
-      ? items
-      : request.items.map((it) => ({ productId: it.productId, qty: it.qty }));
-    for (const it of finalItems) {
-      if (!it.productId || !it.qty || it.qty <= 0) {
-        return res.status(400).json({ error: "كل منتج يجب أن تكون له كمية صحيحة" });
-      }
-    }
+    const finalItems = request.items.map((it) => ({ productId: it.productId, qty: it.qty }));
 
     // Second availability check (the first ran when the agent made the
     // request — stock can move in between). For OFFLOADING the write
@@ -91,17 +90,13 @@ export default async function handler(req, res) {
       note,
       requestId,
       sourceRequestId: id,
+      // Marks the request fulfilled INSIDE the document's own transaction,
+      // after re-checking it's still pending — so a cancel that lands at
+      // the same moment can't leave a request both cancelled and executed.
+      sourceRequestRef: docRef,
     });
 
-    if (!result.duplicate) {
-      await docRef.update({
-        status: "fulfilled",
-        fulfilledDocId: result.id,
-        fulfilledAt: new Date().toISOString(),
-        fulfilledBy: decoded.uid,
-      });
-      await bumpVersions(["shipmentRequests"]);
-    }
+    if (!result.duplicate) await bumpVersions(["shipmentRequests"]);
 
     return res.status(result.duplicate ? 200 : 201).json({ id: result.id, dailySeq: result.dailySeq, duplicate: result.duplicate });
   } catch (err) {

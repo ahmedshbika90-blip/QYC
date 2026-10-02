@@ -3,8 +3,8 @@ import Link from "next/link";
 import { useAuth } from "../../lib/useAuth";
 import Nav from "../../components/Nav";
 import FilterPanel from "../../components/FilterPanel";
+import FilterChips from "../../components/FilterChips";
 import Icon from "../../components/Icon";
-import SuccessToast from "../../components/SuccessToast";
 import { PageLoading, SkeletonRows } from "../../components/Loading";
 import { apiFetch } from "../../lib/apiFetch";
 import { getClients } from "../../lib/clientsStore";
@@ -115,15 +115,7 @@ export default function ClientsList() {
           extraActiveCount={routeFilter ? 1 : 0}
         >
           {role === "supervisor" && (
-            <select
-              value={routeFilter}
-              onChange={(e) => setRouteFilter(e.target.value)}
-              className="border rounded-lg px-3 h-11 text-base"
-            >
-              <option value="">كل المسارات</option>
-              <option value="car1">مبيعات جملة</option>
-              <option value="car2">مبيعات تجزئة</option>
-            </select>
+            <FilterChips label="المسار" value={routeFilter} onChange={setRouteFilter} options={[["car1", "مبيعات جملة"], ["car2", "مبيعات تجزئة"]]} />
           )}
         </FilterPanel>
 

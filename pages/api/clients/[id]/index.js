@@ -1,8 +1,8 @@
 const { adminDb } = require("../../../../lib/firebaseAdmin");
 const { requireUser } = require("../../../../lib/apiAuth");
-const { isValidPhone } = require("../../../../lib/validation");
 const { bumpVersion } = require("../../../../lib/versions");
-const { STORE_CLASSES } = require("../../../../lib/labels");
+const { buildClientUpdates } = require("../../../../lib/clientFields");
+const { isClientEditLocked, CLIENT_EDIT_WINDOW_HOURS } = require("../../../../lib/clientEditLock");
 
 const ROLE_TO_ROUTE = {
   agent_car1: "car1",
@@ -42,35 +42,33 @@ export default async function handler(req, res) {
     if (req.method === "PATCH") {
       // Reassigning route: only a supervisor may move a client between
       // routes, since it changes which agent's queue the client belongs to.
-      // Agents may still edit name/store/location/active on their own route.
-      const { name, storeName, location, route, active, phone, whatsapp, storeClass } = req.body || {};
-
+      const { route } = req.body || {};
       if (route !== undefined && route !== client.route && decoded.role !== "supervisor") {
         return res.status(403).json({ error: "المشرف فقط يمكنه تغيير مسار العميل" });
       }
       if (!checkAccess(decoded, client.route, res)) return;
       if (route !== undefined && !["car1", "car2"].includes(route)) {
-        return res.status(400).json({ error: 'المسار يجب أن يكون جملة أو تجزئة' });
-      }
-      if (phone !== undefined && !isValidPhone(phone)) {
-        return res.status(400).json({ error: "رقم الهاتف يجب أن يتكون من 10 أرقام ويبدأ بصفر" });
-      }
-      if (storeClass !== undefined && !STORE_CLASSES.includes(storeClass)) {
-        return res.status(400).json({ error: "تصنيف المتجر يجب أن يكون A أو B أو C" });
-      }
-      if (whatsapp && !isValidPhone(whatsapp)) {
-        return res.status(400).json({ error: "رقم الواتساب يجب أن يتكون من 10 أرقام ويبدأ بصفر" });
+        return res.status(400).json({ error: "المسار يجب أن يكون جملة أو تجزئة" });
       }
 
-      const updates = { updatedAt: new Date().toISOString(), updatedBy: decoded.uid };
-      if (name !== undefined) updates.name = name;
-      if (storeName !== undefined) updates.storeName = storeName;
-      if (location !== undefined) updates.location = location;
+      // 12-hour window (lib/clientEditLock.js): after it, an agent's edit
+      // has to go through the supervisor as a request instead.
+      if (decoded.role !== "supervisor" && isClientEditLocked(client)) {
+        return res.status(423).json({
+          error: `مرّ أكثر من ${CLIENT_EDIT_WINDOW_HOURS} ساعة على تسجيل هذا العميل — التعديل يحتاج موافقة المشرف`,
+          code: "CLIENT_LOCKED",
+        });
+      }
+      if (client.pendingRequest && decoded.role !== "supervisor") {
+        return res.status(409).json({ error: "يوجد طلب تعديل لهذا العميل بانتظار المشرف" });
+      }
+
+      const updates = {
+        ...buildClientUpdates(req.body, client),
+        updatedAt: new Date().toISOString(),
+        updatedBy: decoded.uid,
+      };
       if (route !== undefined) updates.route = route;
-      if (active !== undefined) updates.active = Boolean(active);
-      if (storeClass !== undefined) updates.storeClass = storeClass;
-      if (phone !== undefined) updates.phone = phone;
-      if (whatsapp !== undefined) updates.whatsapp = whatsapp || phone || client.phone;
 
       await ref.update(updates);
       await bumpVersion("clients");

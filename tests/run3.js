@@ -102,6 +102,27 @@ eval(header + `
   // 5. Offloading: no car1 gate for EITHER car, and it finalizes the
   // moment the warehouse keeper fulfills it — no agent confirmation step
   // exists for this direction at all.
+  // One open request per agent: car1 still has reqCar1 (scenario 3) open,
+  // so a second request is refused until the keeper closes that one.
+  const blockedSecond = await call("pages/api/shipment-requests/create.js", { method: "POST", ...A1, body: { type: "offloading", items: [{ productId: "p1", qty: 2 }], requestId: "req-shipoff-car1-00" } });
+  assert.strictEqual(blockedSecond.status, 409, JSON.stringify(blockedSecond.json));
+  assert.strictEqual(blockedSecond.json.openRequestId, reqCar1.json.id);
+  // Keeper cancels it — a note is required, and nothing moves.
+  const stockBeforeCancel = (await get("products", "p1")).stock;
+  const cancelNoNote = await call("pages/api/shipment-requests/[id]/cancel.js", { method: "PATCH", ...WK, query: { id: reqCar1.json.id }, body: { note: "  " } });
+  assert.strictEqual(cancelNoNote.status, 400);
+  const cancelByAgent = await call("pages/api/shipment-requests/[id]/cancel.js", { method: "PATCH", ...A1, query: { id: reqCar1.json.id }, body: { note: "x" } });
+  assert.strictEqual(cancelByAgent.status, 403);
+  const cancelled = await call("pages/api/shipment-requests/[id]/cancel.js", { method: "PATCH", ...WK, query: { id: reqCar1.json.id }, body: { note: "الكمية غير متوفرة اليوم" } });
+  assert.strictEqual(cancelled.status, 200, JSON.stringify(cancelled.json));
+  const cancelledAgain = await call("pages/api/shipment-requests/[id]/cancel.js", { method: "PATCH", ...WK, query: { id: reqCar1.json.id }, body: { note: "الكمية غير متوفرة اليوم" } });
+  assert.ok(cancelledAgain.json.duplicate); // double tap is a no-op
+  const fulfillCancelled = await call("pages/api/shipment-requests/[id]/fulfill.js", { method: "PATCH", ...WK, query: { id: reqCar1.json.id }, body: { requestId: "req-fulfill-cancelled" } });
+  assert.strictEqual(fulfillCancelled.status, 400); // can't execute a cancelled request
+  assert.deepStrictEqual((await get("products", "p1")).stock, stockBeforeCancel);
+  assert.strictEqual((await get("shipmentRequests", reqCar1.json.id)).cancelNote, "الكمية غير متوفرة اليوم");
+  ok("one open request per agent; keeper cancels with a required note, nothing moves, cancelled can't be executed");
+
   const offCar1Req = await call("pages/api/shipment-requests/create.js", { method: "POST", ...A1, body: { type: "offloading", items: [{ productId: "p1", qty: 2 }], requestId: "req-shipoff-car1-01" } });
   assert.strictEqual(offCar1Req.status, 201, JSON.stringify(offCar1Req.json));
   const offCar1List = (await call("pages/api/shipment-requests/list.js", { ...A1, query: { scope: "own" } })).json.requests;
@@ -164,17 +185,20 @@ eval(header + `
   );
 
   const wkNotifs1 = (await call("pages/api/notifications.js", WK)).json.items;
-  const wkItem = wkNotifs1.find((it) => it.id === reqCar1.json.id);
-  assert.ok(wkItem, "warehouse keeper should still see reqCar1 (created in scenario 3, never fulfilled)");
-  assert.deepStrictEqual(
-    [wkItem.bucket, wkItem.needsAction, wkItem.requestType, wkItem.href],
-    ["shipping", true, "أمر شحن", "/shipping/" + reqCar1.json.id]
-  );
+  assert.ok(!wkNotifs1.some((it) => it.id === reqCar1.json.id)); // cancelled → no longer the keeper's work
   const wkCountBefore = wkNotifs1.filter((it) => it.needsAction).length;
   const freshOff = await call("pages/api/shipment-requests/create.js", { method: "POST", ...A2, body: { type: "offloading", items: [{ productId: "p1", qty: 1 }], requestId: "req-actioncount-off01" } });
   assert.strictEqual(freshOff.status, 201, JSON.stringify(freshOff.json));
   const wkNotifs2 = (await call("pages/api/notifications.js", WK)).json.items;
   assert.strictEqual(wkNotifs2.filter((it) => it.needsAction).length, wkCountBefore + 1);
+  const wkItem = wkNotifs2.find((it) => it.id === freshOff.json.id);
+  assert.deepStrictEqual(
+    [wkItem.bucket, wkItem.needsAction, wkItem.requestType, wkItem.route, wkItem.href],
+    ["shipping", true, "مرتجع بضاعة", "car2", "/shipping/" + freshOff.json.id]
+  );
+  // close it so car2 may send its next request
+  const freshOffDone = await call("pages/api/shipment-requests/[id]/fulfill.js", { method: "PATCH", ...WK, query: { id: freshOff.json.id }, body: { requestId: "req-actioncount-offdoc" } });
+  assert.strictEqual(freshOffDone.status, 201, JSON.stringify(freshOffDone.json));
 
   await call("pages/api/shipment-requests/create.js", { method: "POST", ...A2, body: { type: "loading", items: [{ productId: "p1", qty: 1 }], requestId: "req-actioncount-load01" } });
   const car1Notifs = (await call("pages/api/notifications.js", A1)).json.items;
@@ -188,6 +212,11 @@ eval(header + `
     [car1OwnResolved.bucket, car1OwnResolved.needsAction, car1OwnResolved.requestType, car1OwnResolved.state],
     ["shipping", false, "مرتجع بضاعة", "تم التنفيذ"]
   );
+  const car1Cancelled = car1Notifs.find((it) => it.id === reqCar1.json.id);
+  assert.deepStrictEqual(
+    [car1Cancelled.needsAction, car1Cancelled.state, car1Cancelled.note],
+    [false, "تم الإلغاء", "الكمية غير متوفرة اليوم"]
+  ); // the agent is told, with the keeper's note
   ok("notifications: supervisor/warehouse-keeper/car1 each see the right pending items; a resolved item is informational (needsAction: false)");
 
   // 8. GET /api/shipment-requests/[id]/index.js — powers the /shipping/[id]
