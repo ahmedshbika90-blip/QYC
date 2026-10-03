@@ -131,16 +131,19 @@ const ok = (msg) => { passed++; console.log("PASS", passed + ":", msg); };
   const rep = await call("pages/api/reports/sales.js", { ...A1, query: { from: today, to: today } });
   assert.strictEqual(rep.status, 200, JSON.stringify(rep.json)); assert.strictEqual(rep.json.orderCount, 1);
   let m = await call("pages/api/reports/margin.js", { ...SUP, query: { from: today } });
-  assert.strictEqual(m.json.invoiceCount, 0); assert.strictEqual(m.json.notFinalizedCount, 1);
+  // Margin is computed from LIVE invoices: the unlocked one already counts (40 − 24 = 16),
+  // and is reported as not-yet-finalized so the page can flag it as provisional.
+  assert.strictEqual(m.json.invoiceCount, 1); assert.strictEqual(m.json.notFinalizedCount, 1);
+  assert.deepStrictEqual([m.json.totals.revenue, m.json.totals.cost, m.json.totals.margin], [40, 24, 16]);
   const lk = await call("pages/api/reports/lock.js", { method: "POST", ...A1, body: { from: today, to: today, requestId: "req-lock-00000001" } });
   assert.strictEqual(lk.json.locked, 1);
   assert.ok((await get("orders", "req-invoice-000002")).lockedAt);
   m = await call("pages/api/reports/margin.js", { ...SUP, query: { from: today } });
-  assert.strictEqual(m.json.invoiceCount, 1);
+  assert.strictEqual(m.json.invoiceCount, 1); assert.strictEqual(m.json.notFinalizedCount, 0); // locking changes the label, not the figure
   assert.deepStrictEqual([m.json.totals.revenue, m.json.totals.cost, m.json.totals.margin, m.json.totals.marginPct], [40, 24, 16, 40]);
   const ma = await call("pages/api/reports/margin.js", { ...A1, query: { from: today } });
   assert.strictEqual(ma.status, 403);
-  ok("sharing locks the report's invoices; margin counts only locked: 40 − 24 = 16 (40%); agents refused");
+  ok("margin is live: 40 − 24 = 16 (40%) before and after the report's invoices are locked (only the provisional flag changes); agents refused");
 
   // 11. weighted average cost on approved receipt
   await db.collection("inventoryDocs").doc("rcv1").set({ type: "received", route: null, status: "pending", items: [{ productId: "p1", name: "Tahini", unit: "ctn", qty: 70, costPrice: null }], createdAt: new Date().toISOString() });

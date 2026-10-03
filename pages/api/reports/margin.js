@@ -32,8 +32,13 @@ export default async function handler(req, res) {
 
     const now = Date.now();
     const active = orders.filter((o) => o.status !== "cancelled");
-    const finalized = active.filter((o) => isLocked(o, now));
-    const notFinalizedCount = active.length - finalized.length;
+    // Computed from the LIVE invoices — every non-cancelled one in the
+    // period, exactly like the agents' figure — so it moves as the day goes.
+    // Invoices that aren't locked yet can still change (an edit or a
+    // cancellation), which is why they're counted separately below: the page
+    // tells the supervisor how much of the figure is still provisional.
+    const finalized = active;
+    const notFinalizedCount = active.filter((o) => !isLocked(o, now)).length;
 
     // Fallback costs only for products that need one (usually none).
     const needFallback = new Set();

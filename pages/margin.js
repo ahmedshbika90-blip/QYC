@@ -22,7 +22,7 @@ function Stat({ label, value, strong }) {
   );
 }
 
-// Supervisor-only: selling price minus supplier cost, from finalized
+// Supervisor-only: selling price minus supplier cost, from the live
 // (locked, not cancelled) invoices, by car and period.
 export default function MarginPage() {
   const { role, token, loading, logout } = useAuth(["supervisor"]);
@@ -65,7 +65,7 @@ export default function MarginPage() {
         <BackButton />
         <h1 className="text-xl font-semibold mb-1 text-gray-800">هامش التشغيل</h1>
         <p className="text-xs text-gray-400 mb-3">
-          سعر البيع − سعر المورد، من الفواتير المقفلة فقط (ضمن تقرير تمت مشاركته أو مضى عليها ٩ ساعات)، بدون الملغاة.
+          سعر البيع − سعر المورد، من الفواتير الحالية (المقفلة وغير المقفلة)، بدون الملغاة.
         </p>
 
         <PeriodTabs
@@ -122,10 +122,10 @@ export default function MarginPage() {
             )}
 
             <div className="space-y-1 mb-4">
-              <p className="text-xs text-gray-500">محسوب من {data.invoiceCount} فاتورة مقفلة.</p>
+              <p className="text-xs text-gray-500">محسوب من {data.invoiceCount} فاتورة حالية.</p>
               {data.notFinalizedCount > 0 && (
                 <p className="text-xs text-gray-500">
-                  {data.notFinalizedCount} فاتورة في هذه الفترة لم تُقفل بعد، فهي غير محتسبة حتى تُقفل.
+                  منها {data.notFinalizedCount} فاتورة لم تُقفل بعد، وقد يتغير الهامش إذا عُدّلت أو أُلغيت.
                 </p>
               )}
               {t.uncostedRevenue > 0 && (
@@ -141,7 +141,7 @@ export default function MarginPage() {
             </div>
 
             {data.products.length === 0 ? (
-              <p className="text-gray-400">لا توجد فواتير مقفلة في هذه الفترة.</p>
+              <p className="text-gray-400">لا توجد فواتير في هذه الفترة.</p>
             ) : (
               <div className="bg-white rounded-lg shadow overflow-x-auto">
                 <table className="w-full text-sm">
