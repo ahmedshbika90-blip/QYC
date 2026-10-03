@@ -5,6 +5,7 @@ import BackButton from "../components/BackButton";
 import SuccessScreen from "../components/SuccessScreen";
 import InvoiceTotals from "../components/InvoiceTotals";
 import QtyStepper from "../components/QtyStepper";
+import FreeSampleToggle from "../components/FreeSampleToggle";
 import { PageLoading, Spinner } from "../components/Loading";
 import { apiFetch } from "../lib/apiFetch";
 import { invalidate } from "../lib/apiCache";
@@ -243,6 +244,7 @@ export default function PlaceOrder() {
         price: priceFor(p),
         unit: p.unit,
         qty: 1,
+        freeSample: false,
         available: stockFor(p),
       },
     ]);
@@ -258,6 +260,10 @@ export default function PlaceOrder() {
     setCart((prev) => prev.map((it) => (it.productId === productId ? { ...it, qty } : it)));
   }
 
+  function toggleFreeSample(productId) {
+    setCart((prev) => prev.map((it) => (it.productId === productId ? { ...it, freeSample: !it.freeSample } : it)));
+  }
+
   function removeFromCart(productId) {
     setCart((prev) => prev.filter((it) => it.productId !== productId));
   }
@@ -265,6 +271,7 @@ export default function PlaceOrder() {
   // Line total mirrors the server (lib/orderCreation.js): price × qty.
   // Any discount is ONE amount off the whole invoice, entered below.
   function lineTotal(it) {
+    if (it.freeSample) return 0; // free sample: no charge, stock still moves
     return (it.price || 0) * it.qty;
   }
 
@@ -314,7 +321,7 @@ export default function PlaceOrder() {
 
     const payload = {
       clientId: selectedClient.id,
-      items: cart.map((it) => ({ productId: it.productId, qty: it.qty })),
+      items: cart.map((it) => ({ productId: it.productId, qty: it.qty, freeSample: Boolean(it.freeSample) })),
       discount: discountValue || 0,
       notes: invoiceNotes.trim(),
       requestId: newRequestId(), // one ID per invoice — resends reuse it
@@ -584,6 +591,12 @@ export default function PlaceOrder() {
                           min={0}
                           max={it.available}
                         />
+                      </div>
+                      <div className="flex flex-wrap items-center gap-2 text-sm">
+                        <FreeSampleToggle checked={Boolean(it.freeSample)} onChange={() => toggleFreeSample(it.productId)} />
+                        {it.freeSample && it.price != null && (
+                          <span className="text-xs text-muted">القيمة {formatNumber(it.price * it.qty)} — لن تُحتسب على العميل</span>
+                        )}
                       </div>
                     </div>
                   ))}

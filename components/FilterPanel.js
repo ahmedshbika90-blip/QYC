@@ -15,6 +15,8 @@ export default function FilterPanel({
   storeClass,
   onStoreClassChange,
   discountFilter,
+  sampleFilter = "",
+  onSampleFilterChange,
   onDiscountFilterChange,
   dateFrom,
   onDateFromChange,
@@ -25,7 +27,7 @@ export default function FilterPanel({
 }) {
   const [open, setOpen] = useState(false);
   const activeCount =
-    [nameQuery, locationQuery, storeClass, discountFilter, dateFrom, dateTo].filter(Boolean).length + extraActiveCount;
+    [nameQuery, locationQuery, storeClass, discountFilter, sampleFilter, dateFrom, dateTo].filter(Boolean).length + extraActiveCount;
 
   const inputClass = "border rounded-lg px-3 h-11 text-base";
 
@@ -103,6 +105,18 @@ export default function FilterPanel({
               className={inputClass}
               aria-label="إلى تاريخ"
             />
+          )}
+          {onSampleFilterChange && (
+            <select
+              value={sampleFilter}
+              onChange={(e) => onSampleFilterChange(e.target.value)}
+              className={inputClass}
+              aria-label="العينة المجانية"
+            >
+              <option value="">العينة المجانية: الكل</option>
+              <option value="with">بها عينة مجانية</option>
+              <option value="without">بدون عينة مجانية</option>
+            </select>
           )}
           {children}
         </div>

@@ -7,6 +7,7 @@ import SuccessScreen from "../../components/SuccessScreen";
 import InvoiceTotals from "../../components/InvoiceTotals";
 import { hasDiscount, orderDiscount, orderSubtotal } from "../../lib/invoiceDiscount";
 import QtyStepper from "../../components/QtyStepper";
+import FreeSampleToggle from "../../components/FreeSampleToggle";
 import { PageLoading, Spinner } from "../../components/Loading";
 import { apiFetch } from "../../lib/apiFetch";
 import { invalidate } from "../../lib/apiCache";
@@ -159,13 +160,18 @@ export default function OrderDetail() {
   function addProduct(p) {
     setCart((prev) => [
       ...prev,
-      { productId: p.id, name: p.name, price: p.price, unit: p.unit, qty: 1 },
+      { productId: p.id, name: p.name, price: p.price, unit: p.unit, qty: 1, freeSample: false },
     ]);
     setProductQuery("");
     setProductDropdownOpen(false);
   }
 
+  function toggleFreeSample(productId) {
+    setCart((prev) => prev.map((it) => (it.productId === productId ? { ...it, freeSample: !it.freeSample } : it)));
+  }
+
   function lineTotal(it) {
+    if (it.freeSample) return 0;
     return (it.price || 0) * it.qty;
   }
 
@@ -214,7 +220,7 @@ export default function OrderDetail() {
     if (needsRequest) {
       return sendChangeRequest(
         "edit",
-        cart.map((it) => ({ productId: it.productId, qty: it.qty })),
+        cart.map((it) => ({ productId: it.productId, qty: it.qty, freeSample: Boolean(it.freeSample) })),
         editDiscount
       );
     }
@@ -228,7 +234,7 @@ export default function OrderDetail() {
           Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
-          items: cart.map((it) => ({ productId: it.productId, qty: it.qty })),
+          items: cart.map((it) => ({ productId: it.productId, qty: it.qty, freeSample: Boolean(it.freeSample) })),
           discount: Number(editDiscount) || 0,
         }),
       });

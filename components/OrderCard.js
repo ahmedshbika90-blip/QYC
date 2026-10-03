@@ -16,6 +16,10 @@ function itemsSummary(items) {
 // it and send a request instead, so no button that would only be refused.
 export default function OrderCard({ order, name, location, badge, subtitle, edited, onStatusChange, canCancel = true }) {
   const isCancelled = order.status === "cancelled";
+  // Comments on the invoice are the same for every role: the order carries
+  // its own flags, so agents see "معدّلة" and "عينة مجانية" too (only the
+  // supervisor dashboard used to pass `edited`).
+  const isEdited = edited !== undefined ? edited : Boolean(order.edited);
 
   function handleCancel() {
     if (confirm("إلغاء هذه الفاتورة؟ ستبقى في السجل لكنها لن تُحتسب ضمن المبيعات.")) {
@@ -57,9 +61,20 @@ export default function OrderCard({ order, name, location, badge, subtitle, edit
             <span className={`block text-sm text-ink-soft truncate mt-0.5 ${isCancelled ? "line-through" : ""}`}>
               {itemsSummary(order.items)}
             </span>
-            {(edited || order.pendingRequest || hasDiscount(order)) && (
+            {(isEdited || order.pendingRequest || hasDiscount(order) || order.hasFreeSample) && (
               <span className="flex flex-wrap gap-1.5 mt-1.5">
-                {edited && <span className="text-[11px] font-semibold text-amber-700 bg-amber-50 rounded-md px-1.5 py-0.5">معدّلة</span>}
+                {order.hasFreeSample && (
+                  <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-accent-ink bg-accent-soft rounded-md px-1.5 py-0.5">
+                    <Icon name="gift" size={12} />
+                    عينة مجانية
+                  </span>
+                )}
+                {isEdited && (
+                  <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-amber-700 bg-amber-50 rounded-md px-1.5 py-0.5">
+                    <Icon name="pencil" size={12} />
+                    معدّلة
+                  </span>
+                )}
                 {/* Same kind of tag as "معدّلة": this invoice has a discount. */}
                 {hasDiscount(order) && (
                   <span className="text-[11px] font-semibold text-blue-700 bg-blue-50 rounded-md px-1.5 py-0.5">

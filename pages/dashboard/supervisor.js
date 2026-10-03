@@ -32,7 +32,8 @@ export default function SupervisorDashboard() {
   const [nameQuery, setNameQuery] = useState("");
   const [locationQuery, setLocationQuery] = useState("");
   const [storeClass, setStoreClass] = useState("");
-  const [discountFilter, setDiscountFilter] = useState(""); // "" | "with" | "without"
+  const [discountFilter, setDiscountFilter] = useState("");
+  const [sampleFilter, setSampleFilter] = useState(""); // "" | "with" | "without" // "" | "with" | "without"
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [period, setPeriod] = useState(7); // days; ignored when a custom date range is set
@@ -118,9 +119,11 @@ export default function SupervisorDashboard() {
       if (storeClass && clientsById[order.clientId]?.storeClass !== storeClass) return false;
       if (discountFilter === "with" && !hasDiscount(order)) return false;
       if (discountFilter === "without" && hasDiscount(order)) return false;
+      if (sampleFilter === "with" && !order.hasFreeSample) return false;
+      if (sampleFilter === "without" && order.hasFreeSample) return false;
       return true;
     };
-  }, [clientsById, routeFilter, nameQuery, locationQuery, storeClass, discountFilter]);
+  }, [clientsById, routeFilter, nameQuery, locationQuery, storeClass, discountFilter, sampleFilter]);
 
   const baseFiltered = useMemo(() => orders.filter(matchesFilters), [orders, matchesFilters]);
   const counts = useMemo(
@@ -220,6 +223,8 @@ export default function SupervisorDashboard() {
           onStoreClassChange={setStoreClass}
           discountFilter={discountFilter}
           onDiscountFilterChange={setDiscountFilter}
+          sampleFilter={sampleFilter}
+          onSampleFilterChange={setSampleFilter}
           dateFrom={dateFrom}
           onDateFromChange={setDateFrom}
           dateTo={dateTo}
@@ -227,7 +232,7 @@ export default function SupervisorDashboard() {
           />
         </div>
 
-        {(nameQuery || locationQuery || storeClass || discountFilter) && nextCursor && (
+        {(nameQuery || locationQuery || storeClass || discountFilter || sampleFilter) && nextCursor && (
           <p className="text-xs text-amber-600 mb-3">
             البحث يشمل الفواتير المحمّلة فقط — اضغط "تحميل المزيد" أو حدد فترة لنتائج أشمل.
           </p>

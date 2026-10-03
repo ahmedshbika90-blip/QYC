@@ -31,6 +31,8 @@ const PATHS = {
   wifiOff: <><path d="M2 8.5a15 15 0 0 1 5-3M22 8.5a15 15 0 0 0-8.5-3.9" /><path d="M5.5 12a10 10 0 0 1 3-2M18.5 12a10 10 0 0 0-3.5-2.2" /><path d="M9 15.5a5 5 0 0 1 6 0" /><path d="M3 3l18 18" /></>,
   refresh: <><path d="M20 12a8 8 0 1 1-2.3-5.7" /><path d="M20 4v5h-5" /></>,
   filter: <><path d="M4 5h16l-6 8v6l-4-2v-4z" /></>,
+  gift: <><rect x="3" y="8" width="18" height="4" rx="1" /><path d="M5 12v8a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-8" /><path d="M12 8v13" /><path d="M12 8c-1.5-3.5-5.5-3.5-5-1s3.5 1 5 1zM12 8c1.5-3.5 5.5-3.5 5-1s-3.5 1-5 1z" /></>,
+  pencil: <><path d="M4 20h4L19 9l-4-4L4 16z" /><path d="m13.5 6.5 4 4" /></>,
   warehouse: <><path d="M3 10 12 4l9 6v10H3z" /><path d="M7 20v-6h10v6" /><path d="M7 17h10" /></>,
 };
 

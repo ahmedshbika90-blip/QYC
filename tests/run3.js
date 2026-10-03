@@ -49,12 +49,17 @@ eval(header + `
   assert.strictEqual(tooMuch.status, 400);
   ok("damage: keeper's record waits for the supervisor (stock untouched), approval moves depot 100→95 once, keeper notified");
 
-  // 2. No free samples / per-line discounts any more — refused. One
-  // invoice-level discount instead, computed server-side; stock still moves
-  // by the full quantity.
+  // 2. A free-sample line is accepted: it costs the client nothing but the
+  // goods still leave the car, so stock moves by the full quantity. A
+  // per-LINE discount is still refused — discounts are ONE amount off the
+  // whole invoice, computed server-side.
   await db.collection("clients").doc("2000").set({ name: "C", storeName: "S", location: "L", route: "car1", phone: "0900000000", whatsapp: "0900000000", storeClass: "A", active: true });
-  const sample = await call("pages/api/orders/create-staff.js", { method: "POST", ...A1, body: { clientId: "2000", items: [{ productId: "p1", qty: 2, freeSample: true }], requestId: "req-freesample-00" } });
-  assert.strictEqual(sample.status, 400);
+  const sample = await call("pages/api/orders/create-staff.js", { method: "POST", ...A1, body: { clientId: "2000", items: [{ productId: "p1", qty: 1, freeSample: true }], requestId: "req-freesample-00" } });
+  assert.strictEqual(sample.status, 201, JSON.stringify(sample.json));
+  assert.deepStrictEqual([sample.json.subtotal, sample.json.discount, sample.json.total], [0, 0, 0]); // free: no charge
+  const sampleDoc = await get("orders", "req-freesample-00");
+  assert.strictEqual(sampleDoc.items[0].freeSample, true);
+  assert.strictEqual(sampleDoc.items[0].subtotal, 0);
   const lineDisc = await call("pages/api/orders/create-staff.js", { method: "POST", ...A1, body: { clientId: "2000", items: [{ productId: "p1", qty: 2, discount: 5 }], requestId: "req-linedisc-00" } });
   assert.strictEqual(lineDisc.status, 400);
   const tooBig = await call("pages/api/orders/create-staff.js", { method: "POST", ...A1, body: { clientId: "2000", items: [{ productId: "p1", qty: 5 }], discount: 51, requestId: "req-bigdisc-000" } });
@@ -70,8 +75,8 @@ eval(header + `
   assert.deepStrictEqual([ord.json.subtotal, ord.json.discount, ord.json.total], [50, 5, 45]);
   assert.strictEqual((await get("orders", "req-freesample-01")).notes, "التسليم بعد العصر"); // note saved at creation
   const afterSale = (await get("products", "p1")).stock;
-  assert.strictEqual(afterSale.car1, 5); // full quantity moved
-  ok("free sample & per-line discount refused; invoice discount 50 − 5 = 45; note saved with the new invoice");
+  assert.strictEqual(afterSale.car1, 4); // 1 free sample + 5 sold: full quantity moved for both
+  ok("free sample accepted at zero charge (stock moves); per-line discount refused; invoice discount 50 − 5 = 45; note saved with the new invoice");
 
   // 3. Shipment-request workflow: car1 skips straight to the warehouse
   // keeper; car2 needs car1's approval first, and only car1 (not the
@@ -167,7 +172,7 @@ eval(header + `
   const stockAfterOffloads = (await get("products", "p1")).stock;
   assert.deepStrictEqual(
     [stockAfterOffloads.depot, stockAfterOffloads.car1, stockAfterOffloads.car2],
-    [93, 3, 4] // depot 89+2+2, car1 5-2, car2 6-2 — both offloads moved stock immediately
+    [93, 2, 4] // depot 89+2+2, car1 4-2 (1 unit went out as a free sample earlier), car2 6-2 — both offloads moved stock immediately
   );
   ok("offloading: no car1 gate for either car, finalizes immediately on fulfill, no leftover confirm step");
 

@@ -33,7 +33,8 @@ export default function Car1Dashboard() {
   const [nameQuery, setNameQuery] = useState("");
   const [locationQuery, setLocationQuery] = useState("");
   const [storeClass, setStoreClass] = useState("");
-  const [discountFilter, setDiscountFilter] = useState(""); // "" | "with" | "without"
+  const [discountFilter, setDiscountFilter] = useState("");
+  const [sampleFilter, setSampleFilter] = useState(""); // "" | "with" | "without" // "" | "with" | "without"
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [period, setPeriod] = useState(7); // days; ignored when a custom date range is set
@@ -119,9 +120,11 @@ export default function Car1Dashboard() {
       if (storeClass && clientsById[order.clientId]?.storeClass !== storeClass) return false;
       if (discountFilter === "with" && !hasDiscount(order)) return false;
       if (discountFilter === "without" && hasDiscount(order)) return false;
+      if (sampleFilter === "with" && !order.hasFreeSample) return false;
+      if (sampleFilter === "without" && order.hasFreeSample) return false;
       return true;
     };
-  }, [clientsById, nameQuery, locationQuery, storeClass, discountFilter]);
+  }, [clientsById, nameQuery, locationQuery, storeClass, discountFilter, sampleFilter]);
 
   const baseFiltered = useMemo(() => orders.filter(matchesFilters), [orders, matchesFilters]);
   const counts = useMemo(
@@ -231,6 +234,8 @@ export default function Car1Dashboard() {
             onStoreClassChange={setStoreClass}
             discountFilter={discountFilter}
             onDiscountFilterChange={setDiscountFilter}
+            sampleFilter={sampleFilter}
+            onSampleFilterChange={setSampleFilter}
             dateFrom={dateFrom}
             onDateFromChange={setDateFrom}
             dateTo={dateTo}
@@ -238,7 +243,7 @@ export default function Car1Dashboard() {
           />
         </div>
 
-        {(nameQuery || locationQuery || storeClass || discountFilter) && nextCursor && (
+        {(nameQuery || locationQuery || storeClass || discountFilter || sampleFilter) && nextCursor && (
           <p className="text-xs text-amber-700 bg-amber-50 rounded-xl px-3 py-2 mb-3">
             البحث يشمل الفواتير المحمّلة فقط — اضغط &quot;تحميل المزيد&quot; أو حدد فترة لنتائج أشمل.
           </p>
