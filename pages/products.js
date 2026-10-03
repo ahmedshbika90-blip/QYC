@@ -5,8 +5,69 @@ import { PageLoading, SkeletonRows, Spinner } from "../components/Loading";
 import { apiFetch } from "../lib/apiFetch";
 import { useRequestId } from "../lib/useRequestId";
 import { formatNumber, formatQty } from "../lib/labels";
+import { cleanMoneyInput, cleanQtyInput } from "../lib/qty";
+import { PRODUCT_CATEGORIES, PRODUCT_UNITS } from "../lib/constants";
 
 const emptyForm = { name: "", category: "", unit: "", priceCar1: "", priceCar2: "", depotStock: "", avgCost: "" };
+
+const fieldClass = "border rounded-lg px-3 h-12 text-base w-full bg-white";
+
+// Money box: decimals allowed. Text field (not type="number") so the
+// decimal point works on every phone keyboard; Arabic digits and "٫" are
+// converted to English as they are typed.
+function MoneyInput({ value, onChange, placeholder, required, className = "" }) {
+  return (
+    <input
+      type="text"
+      inputMode="decimal"
+      dir="ltr"
+      value={value}
+      onChange={(e) => onChange(cleanMoneyInput(e.target.value))}
+      placeholder={placeholder}
+      required={required}
+      className={`${fieldClass} text-end placeholder:text-right ${className}`}
+    />
+  );
+}
+
+// Quantity box: whole numbers only — no decimal point can be typed.
+function WholeInput({ value, onChange, placeholder, className = "" }) {
+  return (
+    <input
+      type="text"
+      inputMode="numeric"
+      pattern="[0-9]*"
+      dir="ltr"
+      value={value}
+      onChange={(e) => onChange(cleanQtyInput(e.target.value))}
+      placeholder={placeholder}
+      className={`${fieldClass} text-end placeholder:text-right ${className}`}
+    />
+  );
+}
+
+// Fixed list. `current` is a product's old free-text value (from before
+// the lists existed): shown as a hint, but an edit must pick from the list.
+function ListSelect({ value, onChange, options, placeholder, current, className = "" }) {
+  const legacy = current && !options.includes(current) ? current : null;
+  return (
+    <div className={className}>
+      <select value={value} onChange={(e) => onChange(e.target.value)} required className={fieldClass}>
+        <option value="" disabled>
+          {placeholder}
+        </option>
+        {options.map((o) => (
+          <option key={o} value={o}>
+            {o}
+          </option>
+        ))}
+      </select>
+      {legacy && (
+        <p className="text-xs text-amber-600 mt-1">القيمة الحالية «{legacy}» غير موجودة في القائمة — اختر من القائمة.</p>
+      )}
+    </div>
+  );
+}
 
 export default function Products() {
   const { role, token, loading, logout } = useAuth();
@@ -81,12 +142,14 @@ export default function Products() {
     setEditingId(product.id);
     setEditForm({
       name: product.name,
-      category: product.category || "",
-      unit: product.unit,
-      priceCar1: product.prices?.car1 ?? "",
-      priceCar2: product.prices?.car2 ?? "",
-      depotStock: product.stock?.depot ?? 0,
-      avgCost: product.avgCost ?? "",
+      // Old free-text values aren't in the lists: start empty so the
+      // supervisor has to choose (the old value is shown as a hint).
+      category: PRODUCT_CATEGORIES.includes(product.category) ? product.category : "",
+      unit: PRODUCT_UNITS.includes(product.unit) ? product.unit : "",
+      priceCar1: String(product.prices?.car1 ?? ""),
+      priceCar2: String(product.prices?.car2 ?? ""),
+      depotStock: String(product.stock?.depot ?? 0),
+      avgCost: product.avgCost != null ? String(product.avgCost) : "",
     });
   }
 
@@ -165,53 +228,43 @@ export default function Products() {
               placeholder="اسم المنتج"
               value={addForm.name}
               onChange={(e) => setAddForm({ ...addForm, name: e.target.value })}
-              className="border rounded-lg px-3 h-12 text-base"
+              className={`${fieldClass} sm:col-span-2`}
               required
             />
-            <input
-              type="text"
-              placeholder="الفئة (اختياري)"
+            <ListSelect
               value={addForm.category}
-              onChange={(e) => setAddForm({ ...addForm, category: e.target.value })}
-              className="border rounded-lg px-3 h-12 text-base"
+              onChange={(v) => setAddForm({ ...addForm, category: v })}
+              options={PRODUCT_CATEGORIES}
+              placeholder="نوع المنتج"
             />
-            <input
-              type="text"
-              placeholder="الوحدة (مثال: كرتون، قطعة، كيلو)"
+            <ListSelect
               value={addForm.unit}
-              onChange={(e) => setAddForm({ ...addForm, unit: e.target.value })}
-              className="border rounded-lg px-3 h-12 text-base sm:col-span-2"
-              required
+              onChange={(v) => setAddForm({ ...addForm, unit: v })}
+              options={PRODUCT_UNITS}
+              placeholder="الوحدة"
             />
-            <input
-              type="number"
-              step="0.01"
-              min="0"
+            <MoneyInput
               placeholder="سعر الجملة"
               value={addForm.priceCar1}
-              onChange={(e) => setAddForm({ ...addForm, priceCar1: e.target.value })}
-              className="border rounded-lg px-3 h-12 text-base"
+              onChange={(v) => setAddForm({ ...addForm, priceCar1: v })}
               required
             />
-            <input
-              type="number"
-              step="0.01"
-              min="0"
+            <MoneyInput
               placeholder="سعر التجزئة"
               value={addForm.priceCar2}
-              onChange={(e) => setAddForm({ ...addForm, priceCar2: e.target.value })}
-              className="border rounded-lg px-3 h-12 text-base"
+              onChange={(v) => setAddForm({ ...addForm, priceCar2: v })}
               required
             />
-            <input
-              type="number"
-              step="0.01"
-              inputMode="decimal"
-              min="0"
+            <MoneyInput
+              placeholder="تكلفة الوحدة من المورد"
+              value={addForm.avgCost}
+              onChange={(v) => setAddForm({ ...addForm, avgCost: v })}
+              required
+            />
+            <WholeInput
               placeholder="الرصيد الافتتاحي بالمخزن (اختياري)"
               value={addForm.depotStock}
-              onChange={(e) => setAddForm({ ...addForm, depotStock: e.target.value })}
-              className="border rounded-lg px-3 h-12 text-base sm:col-span-2"
+              onChange={(v) => setAddForm({ ...addForm, depotStock: v })}
             />
             <button
               type="submit"
@@ -237,63 +290,47 @@ export default function Products() {
                     type="text"
                     value={editForm.name}
                     onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
-                    className="border rounded-lg px-3 h-12 text-base"
+                    className={`${fieldClass} sm:col-span-2`}
                     placeholder="الاسم"
                   />
-                  <input
-                    type="text"
+                  <ListSelect
                     value={editForm.category}
-                    onChange={(e) => setEditForm({ ...editForm, category: e.target.value })}
-                    className="border rounded-lg px-3 h-12 text-base"
-                    placeholder="الفئة"
+                    onChange={(v) => setEditForm({ ...editForm, category: v })}
+                    options={PRODUCT_CATEGORIES}
+                    placeholder="نوع المنتج"
+                    current={p.category}
                   />
-                  <input
-                    type="text"
+                  <ListSelect
                     value={editForm.unit}
-                    onChange={(e) => setEditForm({ ...editForm, unit: e.target.value })}
-                    className="border rounded-lg px-3 h-12 text-base sm:col-span-2"
+                    onChange={(v) => setEditForm({ ...editForm, unit: v })}
+                    options={PRODUCT_UNITS}
                     placeholder="الوحدة"
+                    current={p.unit}
                   />
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0"
+                  <MoneyInput
                     value={editForm.priceCar1}
-                    onChange={(e) => setEditForm({ ...editForm, priceCar1: e.target.value })}
-                    className="border rounded-lg px-3 h-12 text-base"
+                    onChange={(v) => setEditForm({ ...editForm, priceCar1: v })}
                     placeholder="سعر الجملة"
                   />
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0"
+                  <MoneyInput
                     value={editForm.priceCar2}
-                    onChange={(e) => setEditForm({ ...editForm, priceCar2: e.target.value })}
-                    className="border rounded-lg px-3 h-12 text-base"
+                    onChange={(v) => setEditForm({ ...editForm, priceCar2: v })}
                     placeholder="سعر التجزئة"
                   />
-                  <input
-                    type="number"
-                    step="0.01"
-                    inputMode="decimal"
-                    min="0"
+                  <WholeInput
                     value={editForm.depotStock}
-                    onChange={(e) => setEditForm({ ...editForm, depotStock: e.target.value })}
-                    className="border rounded-lg px-3 h-12 text-base sm:col-span-2"
+                    onChange={(v) => setEditForm({ ...editForm, depotStock: v })}
                     placeholder="رصيد المخزن"
+                    className="sm:col-span-2"
                   />
                   <div className="sm:col-span-2">
-                    <input
-                      type="number"
-                      step="0.01"
-                      min="0"
+                    <MoneyInput
                       value={editForm.avgCost}
-                      onChange={(e) => setEditForm({ ...editForm, avgCost: e.target.value })}
-                      className="border rounded-lg px-3 h-12 text-base w-full"
+                      onChange={(v) => setEditForm({ ...editForm, avgCost: v })}
                       placeholder="تكلفة الوحدة من المورد (لهامش التشغيل)"
                     />
                     <p className="text-xs text-gray-400 mt-1">
-                      تُحدَّث تلقائيًا بمتوسط أسعار المورد عند اعتماد كل استلام. عدّلها هنا فقط لتحديد تكلفة المخزون الحالي.
+                      تُحدَّث تلقائيًا بآخر سعر مورد عند اعتماد كل استلام، وتُطبَّق على كل المخزون. الفواتير السابقة تبقى على تكلفتها.
                     </p>
                   </div>
                   <div className="sm:col-span-2 flex gap-2">

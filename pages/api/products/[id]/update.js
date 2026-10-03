@@ -1,5 +1,27 @@
 const { adminDb } = require("../../../../lib/firebaseAdmin");
 const { requireUser, requireRole } = require("../../../../lib/apiAuth");
+const { parseDecimal, parseQty } = require("../../../../lib/qty");
+const { PRODUCT_CATEGORIES, PRODUCT_UNITS } = require("../../../../lib/constants");
+
+function fail(message) {
+  const err = new Error(message);
+  err.statusCode = 400;
+  return err;
+}
+
+// Money: decimals allowed; Arabic digits and "٫" / "," accepted.
+function parseMoney(value, label) {
+  const n = parseDecimal(value);
+  if (!Number.isFinite(n) || n < 0) throw fail(`${label} يجب أن يكون رقمًا موجبًا`);
+  return Math.round(n * 100) / 100;
+}
+
+// Quantities: whole numbers only.
+function parseWhole(value, label) {
+  const n = parseQty(value);
+  if (!Number.isInteger(n) || n < 0) throw fail(`${label} يجب أن يكون عددًا صحيحًا بدون كسور`);
+  return n;
+}
 
 export default async function handler(req, res) {
   if (req.method !== "PATCH") {
@@ -21,62 +43,49 @@ export default async function handler(req, res) {
     const product = snap.data();
 
     const updates = { updatedAt: new Date().toISOString(), updatedBy: decoded.uid };
-    if (name !== undefined) updates.name = name;
-    if (unit !== undefined) updates.unit = unit;
-    if (category !== undefined) updates.category = category;
+    if (name !== undefined) {
+      const clean = String(name).trim();
+      if (!clean) throw fail("اسم المنتج مطلوب");
+      updates.name = clean;
+    }
+    // Type and unit come from fixed lists. Old free-text values stay on
+    // the product until it is edited; an edit must choose from the lists.
+    if (unit !== undefined) {
+      if (!PRODUCT_UNITS.includes(unit)) throw fail("اختر الوحدة من القائمة");
+      updates.unit = unit;
+    }
+    if (category !== undefined) {
+      if (!PRODUCT_CATEGORIES.includes(category)) throw fail("اختر نوع المنتج من القائمة");
+      updates.category = category;
+    }
     if (active !== undefined) updates.active = Boolean(active);
 
     if (priceCar1 !== undefined || priceCar2 !== undefined) {
       const nextPrices = { ...(product.prices || {}) };
-      if (priceCar1 !== undefined) {
-        const n = Number(priceCar1);
-        if (Number.isNaN(n) || n < 0) {
-          return res.status(400).json({ error: "سعر الجملة يجب أن يكون رقمًا موجبًا" });
-        }
-        nextPrices.car1 = n;
-      }
-      if (priceCar2 !== undefined) {
-        const n = Number(priceCar2);
-        if (Number.isNaN(n) || n < 0) {
-          return res.status(400).json({ error: "سعر التجزئة يجب أن يكون رقمًا موجبًا" });
-        }
-        nextPrices.car2 = n;
-      }
+      if (priceCar1 !== undefined) nextPrices.car1 = parseMoney(priceCar1, "سعر الجملة");
+      if (priceCar2 !== undefined) nextPrices.car2 = parseMoney(priceCar2, "سعر التجزئة");
       updates.prices = nextPrices;
     }
 
-    // Depot stock can be corrected directly by the supervisor (e.g. an
-    // opening balance for a product that existed before inventory
-    // tracking was turned on, or fixing a real-world count mismatch).
-    // car1/car2 stock is deliberately NOT editable here — those only ever
-    // change through a confirmed Loading/Offloading document, so there's
-    // always a clear record of how stock moved between the depot and a
-    // car, rather than a silent manual override.
-    // Unit cost used for the operating margin. Normally maintained
-    // automatically (weighted average of approved supplier prices); set it
-    // here to give existing/opening stock a cost.
-    if (avgCost !== undefined && avgCost !== "") {
-      const n = Number(avgCost);
-      if (Number.isNaN(n) || n < 0) {
-        return res.status(400).json({ error: "تكلفة الوحدة يجب أن تكون رقمًا موجبًا" });
-      }
-      updates.avgCost = Math.round(n * 100) / 100;
+    // Unit cost used for the operating margin. Normally set automatically
+    // to the latest approved supplier price; can be corrected here. It
+    // applies to all stock on hand and to sales from now on — invoices
+    // already made keep the cost they were sold at.
+    if (avgCost !== undefined) {
+      if (avgCost === "" || avgCost === null) throw fail("تكلفة الوحدة مطلوبة");
+      updates.avgCost = parseMoney(avgCost, "تكلفة الوحدة");
     }
 
+    // Depot stock can be corrected directly by the supervisor (e.g. fixing
+    // a real-world count mismatch). car1/car2 stock is deliberately NOT
+    // editable here — those only ever change through a confirmed
+    // Loading/Offloading document, so there's always a clear record.
     if (depotStock !== undefined) {
-      const n = Number(depotStock);
-      if (Number.isNaN(n) || n < 0) {
-        return res.status(400).json({ error: "رصيد المخزن يجب أن يكون رقمًا موجبًا" });
-      }
-      updates["stock.depot"] = Math.round(n * 100) / 100;
+      updates["stock.depot"] = parseWhole(depotStock, "رصيد المخزن");
     }
 
     if (minStock !== undefined && minStock !== "") {
-      const n = Number(minStock);
-      if (Number.isNaN(n) || n < 0) {
-        return res.status(400).json({ error: "حد التنبيه يجب أن يكون رقمًا موجبًا" });
-      }
-      updates.minStock = n;
+      updates.minStock = parseWhole(minStock, "حد التنبيه");
     }
 
     await ref.update(updates);

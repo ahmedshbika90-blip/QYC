@@ -10,6 +10,7 @@ import { apiFetch } from "../../lib/apiFetch";
 import { invalidate } from "../../lib/apiCache";
 import { useRequestId } from "../../lib/useRequestId";
 import { formatQty } from "../../lib/labels";
+import { PRODUCT_CATEGORIES } from "../../lib/constants";
 
 // Warehouse keeper's depot section: current depot balances (depot only —
 // no car stock, no prices), logging goods received from the supplier
@@ -58,6 +59,32 @@ export default function WarehouseInventory() {
     () => products.filter((p) => !search || p.name.toLowerCase().includes(search.toLowerCase())),
     [products, search]
   );
+
+  // رصيد المخزن grouped by product type, each with its total depot units.
+  // Units can't be added across different kinds (a جردل isn't a كرتونة),
+  // so a type's total is shown per unit, e.g. "120 جردل + 40 كرتونة".
+  // Totals always cover the whole type, not just the search results.
+  const stockGroups = useMemo(() => {
+    const NONE = "بدون نوع";
+    const typeOf = (p) => p.category || NONE;
+    const order = [...PRODUCT_CATEGORIES];
+    products.forEach((p) => {
+      if (!order.includes(typeOf(p))) order.push(typeOf(p));
+    });
+    order.sort((a, b) => (a === NONE) - (b === NONE));
+    return order
+      .map((category) => {
+        const all = products.filter((p) => typeOf(p) === category);
+        const byUnit = new Map();
+        all.forEach((p) => byUnit.set(p.unit, (byUnit.get(p.unit) || 0) + (p.stock?.depot ?? 0)));
+        return {
+          category,
+          totals: [...byUnit.entries()],
+          items: visibleProducts.filter((p) => typeOf(p) === category),
+        };
+      })
+      .filter((g) => g.items.length > 0);
+  }, [products, visibleProducts]);
 
   async function submit(e) {
     e.preventDefault();
@@ -182,17 +209,36 @@ export default function WarehouseInventory() {
             ) : visibleProducts.length === 0 ? (
               <p className="text-gray-400">لا توجد منتجات.</p>
             ) : (
-              <div className="bg-white rounded-lg shadow divide-y">
-                {visibleProducts.map((p) => (
-                  <div key={p.id} className="flex items-center justify-between p-4">
-                    <div>
-                      <p className="text-gray-800">{p.name}</p>
-                      {p.lowStock && <p className="text-xs text-amber-600 mt-0.5">رصيد منخفض</p>}
+              <div className="space-y-4">
+                {stockGroups.map((g) => (
+                  <section key={g.category} className="bg-white rounded-lg shadow overflow-hidden">
+                    <div className="flex items-center justify-between gap-3 px-4 py-3 bg-gray-100">
+                      <h2 className="font-bold text-gray-800">{g.category}</h2>
+                      <p className="text-sm text-gray-700 text-left">
+                        <span className="text-xs text-gray-500 ml-1">المجموع:</span>
+                        {g.totals.map(([unit, qty], i) => (
+                          <span key={unit} className="whitespace-nowrap">
+                            {i > 0 && <span className="text-gray-400 mx-1">+</span>}
+                            <span className="font-bold tabular-ltr">{formatQty(qty)}</span>{" "}
+                            <span className="text-xs text-gray-500">{unit}</span>
+                          </span>
+                        ))}
+                      </p>
                     </div>
-                    <p className={`font-medium ${(p.stock?.depot ?? 0) === 0 ? "text-red-500" : "text-gray-800"}`}>
-                      {formatQty(p.stock?.depot ?? 0)} <span className="text-xs text-gray-400 font-normal">{p.unit}</span>
-                    </p>
-                  </div>
+                    <div className="divide-y">
+                      {g.items.map((p) => (
+                        <div key={p.id} className="flex items-center justify-between p-4">
+                          <div>
+                            <p className="text-gray-800">{p.name}</p>
+                            {p.lowStock && <p className="text-xs text-amber-600 mt-0.5">رصيد منخفض</p>}
+                          </div>
+                          <p className={`font-medium ${(p.stock?.depot ?? 0) === 0 ? "text-red-500" : "text-gray-800"}`}>
+                            {formatQty(p.stock?.depot ?? 0)} <span className="text-xs text-gray-400 font-normal">{p.unit}</span>
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  </section>
                 ))}
               </div>
             )}

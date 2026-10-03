@@ -2,7 +2,7 @@ const { adminDb } = require("../../../lib/firebaseAdmin");
 const { requireUser, requireRole } = require("../../../lib/apiAuth");
 const { isValidRequestId } = require("../../../lib/requestId");
 const { bumpVersions } = require("../../../lib/versions");
-const { roundQty, parseDecimal, isValidQty } = require("../../../lib/qty");
+const { parseQty, isValidQty } = require("../../../lib/qty");
 const { isOpenStatus, SHIPMENT_TYPE_LABELS } = require("../../../lib/shipmentStatus");
 
 const ROLE_TO_ROUTE = { agent_car1: "car1", agent_car2: "car2" };
@@ -53,7 +53,7 @@ export default async function handler(req, res) {
     }
     for (const it of items) {
       if (!it.productId || !isValidQty(it.qty)) {
-        return res.status(400).json({ error: "كل منتج يجب أن تكون له كمية أكبر من صفر" });
+        return res.status(400).json({ error: "كل منتج يجب أن تكون له كمية بعدد صحيح أكبر من صفر (بدون كسور)" });
       }
     }
     const seen = new Set();
@@ -96,7 +96,7 @@ export default async function handler(req, res) {
         throw err;
       }
       const data = snap.data();
-      const qty = roundQty(parseDecimal(it.qty));
+      const qty = parseQty(it.qty);
       const available = data.stock?.[sourceField] ?? 0;
       if (qty > available) {
         shortages.push({ productId: it.productId, name: data.name, requested: qty, available });

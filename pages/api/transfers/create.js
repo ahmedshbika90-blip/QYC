@@ -1,7 +1,7 @@
 const { adminDb } = require("../../../lib/firebaseAdmin");
 const { requireUser, requireRole } = require("../../../lib/apiAuth");
 const { bumpVersions } = require("../../../lib/versions");
-const { roundQty, parseDecimal } = require("../../../lib/qty");
+const { parseQty, isValidQty } = require("../../../lib/qty");
 
 // Internal stock transfer OUT of the main depot to another center.
 //
@@ -34,9 +34,9 @@ export default async function handler(req, res) {
     // One line per product (merge duplicates), positive quantities only.
     const byId = new Map();
     for (const it of items) {
-      const qty = roundQty(parseDecimal(it?.qty));
-      if (!it?.productId || !(qty > 0)) throw fail("كمية غير صالحة");
-      byId.set(it.productId, roundQty((byId.get(it.productId) || 0) + qty));
+      if (!it?.productId || !isValidQty(it?.qty)) throw fail("الكمية يجب أن تكون عددًا صحيحًا أكبر من صفر (بدون كسور)");
+      const qty = parseQty(it.qty);
+      byId.set(it.productId, (byId.get(it.productId) || 0) + qty);
     }
     const ids = [...byId.keys()];
     const snaps = await adminDb.getAll(...ids.map((id) => adminDb.collection("products").doc(id)));

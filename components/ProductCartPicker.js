@@ -3,7 +3,7 @@ import Icon from "./Icon";
 import QtyStepper from "./QtyStepper";
 import { formatQty } from "../lib/labels";
 
-// Search a product, tap to add it, adjust quantity with a stepper.
+// Search a product, tap to add it, then type the quantity (whole numbers).
 // `hint(product)` optionally returns small text shown next to each result
 // (e.g. current depot stock). Quantity 0 removes the line.
 // `maxFor(product)` caps a line's quantity at what's actually available

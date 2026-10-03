@@ -9,6 +9,7 @@ import { invalidate } from "../../lib/apiCache";
 import { useLiveRefresh } from "../../lib/useLiveRefresh";
 import { shareElementAsPdf } from "../../lib/sharePdf";
 import { formatDateTime } from "../../lib/labels";
+import { cleanMoneyInput } from "../../lib/qty";
 
 const TYPE_LABELS = {
   received: "استلام بضاعة",
@@ -294,22 +295,22 @@ export default function InventoryDocDetail() {
           {canReviewReceived && (
             <div className="mt-6 border-t pt-4 no-pdf">
               <p className="text-sm text-gray-600 mb-3">
-                أدخل سعر المورد للوحدة قبل الاعتماد (اختياري لكل منتج):
+                أدخل سعر المورد للوحدة قبل الاعتماد (اختياري لكل منتج). السعر الجديد يصبح تكلفة كل المخزون من هذا المنتج:
               </p>
               <div className="space-y-2 mb-4">
                 {doc.items.map((it) => (
                   <div key={it.productId} className="flex items-center justify-between gap-3">
                     <p className="text-sm text-gray-700">{it.name}</p>
                     <input
-                      type="number"
-                      step="0.01"
-                      min="0"
+                      type="text"
+                      inputMode="decimal"
+                      dir="ltr"
                       value={costPrices[it.productId] ?? ""}
                       onChange={(e) =>
-                        setCostPrices((prev) => ({ ...prev, [it.productId]: e.target.value }))
+                        setCostPrices((prev) => ({ ...prev, [it.productId]: cleanMoneyInput(e.target.value) }))
                       }
                       placeholder="سعر المورد للوحدة"
-                      className="w-40 border rounded-lg px-3 h-10 text-sm"
+                      className="w-40 border rounded-lg px-3 h-10 text-sm text-end placeholder:text-right"
                     />
                   </div>
                 ))}

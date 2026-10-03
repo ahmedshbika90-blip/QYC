@@ -2,6 +2,7 @@ const { adminDb } = require("../../../../lib/firebaseAdmin");
 const { requireUser, requireRole } = require("../../../../lib/apiAuth");
 const { applyStockMovements } = require("../../../../lib/inventory");
 const { bumpVersions } = require("../../../../lib/versions");
+const { parseDecimal } = require("../../../../lib/qty");
 
 // Only the supervisor can approve a Goods Received or a Damage document —
 // this is the actual gate that moves stock. Both arrive in his الطلبات
@@ -78,13 +79,18 @@ export default async function handler(req, res) {
     // item, then move the stock — both inside one transaction so a
     // failure partway through never leaves stock updated without the
     // document reflecting it, or vice versa.
-    const pricedItems = doc.items.map((it) => ({
-      ...it,
-      costPrice:
-        costPrices && costPrices[it.productId] !== undefined && costPrices[it.productId] !== ""
-          ? Number(costPrices[it.productId])
-          : null,
-    }));
+    // Supplier price: decimals allowed, Arabic digits accepted.
+    const pricedItems = doc.items.map((it) => {
+      const raw = costPrices ? costPrices[it.productId] : undefined;
+      if (raw === undefined || raw === null || raw === "") return { ...it, costPrice: null };
+      const n = parseDecimal(raw);
+      if (!Number.isFinite(n) || n < 0) {
+        const err = new Error(`سعر المورد لمنتج "${it.name}" يجب أن يكون رقمًا موجبًا`);
+        err.statusCode = 400;
+        throw err;
+      }
+      return { ...it, costPrice: Math.round(n * 100) / 100 };
+    });
 
     // Re-checked inside the transaction so a double submission can never
     // add the same delivery to depot stock twice.
@@ -92,9 +98,12 @@ export default async function handler(req, res) {
       const fresh = await tx.get(docRef);
       if (fresh.data().status !== "pending") return;
 
-      // Weighted-average cost: blend the new supplier price with the cost
-      // of stock already on hand (depot + both cars), weighted by quantity.
-      // Read BEFORE stock moves, so "on hand" is the pre-delivery amount.
+      // Latest cost: the new supplier price becomes the unit cost of ALL
+      // stock of that product (depot + both cars) — no averaging with the
+      // old cost. Invoices already made keep the unitCost saved on their
+      // lines, so their margin doesn't change; only sales from now on use
+      // the new cost. (If the same product appears twice in one receipt at
+      // different prices, that receipt's own weighted price is used.)
       const costUpdates = [];
       const byProduct = new Map();
       for (const it of pricedItems) {
@@ -106,11 +115,7 @@ export default async function handler(req, res) {
       }
       for (const [productId, inc] of byProduct) {
         const ref = adminDb.collection("products").doc(productId);
-        const p = (await tx.get(ref)).data() || {};
-        const onHand = Math.max(0, (p.stock?.depot || 0) + (p.stock?.car1 || 0) + (p.stock?.car2 || 0));
-        const oldAvg = typeof p.avgCost === "number" ? p.avgCost : inc.value / inc.qty;
-        const newAvg = (onHand * oldAvg + inc.value) / (onHand + inc.qty);
-        costUpdates.push({ ref, avgCost: Math.round(newAvg * 100) / 100 });
+        costUpdates.push({ ref, avgCost: Math.round((inc.value / inc.qty) * 100) / 100 });
       }
 
       await applyStockMovements(

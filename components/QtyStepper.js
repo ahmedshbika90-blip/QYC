@@ -1,89 +1,65 @@
 import { useEffect, useState } from "react";
-import { parseDecimal, roundQty } from "../lib/qty";
+import { cleanQtyInput, parseQty } from "../lib/qty";
 
-// Large +/- buttons instead of a tiny number field — much easier to tap
-// accurately on a phone or tablet than typing into a narrow input.
+// The quantity box on every cart line (invoices, loading requests,
+// receiving, damaged goods). Typed only — no +/− buttons — and large
+// enough to read and tap easily on a phone.
 //
-// Quantities may be fractional (2.5, 0.25 …). The field keeps its own
-// text while the person is typing, so an in-progress "2." or "0.0" isn't
-// snapped back to a whole number mid-keystroke; it's parsed (Arabic digits
-// and "٫" accepted), rounded to 2 decimals and clamped to [min, max] as it
-// goes, and tidied on blur. +/- still step by one whole unit.
+// Whole numbers only: Arabic digits are turned into English ones as they
+// are typed, and anything that isn't a digit (".", "٫", ",") is dropped,
+// so a fraction can't be entered at all. Kept capped at [min, max].
 export default function QtyStepper({ value, onChange, min = 0, max }) {
   const qty = Number(value) || 0;
   const [draft, setDraft] = useState(String(qty));
 
-  // Follow outside changes (+/- buttons, a cap applied by the parent)
-  // without clobbering what's being typed when it already means the same.
+  // Follow outside changes (a cap applied by the parent) without
+  // clobbering what is being typed when it already means the same.
   useEffect(() => {
-    const typed = parseDecimal(draft);
-    if (!Number.isFinite(typed) || roundQty(typed) !== qty) {
-      // An in-progress "0." / "0.0" stays as typed until it means something.
-      if (qty === 0 && /^[0٠۰]*[.,٫]?[0٠۰]*$/.test(draft.trim())) return;
-      setDraft(String(qty));
-    }
+    const typed = parseQty(draft);
+    if (draft !== "" && typed !== qty) setDraft(String(qty));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [qty]);
 
   const clamp = (n) => {
-    let next = Math.max(min, roundQty(n));
-    if (max !== undefined) next = Math.min(max, next);
+    let next = Math.max(min, n);
+    if (max !== undefined) next = Math.min(Math.floor(max), next);
     return next;
   };
 
-  function dec() {
-    onChange(clamp(qty - 1));
-  }
-  function inc() {
-    onChange(clamp(qty + 1));
-  }
-
-  // A zero is never sent while typing: "0" is usually the start of "0.5",
-  // and several parents drop a line from the cart the moment its quantity
-  // hits 0. Zero/empty is only committed when the field is left.
+  // A zero is never sent while typing: several parents drop a line from
+  // the cart the moment its quantity hits 0, which would remove it while
+  // the box is being cleared to type a new number. Zero/empty is only
+  // committed when the field is left.
   function onType(e) {
-    const text = e.target.value;
+    const text = cleanQtyInput(e.target.value);
     setDraft(text);
-    const n = parseDecimal(text);
-    if (Number.isFinite(n) && roundQty(n) > 0) onChange(clamp(n));
+    const n = parseQty(text);
+    if (Number.isInteger(n) && n > 0) {
+      const capped = clamp(n);
+      if (capped !== n) setDraft(String(capped));
+      onChange(capped);
+    }
   }
 
   function onBlur() {
-    const n = parseDecimal(draft);
-    const committed = Number.isFinite(n) ? clamp(n) : clamp(0);
+    const n = parseQty(draft);
+    const committed = Number.isInteger(n) ? clamp(n) : clamp(0);
     if (committed !== qty) onChange(committed);
     setDraft(String(committed));
   }
 
   return (
-    <div className="flex items-center gap-1">
-      <button
-        type="button"
-        onClick={dec}
-        className="w-11 h-11 flex items-center justify-center text-xl rounded-lg bg-gray-100 text-gray-700 active:bg-gray-200 select-none"
-        aria-label="إنقاص الكمية"
-      >
-        −
-      </button>
-      <input
-        type="text"
-        inputMode="decimal"
-        dir="ltr"
-        value={draft}
-        onChange={onType}
-        onBlur={onBlur}
-        onFocus={(e) => e.target.select()}
-        aria-label="الكمية"
-        className="w-16 h-11 text-center border rounded-lg text-base tabular-ltr"
-      />
-      <button
-        type="button"
-        onClick={inc}
-        className="w-11 h-11 flex items-center justify-center text-xl rounded-lg bg-gray-100 text-gray-700 active:bg-gray-200 select-none"
-        aria-label="زيادة الكمية"
-      >
-        +
-      </button>
-    </div>
+    <input
+      type="text"
+      inputMode="numeric"
+      pattern="[0-9]*"
+      dir="ltr"
+      value={draft}
+      onChange={onType}
+      onBlur={onBlur}
+      onFocus={(e) => e.target.select()}
+      aria-label="الكمية"
+      className="w-28 h-14 shrink-0 text-center border-2 border-gray-300 rounded-xl text-xl font-semibold tabular-ltr bg-white focus:border-accent focus:outline-none"
+    />
   );
 }

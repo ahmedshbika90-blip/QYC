@@ -145,15 +145,16 @@ const ok = (msg) => { passed++; console.log("PASS", passed + ":", msg); };
   assert.strictEqual(ma.status, 403);
   ok("margin is live: 40 − 24 = 16 (40%) before and after the report's invoices are locked (only the provisional flag changes); agents refused");
 
-  // 11. weighted average cost on approved receipt
+  // 11. latest cost on approved receipt: the new supplier price replaces
+  // the unit cost of ALL stock (no averaging with the old cost).
   await db.collection("inventoryDocs").doc("rcv1").set({ type: "received", route: null, status: "pending", items: [{ productId: "p1", name: "Tahini", unit: "ctn", qty: 70, costPrice: null }], createdAt: new Date().toISOString() });
-  const onHand = (await get("products", "p1")).stock; // depot 50 + car1 16 + car2 0 = 66 @ 6
-  const wac = await call("pages/api/inventory/[id]/approve.js", { method: "PATCH", ...SUP, query: { id: "rcv1" }, body: { action: "approve", costPrices: { p1: 8 } } });
+  const onHand = (await get("products", "p1")).stock;
+  const wac = await call("pages/api/inventory/[id]/approve.js", { method: "PATCH", ...SUP, query: { id: "rcv1" }, body: { action: "approve", costPrices: { p1: "٨" } } });
   assert.strictEqual(wac.status, 200, JSON.stringify(wac.json));
-  const expected = Math.round(((onHand.depot + onHand.car1 + onHand.car2) * 6 + 70 * 8) / (onHand.depot + onHand.car1 + onHand.car2 + 70) * 100) / 100;
+  const expected = 8;
   assert.strictEqual((await get("products", "p1")).avgCost, expected);
   assert.strictEqual((await get("products", "p1")).stock.depot, onHand.depot + 70);
-  ok(`weighted average cost: 66 @ 6 + 70 @ 8 → ${expected}; depot +70`);
+  ok("latest cost: old stock @ 6 + 70 @ 8 (typed ٨) → all stock now costs 8; depot +70");
 
   // 12. cost hidden from agent in product list
   const pl = await call("pages/api/products/list.js", { ...A1 });
