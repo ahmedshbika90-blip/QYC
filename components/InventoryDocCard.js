@@ -9,6 +9,7 @@ import { formatDateTime } from "../lib/labels";
 // still labelled "أمر شحن" in the shipment-request queues; those are a
 // separate concept and keep their own labels.
 export const TYPE_LABELS = {
+  transfer: "تحويل",
   received: "استلام بضاعة",
   loading: "تسليم بضاعة",
   offloading: "مرتجع بضاعة",

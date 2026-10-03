@@ -31,6 +31,8 @@ const L = {
   // Adding a client lives INSIDE العملاء (a button on that page), not as a
   // separate menu item — /register-client still highlights العملاء.
   clients: { href: "/clients", label: "العملاء", icon: "users", also: ["/register-client"] },
+  transfers: { href: "/transfers", label: "التحويلات", icon: "truck" },
+  whTransfers: { href: "/warehouse/transfers", label: "التحويلات", icon: "truck" },
   stock: { href: "/products", label: "المخزون", icon: "box" },
   products: { href: "/products", label: "المنتجات والأسعار", short: "المنتجات", icon: "tag" },
   inventory: { href: "/inventory", label: "المخزون", icon: "box" },
@@ -63,14 +65,14 @@ function layoutFor(role) {
     case "supervisor":
       return {
         tabs: [home, L.requests, L.inventory, L.sales],
-        more: [L.margin, L.clients, L.products],
-        desktop: [home, L.requests, L.inventory, L.sales, L.margin, L.clients, L.products],
+        more: [L.margin, L.clients, L.products, L.transfers],
+        desktop: [home, L.requests, L.inventory, L.sales, L.margin, L.clients, L.products, L.transfers],
       };
     case "warehouse_keeper":
       return {
         tabs: [home, L.whInventory, L.whShip, L.whCar1, L.whCar2],
         more: [],
-        desktop: [home, L.whInventory, L.whShip, L.whCar1, L.whCar2],
+        desktop: [home, L.whInventory, L.whShip, L.whCar1, L.whCar2, L.whTransfers],
       };
     case "depot_viewer":
       return { tabs: [], more: [], desktop: [L.viewStock] };

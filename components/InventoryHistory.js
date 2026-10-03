@@ -109,6 +109,7 @@ export default function InventoryHistory({
               ["loading", "تسليم بضاعة"],
               ["offloading", "مرتجع بضاعة"],
               ["damage", "تالف"],
+            ["transfer", "تحويل"],
             ]}
           />
         )}

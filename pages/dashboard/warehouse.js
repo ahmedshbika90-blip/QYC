@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import PendingTransfersCard from "../../components/PendingTransfersCard";
 import Link from "next/link";
 import { useAuth } from "../../lib/useAuth";
 import Nav from "../../components/Nav";
@@ -86,6 +87,9 @@ export default function WarehouseDashboard() {
           items={actionable}
           emptyText="لا طلبات جديدة — كل شيء منفَّذ"
         />
+
+        <PendingTransfersCard token={token} />
+
 
         <ActionInbox
           title="بانتظار الطرف الآخر"

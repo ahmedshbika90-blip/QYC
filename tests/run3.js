@@ -278,6 +278,49 @@ eval(header + `
   assert.ok(!("cost" in mg)); // totals only
   ok("visibility: car2 never receives car1 stock; keeper gets no prices and no sales report; agents get margin of the report's current invoices (totals only)");
 
+  // 8. Transfers OUT of the depot: the supervisor creates, the warehouse
+  //    keeper releases; quantities only; stock leaves at release only.
+  const TR = "pages/api/transfers/";
+  const trDepot0 = (await get("products", "p1")).stock.depot;
+  for (const who of [WK, A1, A2]) {
+    const r = await call(TR + "create.js", { method: "POST", ...who, body: { items: [{ productId: "p1", qty: 1 }], requestId: "tr-x-" + who.uid } });
+    assert.strictEqual(r.status, 403, who.role + " must not create transfers"); // keeper can't even propose one
+  }
+  const trTooMuch = await call(TR + "create.js", { method: "POST", ...SUP, body: { items: [{ productId: "p1", qty: trDepot0 + 1 }], requestId: "tr-big" } });
+  assert.strictEqual(trTooMuch.status, 409); // more than the depot holds
+  assert.strictEqual(await get("transfers", "tr-big"), undefined); // nothing created
+  const trCreate = await call(TR + "create.js", { method: "POST", ...SUP, body: { items: [{ productId: "p1", qty: 3 }], note: "إلى مركز آخر", requestId: "tr-1" } });
+  assert.strictEqual(trCreate.status, 201, JSON.stringify(trCreate.json));
+  const trResend = await call(TR + "create.js", { method: "POST", ...SUP, body: { items: [{ productId: "p1", qty: 3 }], requestId: "tr-1" } });
+  assert.strictEqual(trResend.json.duplicate, true); // a resend never creates a second transfer
+  const trDocData = await get("transfers", "tr-1");
+  assert.strictEqual(trDocData.status, "pending");
+  assert.ok(!/price|cost|subtotal|total/i.test(JSON.stringify(trDocData)), "quantities only"); // no money anywhere
+  assert.strictEqual((await get("products", "p1")).stock.depot, trDepot0); // nothing moves yet
+  const trWkNotif = await call("pages/api/notifications.js", { ...WK });
+  assert.ok(trWkNotif.json.items.some((it) => it.id === "tr-1" && it.bucket === "transfer" && it.needsAction));
+  assert.strictEqual((await call(TR + "list.js", { ...A1 })).status, 403); // agents can't see transfers
+  const trWkList = await call(TR + "list.js", { ...WK, query: { status: "pending" } });
+  assert.ok(trWkList.json.transfers.some((t) => t.id === "tr-1"));
+  assert.strictEqual((await call(TR + "[id]/release.js", { method: "POST", ...SUP, query: { id: "tr-1" } })).status, 403); // only the keeper releases
+  const trRelease = await call(TR + "[id]/release.js", { method: "POST", ...WK, query: { id: "tr-1" } });
+  assert.strictEqual(trRelease.status, 200, JSON.stringify(trRelease.json));
+  assert.strictEqual((await get("products", "p1")).stock.depot, trDepot0 - 3); // left the depot at release
+  const trHist = await get("inventoryDocs", "transfer-tr-1");
+  assert.strictEqual(trHist.type, "transfer");
+  assert.strictEqual(trHist.route, null); // depot-only document
+  assert.strictEqual((await call(TR + "[id]/release.js", { method: "POST", ...WK, query: { id: "tr-1" } })).status, 400); // not twice
+  assert.strictEqual((await call(TR + "[id]/cancel.js", { method: "POST", ...SUP, query: { id: "tr-1" } })).status, 400); // released can't be cancelled
+  assert.strictEqual((await get("products", "p1")).stock.depot, trDepot0 - 3);
+  await call(TR + "create.js", { method: "POST", ...SUP, body: { items: [{ productId: "p1", qty: 2 }], requestId: "tr-2" } });
+  assert.strictEqual((await call(TR + "[id]/cancel.js", { method: "POST", ...WK, query: { id: "tr-2" } })).status, 403); // keeper can't cancel
+  assert.strictEqual((await call(TR + "[id]/cancel.js", { method: "POST", ...SUP, query: { id: "tr-2" } })).status, 200);
+  assert.strictEqual((await call(TR + "[id]/release.js", { method: "POST", ...WK, query: { id: "tr-2" } })).status, 400); // cancelled can't be released
+  assert.strictEqual((await get("products", "p1")).stock.depot, trDepot0 - 3); // the cancelled one moved nothing
+  const trA1Docs = await call("pages/api/inventory/list.js", { ...A1, query: {} });
+  assert.ok(!(trA1Docs.json.docs || []).some((d) => d.type === "transfer")); // agents never see transfers in history
+  ok("transfers: only the supervisor creates, only the keeper releases; stock leaves the depot at release only; quantities only; resends don't duplicate; agents never see them");
+
   console.log("ALL SESSION-3 SCENARIOS PASSED");
 })().catch((e) => { console.error("FAIL:", e.message); process.exit(1); });
 `);

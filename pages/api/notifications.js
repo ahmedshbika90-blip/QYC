@@ -79,6 +79,21 @@ export default async function handler(req, res) {
         });
       });
     } else if (role === "warehouse_keeper") {
+      // Transfers the supervisor created, waiting to be released. Its own
+      // bucket, so it doesn't inflate the shipping-requests badge.
+      const pendingTransfers = await adminDb.collection("transfers").where("status", "==", "pending").get();
+      pendingTransfers.docs.forEach((d) => {
+        items.push({
+          id: d.id,
+          bucket: "transfer",
+          needsAction: true,
+          requestType: "تحويل",
+          from: "المشرف",
+          state: "بانتظار الإخراج من المخزن",
+          href: "/warehouse/transfers",
+          at: d.data().createdAt,
+        });
+      });
       const pendingWarehouse = await adminDb
         .collection("shipmentRequests")
         .where("status", "==", "pending_warehouse")
