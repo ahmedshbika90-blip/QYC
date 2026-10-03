@@ -61,12 +61,18 @@ export default function OrderCard({ order, name, location, badge, subtitle, edit
             <span className={`block text-sm text-ink-soft truncate mt-0.5 ${isCancelled ? "line-through" : ""}`}>
               {itemsSummary(order.items)}
             </span>
-            {(isEdited || order.pendingRequest || hasDiscount(order) || order.hasFreeSample) && (
+            {(isEdited || order.pendingRequest || hasDiscount(order) || order.hasFreeSample || order.hasPriceAdjustment) && (
               <span className="flex flex-wrap gap-1.5 mt-1.5">
                 {order.hasFreeSample && (
                   <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-accent-ink bg-accent-soft rounded-md px-1.5 py-0.5">
                     <Icon name="gift" size={12} />
                     عينة مجانية
+                  </span>
+                )}
+                {order.hasPriceAdjustment && (
+                  <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-amber-800 bg-amber-50 rounded-md px-1.5 py-0.5">
+                    <Icon name="tag" size={12} />
+                    سعر معدّل
                   </span>
                 )}
                 {isEdited && (

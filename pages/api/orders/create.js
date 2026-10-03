@@ -43,7 +43,12 @@ export default async function handler(req, res) {
     // last few units at the same moment could both pass the "enough
     // stock?" check before either write lands, and both succeed.
     await adminDb.runTransaction(async (tx) => {
-      const built = await buildOrderFromItems(items, client.route, tx);
+      // Public client ordering: always list prices. A price adjustment is
+      // staff-only, so anything like it in the body is dropped here.
+      const plainItems = Array.isArray(items)
+        ? items.map((it) => ({ productId: it?.productId, qty: it?.qty }))
+        : items;
+      const built = await buildOrderFromItems(plainItems, client.route, tx);
       resolvedItems = built.resolvedItems;
       total = built.total;
 

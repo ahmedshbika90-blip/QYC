@@ -45,7 +45,14 @@ function ItemsTable({ title, items, total, discount, tone = "gray" }) {
       <div className="divide-y">
         {(items || []).map((it, i) => (
           <div key={i} className="flex justify-between px-3 py-2 text-sm">
-            <span className="text-gray-800">{it.name}</span>
+            <span className="text-gray-800">
+              {it.name}
+              {it.priceAdjusted && (
+                <span className="block text-xs text-amber-800">
+                  سعر معدّل (القائمة {formatNumber(it.listPrice)}) — {it.priceReason}
+                </span>
+              )}
+            </span>
             <span className="text-gray-600">
               {formatQty(it.qty)} × {formatNumber(it.price)} = {formatNumber(it.subtotal ?? it.price * it.qty)}
             </span>

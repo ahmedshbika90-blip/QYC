@@ -33,6 +33,7 @@ export default function SupervisorDashboard() {
   const [locationQuery, setLocationQuery] = useState("");
   const [storeClass, setStoreClass] = useState("");
   const [discountFilter, setDiscountFilter] = useState("");
+  const [priceFilter, setPriceFilter] = useState(""); // "" | "with" | "without"
   const [sampleFilter, setSampleFilter] = useState(""); // "" | "with" | "without" // "" | "with" | "without"
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
@@ -121,9 +122,11 @@ export default function SupervisorDashboard() {
       if (discountFilter === "without" && hasDiscount(order)) return false;
       if (sampleFilter === "with" && !order.hasFreeSample) return false;
       if (sampleFilter === "without" && order.hasFreeSample) return false;
+      if (priceFilter === "with" && !order.hasPriceAdjustment) return false;
+      if (priceFilter === "without" && order.hasPriceAdjustment) return false;
       return true;
     };
-  }, [clientsById, routeFilter, nameQuery, locationQuery, storeClass, discountFilter, sampleFilter]);
+  }, [clientsById, routeFilter, nameQuery, locationQuery, storeClass, discountFilter, sampleFilter, priceFilter]);
 
   const baseFiltered = useMemo(() => orders.filter(matchesFilters), [orders, matchesFilters]);
   const counts = useMemo(
@@ -224,6 +227,8 @@ export default function SupervisorDashboard() {
           discountFilter={discountFilter}
           onDiscountFilterChange={setDiscountFilter}
           sampleFilter={sampleFilter}
+          priceFilter={priceFilter}
+          onPriceFilterChange={setPriceFilter}
           onSampleFilterChange={setSampleFilter}
           dateFrom={dateFrom}
           onDateFromChange={setDateFrom}
@@ -232,7 +237,7 @@ export default function SupervisorDashboard() {
           />
         </div>
 
-        {(nameQuery || locationQuery || storeClass || discountFilter || sampleFilter) && nextCursor && (
+        {(nameQuery || locationQuery || storeClass || discountFilter || sampleFilter || priceFilter) && nextCursor && (
           <p className="text-xs text-amber-600 mb-3">
             البحث يشمل الفواتير المحمّلة فقط — اضغط "تحميل المزيد" أو حدد فترة لنتائج أشمل.
           </p>

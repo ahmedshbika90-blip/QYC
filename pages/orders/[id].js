@@ -9,6 +9,8 @@ import InvoiceTotals from "../../components/InvoiceTotals";
 import { hasDiscount, orderDiscount, orderSubtotal } from "../../lib/invoiceDiscount";
 import QtyStepper from "../../components/QtyStepper";
 import FreeSampleToggle from "../../components/FreeSampleToggle";
+import PriceAdjust from "../../components/PriceAdjust";
+import { cartLineFromOrderLine, cartLineToPayload, cartLineTotal, effectivePrice, freshPriceFields, priceProblem } from "../../lib/linePrice";
 import { PageLoading, Spinner } from "../../components/Loading";
 import { apiFetch } from "../../lib/apiFetch";
 import { invalidate } from "../../lib/apiCache";
@@ -124,7 +126,7 @@ export default function OrderDetail() {
 
   async function startEditing() {
     setEditing(true);
-    setCart(order.items.map((it) => ({ ...it })));
+    setCart(order.items.map(cartLineFromOrderLine));
     setEditDiscount(orderDiscount(order) ? String(orderDiscount(order)) : "");
     try {
       const res = await apiFetch(`/api/products/list?route=${order.route}`, {
@@ -161,7 +163,7 @@ export default function OrderDetail() {
   function addProduct(p) {
     setCart((prev) => [
       ...prev,
-      { productId: p.id, name: p.name, price: p.price, unit: p.unit, qty: 1, freeSample: false },
+      { productId: p.id, name: p.name, price: p.price, ...freshPriceFields(p.price), unit: p.unit, qty: 1, freeSample: false },
     ]);
     setProductQuery("");
     setProductDropdownOpen(false);
@@ -171,10 +173,11 @@ export default function OrderDetail() {
     setCart((prev) => prev.map((it) => (it.productId === productId ? { ...it, freeSample: !it.freeSample } : it)));
   }
 
-  function lineTotal(it) {
-    if (it.freeSample) return 0;
-    return (it.price || 0) * it.qty;
+  function updateLine(productId, patch) {
+    setCart((prev) => prev.map((it) => (it.productId === productId ? { ...it, ...patch } : it)));
   }
+
+  const lineTotal = cartLineTotal;
 
   // Agents can't change a locked invoice directly — they ask the supervisor.
   const needsRequest = order && role !== "supervisor" && order.locked;
@@ -218,10 +221,15 @@ export default function OrderDetail() {
   }
 
   async function saveItems() {
+    const badPrice = cart.find((it) => priceProblem(it));
+    if (badPrice) {
+      setError(`${badPrice.name}: ${priceProblem(badPrice)}`);
+      return;
+    }
     if (needsRequest) {
       return sendChangeRequest(
         "edit",
-        cart.map((it) => ({ productId: it.productId, qty: it.qty, freeSample: Boolean(it.freeSample) })),
+        cart.map(cartLineToPayload),
         editDiscount
       );
     }
@@ -235,7 +243,7 @@ export default function OrderDetail() {
           Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
-          items: cart.map((it) => ({ productId: it.productId, qty: it.qty, freeSample: Boolean(it.freeSample) })),
+          items: cart.map(cartLineToPayload),
           discount: Number(editDiscount) || 0,
         }),
       });
@@ -455,22 +463,30 @@ export default function OrderDetail() {
                   <p className="px-3 py-3 text-sm text-gray-400">لا توجد منتجات — أضف واحدًا أعلاه</p>
                 ) : (
                   cart.map((it) => (
-                    <div key={it.productId} className="flex items-center justify-between px-3 py-3 gap-3">
-                      <div className="min-w-0">
-                        <p className="text-base text-gray-800 truncate">{it.name}</p>
-                        <p className="text-sm text-gray-400">
-                          {formatNumber(it.price)} / {it.unit}
-                        </p>
+                    <div key={it.productId} className="px-3 py-3 space-y-2">
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="text-base text-gray-800 truncate">{it.name}</p>
+                          <p className="text-sm text-gray-400">
+                            {formatNumber(effectivePrice(it))} / {it.unit}
+                            {it.priceAdjusted && !it.freeSample && !priceProblem(it) && (
+                              <span className="line-through text-gray-300 ms-1 num">{formatNumber(it.listPrice)}</span>
+                            )}
+                          </p>
+                        </div>
+                        <QtyStepper value={it.qty} onChange={(v) => setCartQty(it.productId, v)} min={0} />
+                        <button
+                          type="button"
+                          onClick={() => setCartQty(it.productId, 0)}
+                          aria-label={`حذف ${it.name}`}
+                          className="w-11 h-11 rounded-xl flex items-center justify-center text-red-600 bg-red-50 active:bg-red-100 shrink-0"
+                        >
+                          <Icon name="trash" size={18} />
+                        </button>
                       </div>
-                      <QtyStepper value={it.qty} onChange={(v) => setCartQty(it.productId, v)} min={0} />
-                      <button
-                        type="button"
-                        onClick={() => setCartQty(it.productId, 0)}
-                        aria-label={`حذف ${it.name}`}
-                        className="w-11 h-11 rounded-xl flex items-center justify-center text-red-600 bg-red-50 active:bg-red-100 shrink-0"
-                      >
-                        <Icon name="trash" size={18} />
-                      </button>
+                      <div className="flex flex-wrap items-center gap-2 text-sm">
+                        <PriceAdjust line={it} onChange={(patch) => updateLine(it.productId, patch)} />
+                      </div>
                     </div>
                   ))
                 )}
@@ -526,6 +542,11 @@ export default function OrderDetail() {
                       <p className="text-sm text-gray-400">
                         {formatQty(it.qty)} {it.unit || ""} × {formatNumber(it.price)}
                       </p>
+                      {it.priceAdjusted && (
+                        <p className="text-xs text-amber-800 bg-amber-50 rounded-md px-1.5 py-0.5 mt-1 inline-block">
+                          سعر معدّل — سعر القائمة {formatNumber(it.listPrice)} · {it.priceReason}
+                        </p>
+                      )}
                     </div>
                     <p className="text-base font-medium text-gray-800 shrink-0">
                       {formatNumber(it.subtotal ?? it.price * it.qty)}
@@ -562,7 +583,7 @@ export default function OrderDetail() {
                   <div key={i} className="text-gray-500">
                     <p className="text-xs text-gray-400">قبل التعديل — {formatDateTime(h.editedAt)}</p>
                     <p>
-                      {h.items.map((it) => `${it.name} ×${formatQty(it.qty)}`).join("، ")}
+                      {h.items.map((it) => `${it.name} ×${formatQty(it.qty)}${it.priceAdjusted ? ` @${formatNumber(it.price)}` : ""}`).join("، ")}
                       {h.discount ? ` — خصم ${formatNumber(h.discount)}` : ""} — الإجمالي: {formatNumber(h.total)}
                     </p>
                   </div>

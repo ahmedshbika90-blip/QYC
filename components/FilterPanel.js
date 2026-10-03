@@ -17,6 +17,8 @@ export default function FilterPanel({
   discountFilter,
   sampleFilter = "",
   onSampleFilterChange,
+  priceFilter = "",
+  onPriceFilterChange,
   onDiscountFilterChange,
   dateFrom,
   onDateFromChange,
@@ -27,7 +29,7 @@ export default function FilterPanel({
 }) {
   const [open, setOpen] = useState(false);
   const activeCount =
-    [nameQuery, locationQuery, storeClass, discountFilter, sampleFilter, dateFrom, dateTo].filter(Boolean).length + extraActiveCount;
+    [nameQuery, locationQuery, storeClass, discountFilter, sampleFilter, priceFilter, dateFrom, dateTo].filter(Boolean).length + extraActiveCount;
 
   const inputClass = "border rounded-lg px-3 h-11 text-base";
 
@@ -116,6 +118,18 @@ export default function FilterPanel({
               <option value="">العينة المجانية: الكل</option>
               <option value="with">بها عينة مجانية</option>
               <option value="without">بدون عينة مجانية</option>
+            </select>
+          )}
+          {onPriceFilterChange && (
+            <select
+              value={priceFilter}
+              onChange={(e) => onPriceFilterChange(e.target.value)}
+              className={inputClass}
+              aria-label="السعر المعدّل"
+            >
+              <option value="">السعر المعدّل: الكل</option>
+              <option value="with">بها سعر معدّل</option>
+              <option value="without">بدون سعر معدّل</option>
             </select>
           )}
           {children}

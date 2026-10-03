@@ -65,7 +65,7 @@ export default async function handler(req, res) {
     let proposedTotal = null;
     let proposedDiscount = null;
     if (type === "edit") {
-      const built = await buildOrderFromItems(items, order.route, null, /* skipStockCheck */ true);
+      const built = await buildOrderFromItems(items, order.route, null, /* skipStockCheck */ true, order.items);
       proposedItems = built.resolvedItems;
       // The invoice discount is part of the edit: unchanged unless the agent
       // sent a new amount, and always re-checked against the new lines.

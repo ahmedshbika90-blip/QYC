@@ -1,5 +1,6 @@
 const { admin, adminDb } = require("../../../../lib/firebaseAdmin");
 const { requireUser, requireRole } = require("../../../../lib/apiAuth");
+const { orderLineToPayload } = require("../../../../lib/linePrice");
 const { editItemsTx, cancelTx } = require("../../../../lib/invoiceChanges");
 const { bumpVersions, ordersKey } = require("../../../../lib/versions");
 const { buildClientUpdates } = require("../../../../lib/clientFields");
@@ -86,7 +87,8 @@ export default async function handler(req, res) {
 
       if (action === "approve") {
         if (request.type === "edit") {
-          const items = request.proposedItems.map((it) => ({ productId: it.productId, qty: it.qty }));
+          // Re-applied exactly as proposed: quantity, free sample and price adjustment.
+          const items = request.proposedItems.map(orderLineToPayload);
           await editItemsTx(tx, orderRef, items, decoded.uid, orderUpdate, {
             discount: request.proposedDiscount ?? undefined,
           });

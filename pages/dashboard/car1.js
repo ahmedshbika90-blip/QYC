@@ -36,6 +36,7 @@ export default function Car1Dashboard() {
   const [locationQuery, setLocationQuery] = useState("");
   const [storeClass, setStoreClass] = useState("");
   const [discountFilter, setDiscountFilter] = useState("");
+  const [priceFilter, setPriceFilter] = useState(""); // "" | "with" | "without"
   const [sampleFilter, setSampleFilter] = useState(""); // "" | "with" | "without" // "" | "with" | "without"
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
@@ -124,9 +125,11 @@ export default function Car1Dashboard() {
       if (discountFilter === "without" && hasDiscount(order)) return false;
       if (sampleFilter === "with" && !order.hasFreeSample) return false;
       if (sampleFilter === "without" && order.hasFreeSample) return false;
+      if (priceFilter === "with" && !order.hasPriceAdjustment) return false;
+      if (priceFilter === "without" && order.hasPriceAdjustment) return false;
       return true;
     };
-  }, [clientsById, nameQuery, locationQuery, storeClass, discountFilter, sampleFilter]);
+  }, [clientsById, nameQuery, locationQuery, storeClass, discountFilter, sampleFilter, priceFilter]);
 
   const baseFiltered = useMemo(() => orders.filter(matchesFilters), [orders, matchesFilters]);
   const counts = useMemo(
@@ -233,6 +236,8 @@ export default function Car1Dashboard() {
             discountFilter={discountFilter}
             onDiscountFilterChange={setDiscountFilter}
             sampleFilter={sampleFilter}
+            priceFilter={priceFilter}
+            onPriceFilterChange={setPriceFilter}
             onSampleFilterChange={setSampleFilter}
             dateFrom={dateFrom}
             onDateFromChange={setDateFrom}
@@ -241,7 +246,7 @@ export default function Car1Dashboard() {
           />
         </div>
 
-        {(nameQuery || locationQuery || storeClass || discountFilter || sampleFilter) && nextCursor && (
+        {(nameQuery || locationQuery || storeClass || discountFilter || sampleFilter || priceFilter) && nextCursor && (
           <p className="text-xs text-amber-700 bg-amber-50 rounded-xl px-3 py-2 mb-3">
             البحث يشمل الفواتير المحمّلة فقط — اضغط &quot;تحميل المزيد&quot; أو حدد فترة لنتائج أشمل.
           </p>

@@ -7,6 +7,8 @@ import SuccessScreen from "../components/SuccessScreen";
 import InvoiceTotals from "../components/InvoiceTotals";
 import QtyStepper from "../components/QtyStepper";
 import FreeSampleToggle from "../components/FreeSampleToggle";
+import PriceAdjust from "../components/PriceAdjust";
+import { cartLineToPayload, cartLineTotal, effectivePrice, freshPriceFields, priceProblem } from "../lib/linePrice";
 import { PageLoading, Spinner } from "../components/Loading";
 import { apiFetch } from "../lib/apiFetch";
 import { invalidate } from "../lib/apiCache";
@@ -243,6 +245,7 @@ export default function PlaceOrder() {
         productId: p.id,
         name: p.name,
         price: priceFor(p),
+        ...freshPriceFields(priceFor(p)),
         unit: p.unit,
         qty: 1,
         freeSample: false,
@@ -261,20 +264,30 @@ export default function PlaceOrder() {
     setCart((prev) => prev.map((it) => (it.productId === productId ? { ...it, qty } : it)));
   }
 
+  // A free line has no price, so turning a free sample on drops any price
+  // adjustment on that line.
   function toggleFreeSample(productId) {
-    setCart((prev) => prev.map((it) => (it.productId === productId ? { ...it, freeSample: !it.freeSample } : it)));
+    setCart((prev) =>
+      prev.map((it) =>
+        it.productId === productId
+          ? { ...it, freeSample: !it.freeSample, ...(it.freeSample ? {} : { priceAdjusted: false, customPrice: "", priceReason: "" }) }
+          : it
+      )
+    );
+  }
+
+  function updateLine(productId, patch) {
+    setCart((prev) => prev.map((it) => (it.productId === productId ? { ...it, ...patch } : it)));
   }
 
   function removeFromCart(productId) {
     setCart((prev) => prev.filter((it) => it.productId !== productId));
   }
 
-  // Line total mirrors the server (lib/orderCreation.js): price × qty.
+  // Line total mirrors the server (lib/orderCreation.js): price × qty,
+  // with the line's adjusted price if it has one (lib/linePrice.js).
   // Any discount is ONE amount off the whole invoice, entered below.
-  function lineTotal(it) {
-    if (it.freeSample) return 0; // free sample: no charge, stock still moves
-    return (it.price || 0) * it.qty;
-  }
+  const lineTotal = cartLineTotal;
 
   const subtotal = Math.round(cart.reduce((sum, it) => sum + lineTotal(it), 0) * 100) / 100;
   const discountValue = Number(invoiceDiscount) || 0;
@@ -315,6 +328,11 @@ export default function PlaceOrder() {
       setError("أضف منتجًا واحدًا على الأقل");
       return;
     }
+    const badPrice = cart.find((it) => priceProblem(it));
+    if (badPrice) {
+      setError(`${badPrice.name}: ${priceProblem(badPrice)}`);
+      return;
+    }
     if (discountValue > subtotal) {
       setError("الخصم أكبر من مجموع الفاتورة");
       return;
@@ -322,7 +340,7 @@ export default function PlaceOrder() {
 
     const payload = {
       clientId: selectedClient.id,
-      items: cart.map((it) => ({ productId: it.productId, qty: it.qty, freeSample: Boolean(it.freeSample) })),
+      items: cart.map(cartLineToPayload),
       discount: discountValue || 0,
       notes: invoiceNotes.trim(),
       requestId: newRequestId(), // one ID per invoice — resends reuse it
@@ -583,7 +601,11 @@ export default function PlaceOrder() {
                         <div className="min-w-0">
                           <p className="text-base text-gray-800 truncate">{it.name}</p>
                           <p className="text-sm text-gray-400">
-                            {it.price != null ? formatNumber(it.price) : "—"} / {it.unit} · المتاح: {formatQty(it.available)}
+                            {it.price != null ? formatNumber(effectivePrice(it)) : "—"} / {it.unit}
+                            {it.priceAdjusted && !it.freeSample && !priceProblem(it) && (
+                              <span className="line-through text-gray-300 ms-1 num">{formatNumber(it.listPrice)}</span>
+                            )}
+                            {" "}· المتاح: {formatQty(it.available)}
                           </p>
                         </div>
                         <QtyStepper
@@ -606,6 +628,7 @@ export default function PlaceOrder() {
                         {it.freeSample && it.price != null && (
                           <span className="text-xs text-muted">القيمة {formatNumber(it.price * it.qty)} — لن تُحتسب على العميل</span>
                         )}
+                        <PriceAdjust line={it} onChange={(patch) => updateLine(it.productId, patch)} />
                       </div>
                     </div>
                   ))}
