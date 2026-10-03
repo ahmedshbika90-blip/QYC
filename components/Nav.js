@@ -31,6 +31,7 @@ const L = {
   // Adding a client lives INSIDE العملاء (a button on that page), not as a
   // separate menu item — /register-client still highlights العملاء.
   clients: { href: "/clients", label: "العملاء", icon: "users", also: ["/register-client"] },
+  stock: { href: "/products", label: "المخزون", icon: "box" },
   products: { href: "/products", label: "المنتجات والأسعار", short: "المنتجات", icon: "tag" },
   inventory: { href: "/inventory", label: "المخزون", icon: "box" },
   margin: { href: "/margin", label: "هامش التشغيل", icon: "percent" },
@@ -56,8 +57,8 @@ function layoutFor(role) {
       return {
         tabs: [home, L.documents, L.clients],
         center: L.placeOrder,
-        more: [L.requests, L.sales, L.products],
-        desktop: [home, L.placeOrder, L.documents, L.requests, L.clients, L.sales, L.products],
+        more: [L.requests, L.sales, L.stock],
+        desktop: [home, L.placeOrder, L.documents, L.requests, L.clients, L.sales, L.stock],
       };
     case "supervisor":
       return {
@@ -198,8 +199,12 @@ export default function Nav({ role, logout }) {
               <Icon name="route" size={20} strokeWidth={2.2} />
             </span>
             <span className="flex flex-col leading-tight min-w-0">
-              <span className="font-display font-bold text-lg text-ink">مسار</span>
-              {role && <span className="text-xs text-muted truncate md:hidden xl:block">{ROLE_LABELS[role]}</span>}
+              <span className="font-display font-bold text-lg text-ink">مباشر</span>
+              {role && (
+                <span className="text-xs text-muted truncate md:hidden xl:block">
+                  {role === "agent_car1" || role === "agent_car2" ? "مندوب المبيعات" : ROLE_LABELS[role]}
+                </span>
+              )}
             </span>
           </Link>
 

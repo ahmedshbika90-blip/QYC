@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import Icon from "./Icon";
 import QtyStepper from "./QtyStepper";
 import { formatQty } from "../lib/labels";
 
@@ -101,6 +102,14 @@ export default function ProductCartPicker({ products, cart, setCart, hint, maxFo
                   {it.name} <span className="text-xs text-gray-400">({it.unit})</span>
                 </p>
                 <QtyStepper value={it.qty} onChange={(v) => setQty(it.productId, v)} min={0} max={capOf(it.productId)} />
+                <button
+                  type="button"
+                  onClick={() => setCart((prev) => prev.filter((x) => x.productId !== it.productId))}
+                  aria-label={`حذف ${it.name}`}
+                  className="w-11 h-11 rounded-xl flex items-center justify-center text-red-600 bg-red-50 active:bg-red-100 shrink-0"
+                >
+                  <Icon name="trash" size={18} />
+                </button>
               </div>
               {capOf(it.productId) !== undefined && it.qty >= capOf(it.productId) && (
                 <p className="text-xs text-amber-700">هذا كل المتاح ({formatQty(capOf(it.productId))})</p>

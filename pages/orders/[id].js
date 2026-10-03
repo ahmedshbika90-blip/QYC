@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import Icon from "../../components/Icon";
 import { useRouter } from "next/router";
 import { useAuth } from "../../lib/useAuth";
 import Nav from "../../components/Nav";
@@ -12,7 +13,7 @@ import { PageLoading, Spinner } from "../../components/Loading";
 import { apiFetch } from "../../lib/apiFetch";
 import { invalidate } from "../../lib/apiCache";
 import { useLiveRefresh } from "../../lib/useLiveRefresh";
-import { formatDate, formatDateTime, formatNumber, formatQty } from "../../lib/labels";
+import { formatDate, formatDateTime, formatNumber, formatQty, shortCode } from "../../lib/labels";
 import { useRequestId } from "../../lib/useRequestId";
 
 export default function OrderDetail() {
@@ -272,7 +273,7 @@ export default function OrderDetail() {
                 ? "أُرسل طلب تعديل الفاتورة للمشرف"
                 : "تم حفظ تعديل الفاتورة"
             }
-            number={order.id}
+            number={shortCode(order.id)}
             hint={requested ? "لن تتغير الفاتورة حتى يوافق المشرف. ستصلك رسالة بالقرار." : "تم تحديث الكميات والمخزون."}
             secondary={{ label: "الفواتير", href: role === "supervisor" ? "/dashboard/supervisor" : `/dashboard/${order.route}` }}
             primary={{ label: "عرض الفاتورة", onClick: () => setDone(null) }}
@@ -294,7 +295,7 @@ export default function OrderDetail() {
             <div>
               <BackButton />
               <h1 className="text-xl font-semibold text-gray-800">
-                فاتورة رقم <span className="tabular-ltr">{order.id}</span>
+                فاتورة رقم <span className="tabular-ltr" title={order.id}>{shortCode(order.id)}</span>
               </h1>
               <p className="text-sm text-gray-500">
                 العميل <span className="tabular-ltr">#{order.clientId}</span> — {order.client?.name} ({order.client?.storeName})
@@ -462,6 +463,14 @@ export default function OrderDetail() {
                         </p>
                       </div>
                       <QtyStepper value={it.qty} onChange={(v) => setCartQty(it.productId, v)} min={0} />
+                      <button
+                        type="button"
+                        onClick={() => setCartQty(it.productId, 0)}
+                        aria-label={`حذف ${it.name}`}
+                        className="w-11 h-11 rounded-xl flex items-center justify-center text-red-600 bg-red-50 active:bg-red-100 shrink-0"
+                      >
+                        <Icon name="trash" size={18} />
+                      </button>
                     </div>
                   ))
                 )}

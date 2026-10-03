@@ -2,6 +2,7 @@ const { adminDb } = require("../../../lib/firebaseAdmin");
 const { requireUser } = require("../../../lib/apiAuth");
 const { fetchReportOrders } = require("../../../lib/reportQuery");
 const { orderDiscount, round2 } = require("../../../lib/invoiceDiscount");
+const { marginForOrders } = require("../../../lib/marginCalc");
 
 // Builds a sales report from every invoice that ISN'T cancelled — with
 // the active/cancelled-only model, any non-cancelled invoice represents
@@ -91,7 +92,12 @@ export default async function handler(req, res) {
     const grandTotalPrice = round2(clients.reduce((sum, c) => sum + c.totalPrice, 0));
     const grandDiscount = round2(clients.reduce((sum, c) => sum + c.discount, 0));
 
+    // Operating margin of exactly the invoices in THIS report (not only the
+    // finalized ones), visible to every role that can open the report.
+    const margin = await marginForOrders(orders);
+
     return res.status(200).json({
+      margin,
       from: from || null,
       to: to || null,
       route: reportRoute,

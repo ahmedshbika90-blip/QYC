@@ -1,4 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
+import TodayMargin from "../../components/TodayMargin";
+import PendingBox from "../../components/PendingBox";
+import Icon from "../../components/Icon";
+import Link from "next/link";
 import { useAuth } from "../../lib/useAuth";
 import Nav from "../../components/Nav";
 import StatusTabs from "../../components/StatusTabs";
@@ -183,7 +187,7 @@ export default function Car2Dashboard() {
       <Nav role={role} logout={logout} />
       <main className="max-w-3xl mx-auto px-4 pt-5 pb-8 sm:px-8">
         <TodayHeader
-          title="مبيعات تجزئة"
+          title="المبيعات"
           subtitle="خط أسبوعي ثابت"
           stats={[
             { label: "فواتير اليوم", value: fetching ? "…" : today.count },
@@ -191,14 +195,18 @@ export default function Car2Dashboard() {
           ]}
         />
 
-        <QuickActions
-          actions={[
-            { href: "/place-order", label: "فاتورة جديدة", icon: "plus" },
-            { href: "/clients", label: "العملاء", icon: "users" },
-          ]}
-        />
+        <div className="grid grid-cols-2 gap-2.5 mb-5">
+          <Link
+            href="/place-order"
+            className="flex items-center justify-center gap-2 rounded-2xl h-[4.5rem] px-3 text-[15px] font-semibold bg-accent text-on-accent shadow-sm active:bg-accent-strong"
+          >
+            <Icon name="plus" size={19} strokeWidth={2.4} />
+            فاتورة جديدة
+          </Link>
+          <TodayMargin token={token} refreshKey={`${orders.length}:${today.total}`} />
+        </div>
 
-        <ActionInbox items={inbox} loading={fetching && orders.length === 0} emptyText="لا شيء بانتظارك — يومك على المسار" />
+        <PendingBox token={token} pendingMovements={pendingMovements} toDecide={[]} refreshKey={`${orders.length}:${pendingMovements.length}`} />
 
         <SectionTitle>الفواتير</SectionTitle>
 

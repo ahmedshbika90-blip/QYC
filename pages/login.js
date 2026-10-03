@@ -55,7 +55,7 @@ export default function Login() {
           <Icon name="route" size={34} strokeWidth={2.2} />
         </span>
         <div>
-          <p className="font-display text-3xl font-bold text-ink">مسار</p>
+          <p className="font-display text-3xl font-bold text-ink">مباشر</p>
           <p className="text-sm text-muted mt-1">إدارة المبيعات والتوزيع</p>
         </div>
       </div>

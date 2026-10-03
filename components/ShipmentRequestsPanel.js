@@ -56,6 +56,10 @@ function RequestRow({ r }) {
 //    at what the depot has.
 //  - On success the form is replaced by the shared success card.
 export default function ShipmentRequestsPanel({ role, token }) {
+  // "طلباتي" filter. Type is shipping order / goods return only — there is
+  // deliberately no "تالف" (damage) option for agents.
+  const [typeFilter, setTypeFilter] = useState("");
+  const [statusFilter, setStatusFilter] = useState("");
   const [tab, setTab] = useState("new");
   const [own, setOwn] = useState([]);
   const [toDecide, setToDecide] = useState([]);
@@ -191,7 +195,6 @@ export default function ShipmentRequestsPanel({ role, token }) {
   const tabs = [
     ["new", "طلب جديد", 0],
     ["own", "طلباتي", 0],
-    ...(role === "agent_car1" ? [["todecide", "بانتظار موافقتي", toDecide.length]] : []),
   ];
 
   const doneHint =
@@ -323,26 +326,9 @@ export default function ShipmentRequestsPanel({ role, token }) {
           </form>
         ))}
 
-      {tab === "own" &&
-        (fetching && own.length === 0 ? (
-          <SkeletonRows count={4} />
-        ) : own.length === 0 ? (
-          <p className="text-muted">لا توجد طلبات بعد.</p>
-        ) : (
-          <div className="bg-white rounded-2xl shadow divide-y divide-line overflow-hidden">
-            {own.map((r) => (
-              <RequestRow key={r.id} r={r} />
-            ))}
-          </div>
-        ))}
-
-      {tab === "todecide" &&
-        (fetching && toDecide.length === 0 ? (
-          <SkeletonRows count={4} />
-        ) : toDecide.length === 0 ? (
-          <p className="text-muted">لا توجد طلبات بانتظار موافقتك.</p>
-        ) : (
-          <div className="space-y-2">
+      {tab === "own" && role === "agent_car1" && toDecide.length > 0 && (
+          <div className="space-y-2 mb-5">
+            <h2 className="text-sm font-bold text-amber-700">بانتظار موافقتي — من التجزئة</h2>
             {toDecide.map((r) => (
               <div key={r.id} className="bg-white rounded-2xl shadow p-4">
                 <p className="font-semibold text-ink">أمر شحن — مبيعات تجزئة</p>
@@ -373,7 +359,55 @@ export default function ShipmentRequestsPanel({ role, token }) {
               </div>
             ))}
           </div>
+      )}
+
+      {tab === "own" && (
+        <div className="grid grid-cols-2 gap-2 mb-3">
+          <select
+            value={typeFilter}
+            onChange={(e) => setTypeFilter(e.target.value)}
+            aria-label="نوع الطلب"
+            className="border border-line rounded-xl px-3 h-11 text-sm"
+          >
+            <option value="">كل الأنواع</option>
+            <option value="loading">أمر شحن</option>
+            <option value="offloading">مرتجع بضاعة</option>
+          </select>
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+            aria-label="حالة الطلب"
+            className="border border-line rounded-xl px-3 h-11 text-sm"
+          >
+            <option value="">كل الحالات</option>
+            <option value="pending">قيد الانتظار</option>
+            {Object.keys(SHIPMENT_STATUS_LABELS)
+              .filter((k) => !k.startsWith("pending"))
+              .map((k) => (
+                <option key={k} value={k}>{SHIPMENT_STATUS_LABELS[k]}</option>
+              ))}
+          </select>
+        </div>
+      )}
+
+      {tab === "own" &&
+        (fetching && own.length === 0 ? (
+          <SkeletonRows count={4} />
+        ) : own.length === 0 ? (
+          <p className="text-muted">لا توجد طلبات بعد.</p>
+        ) : (
+          <div className="bg-white rounded-2xl shadow divide-y divide-line overflow-hidden">
+            {own
+              .filter((r) => !typeFilter || r.type === typeFilter)
+              .filter((r) =>
+                !statusFilter ? true : statusFilter === "pending" ? String(r.status).startsWith("pending") : r.status === statusFilter
+              )
+              .map((r) => (
+                <RequestRow key={r.id} r={r} />
+              ))}
+          </div>
         ))}
+
     </div>
   );
 }

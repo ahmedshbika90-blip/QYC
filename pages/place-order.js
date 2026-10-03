@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import Icon from "../components/Icon";
 import { useAuth } from "../lib/useAuth";
 import Nav from "../components/Nav";
 import BackButton from "../components/BackButton";
@@ -11,7 +12,7 @@ import { apiFetch } from "../lib/apiFetch";
 import { invalidate } from "../lib/apiCache";
 import { getClients } from "../lib/clientsStore";
 import { newRequestId } from "../lib/requestId";
-import { formatDate, formatNumber, formatQty } from "../lib/labels";
+import { formatDate, formatNumber, formatQty, shortCode } from "../lib/labels";
 
 // Invoices that couldn't be sent (no connection) are queued on the device,
 // per agent, and sent automatically when the connection returns. Each keeps
@@ -389,7 +390,7 @@ export default function PlaceOrder() {
       <div className="max-w-lg mx-auto p-4 sm:p-8">
         <div className="bg-white p-5 sm:p-8 rounded-lg shadow-md">
           {!result && <BackButton />}
-          <h1 className="font-display text-2xl font-bold mb-6 text-ink">تسجيل فاتورة لعميل</h1>
+          <h1 className="font-display text-2xl font-bold mb-6 text-ink">إنشاء فاتورة جديدة</h1>
 
           {queue.length > 0 && (
             <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-4">
@@ -463,7 +464,7 @@ export default function PlaceOrder() {
           ) : result ? (
             <SuccessScreen
               title="تم تسجيل الفاتورة"
-              number={result.orderId}
+              number={shortCode(result.orderId)}
               hint={`الإجمالي ${formatNumber(result.total)} — ${
                 result.deliveryDate ? `التسليم ${formatDate(result.deliveryDate)}` : "حسب الطلب، تواصل مع العميل لتحديد الموعد"
               }`}
@@ -591,6 +592,14 @@ export default function PlaceOrder() {
                           min={0}
                           max={it.available}
                         />
+                        <button
+                          type="button"
+                          onClick={() => removeFromCart(it.productId)}
+                          aria-label={`حذف ${it.name}`}
+                          className="w-11 h-11 rounded-xl flex items-center justify-center text-red-600 bg-red-50 active:bg-red-100 shrink-0"
+                        >
+                          <Icon name="trash" size={18} />
+                        </button>
                       </div>
                       <div className="flex flex-wrap items-center gap-2 text-sm">
                         <FreeSampleToggle checked={Boolean(it.freeSample)} onChange={() => toggleFreeSample(it.productId)} />

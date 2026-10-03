@@ -252,6 +252,32 @@ eval(header + `
   assert.strictEqual(shipReadSup.status, 200);
   ok("shipment request detail: owner, warehouse keeper and supervisor can read it; an unrelated agent is refused");
 
+  // 7. Visibility and margin rules.
+  // a) The retail agent never receives the wholesale van's stock — removed
+  //    on the server, so it can't be read from the response either.
+  const plCar2 = await call("pages/api/products/list.js", { ...A2 });
+  assert.strictEqual(plCar2.status, 200);
+  assert.ok(plCar2.json.products.every((p) => !p.stock || !("car1" in p.stock)), "car2 must not receive car1 stock");
+  const plCar1 = await call("pages/api/products/list.js", { ...A1 });
+  assert.ok(plCar1.json.products.some((p) => p.stock && "car1" in p.stock && "car2" in p.stock)); // car1 sees both vans
+  // b) The warehouse keeper gets no prices at all, and can't open the sales
+  //    report (which now carries the operating margin).
+  const plWk = await call("pages/api/products/list.js", { ...WK });
+  assert.ok(plWk.json.products.every((p) => p.prices === undefined && p.price === undefined && p.avgCost === undefined));
+  const repWk = await call("pages/api/reports/sales.js", { ...WK, query: {} });
+  assert.strictEqual(repWk.status, 403);
+  // c) Agents get the margin of the report's CURRENT invoices (not only
+  //    finalized ones), as totals only — never a cost figure.
+  await db.collection("products").doc("p1").update({ avgCost: 6 });
+  const repA1 = await call("pages/api/reports/sales.js", { ...A1, query: {} });
+  assert.strictEqual(repA1.status, 200, JSON.stringify(repA1.json));
+  const mg = repA1.json.margin;
+  assert.ok(mg && typeof mg.margin === "number" && typeof mg.revenue === "number");
+  assert.strictEqual(mg.invoiceCount, repA1.json.orderCount); // exactly the report's invoices
+  assert.ok(mg.marginPct !== null); // cost known -> percentage computed
+  assert.ok(!("cost" in mg)); // totals only
+  ok("visibility: car2 never receives car1 stock; keeper gets no prices and no sales report; agents get margin of the report's current invoices (totals only)");
+
   console.log("ALL SESSION-3 SCENARIOS PASSED");
 })().catch((e) => { console.error("FAIL:", e.message); process.exit(1); });
 `);

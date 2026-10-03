@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
+import TodayMargin from "../../components/TodayMargin";
+import PendingBox from "../../components/PendingBox";
 import Link from "next/link";
 import { useAuth } from "../../lib/useAuth";
 import Nav from "../../components/Nav";
@@ -187,7 +189,7 @@ export default function Car1Dashboard() {
       <Nav role={role} logout={logout} />
       <main className="max-w-3xl mx-auto px-4 pt-5 pb-8 sm:px-8">
         <TodayHeader
-          title="مبيعات جملة"
+          title="المبيعات"
           subtitle="حسب الطلب"
           stats={[
             { label: "فواتير اليوم", value: fetching ? "…" : today.count },
@@ -195,22 +197,18 @@ export default function Car1Dashboard() {
           ]}
         />
 
-        <QuickActions
-          actions={[
-            { href: "/place-order", label: "فاتورة جديدة", icon: "plus" },
-            { href: "/clients", label: "العملاء", icon: "users" },
-          ]}
-        />
+        <div className="grid grid-cols-2 gap-2.5 mb-5">
+          <Link
+            href="/place-order"
+            className="flex items-center justify-center gap-2 rounded-2xl h-[4.5rem] px-3 text-[15px] font-semibold bg-accent text-on-accent shadow-sm active:bg-accent-strong"
+          >
+            <Icon name="plus" size={19} strokeWidth={2.4} />
+            فاتورة جديدة
+          </Link>
+          <TodayMargin token={token} refreshKey={`${orders.length}:${today.total}`} />
+        </div>
 
-        <ActionInbox items={inbox} loading={fetching && orders.length === 0} emptyText="لا شيء بانتظارك — يومك على المسار" />
-
-        {/* Requests coming from the OTHER agent (car2) that this agent
-            gates before they reach the warehouse. Kept separate from the
-            main inbox because it's a different mental job: reviewing
-            someone else's request, not confirming your own delivery.
-            The amber dot on the header stays lit while anything remains
-            unapproved; it clears when the list is empty. */}
-        <ApprovalQueue items={toDecide} loading={fetching} />
+        <PendingBox token={token} pendingMovements={pendingMovements} toDecide={toDecide} refreshKey={`${orders.length}:${pendingMovements.length}`} />
 
         <SectionTitle>الفواتير</SectionTitle>
 
@@ -294,69 +292,3 @@ export default function Car1Dashboard() {
   );
 }
 
-// Isolated block for approvals originating from the OTHER agent. Its
-// visual language (blue-ish info tone + a distinct icon) is deliberately
-// different from the amber "your own delivery to confirm" cards above so
-// the two jobs don't get conflated at a glance.
-function ApprovalQueue({ items, loading }) {
-  const count = items.length;
-
-  return (
-    <section aria-label="بانتظار موافقتي" className="mb-6">
-      <div className="flex items-center justify-between gap-2 mb-2.5">
-        <div className="flex items-center gap-2">
-          <h2 className="text-base font-bold text-ink">بانتظار موافقتي</h2>
-          {count > 0 && (
-            <span className="relative inline-flex">
-              <span className="w-2.5 h-2.5 rounded-full bg-amber-500 ring-2 ring-canvas" />
-              <span className="absolute inset-0 rounded-full bg-amber-500 animate-ping opacity-70" />
-            </span>
-          )}
-          {count > 0 && (
-            <span className="num min-w-[22px] h-[22px] px-1.5 rounded-full bg-amber-100 text-amber-700 text-xs font-bold flex items-center justify-center">
-              {count}
-            </span>
-          )}
-        </div>
-        <p className="text-[11px] text-muted">من مبيعات التجزئة</p>
-      </div>
-
-      {loading && count === 0 ? (
-        <div className="bg-white rounded-2xl shadow h-[68px] animate-pulse" />
-      ) : count === 0 ? (
-        <div className="bg-white rounded-2xl shadow px-4 py-3.5 flex items-center gap-3 border border-dashed border-line">
-          <span className="w-10 h-10 rounded-xl bg-surface-2 text-muted flex items-center justify-center">
-            <Icon name="inbox" size={18} />
-          </span>
-          <p className="text-sm text-muted">لا طلبات بانتظار موافقتك</p>
-        </div>
-      ) : (
-        <ul className="bg-white rounded-2xl shadow divide-y divide-line overflow-hidden border-r-4 border-amber-400">
-          {items.map((r) => (
-            <li key={r.id}>
-              <Link
-                href={`/shipping/${r.id}`}
-                className="flex items-center gap-3 px-3.5 py-3 min-h-[68px] active:bg-surface-2"
-              >
-                <span className="w-11 h-11 rounded-xl bg-blue-100 text-blue-700 flex items-center justify-center shrink-0">
-                  <Icon name={r.type === "offloading" ? "box" : "truck"} size={20} />
-                </span>
-                <span className="flex-1 min-w-0">
-                  <span className="block text-[15px] font-semibold text-ink leading-snug line-clamp-2">
-                    {r.type === "loading" ? "أمر شحن" : "مرتجع بضاعة"} من التجزئة
-                  </span>
-                  <span className="block text-xs text-muted truncate mt-0.5">
-                    {previewNames(r.items)} · {formatDateTime(r.requestedAt)}
-                  </span>
-                </span>
-                <span className="shrink-0 h-8 px-3 rounded-lg text-[13px] font-bold flex items-center bg-amber-100 text-amber-700">
-                  راجِع
-                </span>
-              </Link>
-            </li>
-          ))}
-        </ul>
-      )}
-    </section>
-  );
-}

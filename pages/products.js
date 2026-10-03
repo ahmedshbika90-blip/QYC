@@ -141,12 +141,15 @@ export default function Products() {
     <div className="min-h-screen bg-gray-50">
       <Nav role={role} logout={logout} />
       <div className="max-w-3xl mx-auto p-4 sm:p-8">
-        <h1 className="text-xl font-semibold mb-1 text-gray-800">كتالوج المنتجات</h1>
+        <h1 className="font-display text-2xl font-bold mb-1 text-ink">{isSupervisor ? "كتالوج المنتجات" : "المخزون"}</h1>
         {!isSupervisor && (
           <p className="text-sm text-gray-400 mb-6">
             للعرض فقط — المشرف وحده يمكنه إضافة أو تعديل المنتجات وأسعارها.
           </p>
         )}
+
+        {!isSupervisor && <StockSections products={products} role={role} />}
+        {!isSupervisor && <h2 className="font-display text-lg font-bold text-ink mb-3">كتالوج المنتجات</h2>}
 
         {error && (
           <div className="text-red-600 text-sm mb-4 mt-4 flex items-center gap-2">
@@ -324,9 +327,11 @@ export default function Products() {
                       {"  ·  "}
                       مبيعات تجزئة: <span className="font-medium">{p.prices?.car2 != null ? formatNumber(p.prices.car2) : "—"}</span>
                     </p>
+                    {isSupervisor && (
                     <p className="text-xs text-gray-400 mt-0.5">
                       المخزن: {formatQty(p.stock?.depot ?? 0)} · مبيعات جملة: {formatQty(p.stock?.car1 ?? 0)} · مبيعات تجزئة: {formatQty(p.stock?.car2 ?? 0)}
                     </p>
+                    )}
                     {isSupervisor && (
                       <p className="text-xs text-gray-400 mt-0.5">
                         تكلفة الوحدة: {typeof p.avgCost === "number" ? p.avgCost : <span className="text-amber-600">غير محددة</span>}
@@ -357,6 +362,43 @@ export default function Products() {
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+// Agent view: stock by location, then the catalog (prices only).
+// The wholesale agent sees his van, the retail van and the main depot.
+// The retail agent sees his van and the main depot — the server never
+// sends him the wholesale van's stock (pages/api/products/list.js).
+function StockSections({ products, role }) {
+  const places =
+    role === "agent_car1"
+      ? [["car1", "سيارتي"], ["car2", "سيارة التجزئة"], ["depot", "المخزن الرئيسي"]]
+      : [["car2", "سيارتي"], ["depot", "المخزن الرئيسي"]];
+  return (
+    <div className="space-y-3 mb-6">
+      {places.map(([field, label]) => {
+        const rows = products.filter((p) => (p.stock?.[field] ?? 0) > 0);
+        return (
+          <section key={field} className="bg-white rounded-2xl shadow p-4">
+            <h2 className="text-base font-bold text-ink mb-1">{label}</h2>
+            {rows.length === 0 ? (
+              <p className="text-sm text-muted py-1">لا توجد بضاعة</p>
+            ) : (
+              <ul className="divide-y divide-line">
+                {rows.map((p) => (
+                  <li key={p.id} className="flex items-center justify-between gap-3 py-2 text-sm">
+                    <span className="text-ink">{p.name}</span>
+                    <span className="num font-semibold tabular-ltr shrink-0">
+                      {formatQty(p.stock[field])} <span className="text-muted font-normal">{p.unit}</span>
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+        );
+      })}
     </div>
   );
 }

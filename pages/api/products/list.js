@@ -45,6 +45,17 @@ export default async function handler(req, res) {
       products = products.map(({ avgCost, ...rest }) => rest);
     }
 
+    // The retail agent must not see what is on the wholesale car. Removed
+    // here on the server, not just hidden in the app, so it can't be read
+    // from the network response either.
+    if (decoded.role === "agent_car2") {
+      products = products.map((p) => {
+        if (!p.stock) return p;
+        const { car1, ...stock } = p.stock;
+        return { ...p, stock };
+      });
+    }
+
     // The warehouse keeper manages the depot only: no selling prices and
     // no live car stock — just depot and damaged-goods balances.
     if (decoded.role === "warehouse_keeper") {

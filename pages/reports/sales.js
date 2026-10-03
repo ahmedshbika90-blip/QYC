@@ -203,6 +203,17 @@ export default function SalesReport() {
               </button>
             </div>
 
+            {report?.margin && (
+              <div className="mb-4 bg-white rounded-2xl shadow px-4 py-3 flex items-center justify-between gap-3">
+                <span className="text-sm text-muted">هامش التشغيل لهذا التقرير</span>
+                <span className={`num text-xl font-bold tabular-ltr ${report.margin.margin < 0 ? "text-red-600" : "text-ink"}`}>
+                  {formatNumber(report.margin.margin)}
+                  {report.margin.marginPct != null && (
+                    <span className="text-xs font-semibold text-muted ms-1.5">{report.margin.marginPct}%</span>
+                  )}
+                </span>
+              </div>
+            )}
             <div ref={reportRef} className="bg-white">
               <div className="flex items-center justify-between mb-6 pb-4 border-b-2 border-gray-900">
                 <div>
@@ -218,7 +229,7 @@ export default function SalesReport() {
                   </p>
                 </div>
                 <div className="text-end shrink-0">
-                  <p className="text-lg font-bold text-gray-900">مسار</p>
+                  <p className="text-lg font-bold text-gray-900">مباشر</p>
                   <p className="text-xs text-gray-400">Masar</p>
                 </div>
               </div>
