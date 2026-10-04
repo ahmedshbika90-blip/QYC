@@ -55,6 +55,7 @@ export default async function handler(req, res) {
         createdByRole: "warehouse_keeper",
         createdAt: now,
         confirmedAt: now,
+        finalizedAt: now,
         businessDay: day,
         dailySeq,
         warehouseKeeperNote: t.note || "",

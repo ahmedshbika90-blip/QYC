@@ -243,3 +243,39 @@ html.theme-transition * {
 @media (prefers-reduced-motion: reduce) {
   .success-screen { animation: none; }
 }
+
+/* ──────────────────────────────────────────────────────────────────────
+   Supervisor dashboard palette — soft forest-green + navy, scoped to
+   .dash so the rest of the app keeps its current colours. Slots p1–p6 are
+   the product shades (two per group: Alwafi, snacks, other); every
+   text/background pair passes WCAG AA in both themes.
+   ────────────────────────────────────────────────────────────────────── */
+.dash {
+  --d-w: 46 107 88;   --d-w-i: 255 255 255; --d-ws: 227 238 233; --d-wx: 127 184 164;
+  --d-r: 38 56 94;    --d-r-i: 255 255 255; --d-rs: 226 231 240; --d-rx: 157 178 216;
+  --d-tot: 29 43 51;  --d-toti: 244 241 234; --d-fill: 22 33 28; --d-ln: 227 220 205;
+  --d-p1: 143 106 46;  --d-p1-i: 255 255 255;
+  --d-p2: 217 184 119; --d-p2-i: 42 27 3;
+  --d-p3: 169 85 63;   --d-p3-i: 255 255 255;
+  --d-p4: 227 165 140; --d-p4-i: 42 18 4;
+  --d-p5: 107 117 111; --d-p5-i: 255 255 255;
+  --d-p6: 176 184 178; --d-p6-i: 22 33 28;
+}
+html.dark .dash {
+  --d-w: 127 184 164; --d-w-i: 11 26 21;  --d-ws: 27 51 43;  --d-wx: 46 107 88;
+  --d-r: 157 178 216; --d-r-i: 12 22 38;  --d-rs: 26 39 64;  --d-rx: 38 56 94;
+  --d-tot: 236 231 221; --d-toti: 13 19 16; --d-fill: 236 231 221; --d-ln: 39 51 45;
+  --d-p1: 210 165 96;  --d-p1-i: 26 18 4;
+  --d-p2: 230 203 146; --d-p2-i: 26 18 4;
+  --d-p3: 217 140 116; --d-p3-i: 31 10 4;
+  --d-p4: 235 184 164; --d-p4-i: 31 10 4;
+  --d-p5: 163 173 166; --d-p5-i: 13 19 16;
+  --d-p6: 110 122 115; --d-p6-i: 236 231 221;
+}
+/* Numbers stay left-to-right and sit on the same side as their labels. */
+.dash .dn {
+  direction: ltr;
+  unicode-bidi: isolate;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}

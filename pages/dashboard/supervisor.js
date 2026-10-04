@@ -1,72 +1,32 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
+import Link from "next/link";
 import { useAuth } from "../../lib/useAuth";
 import Nav from "../../components/Nav";
-import FilterChips from "../../components/FilterChips";
-import StatusTabs from "../../components/StatusTabs";
-import PeriodTabs, { periodStartISO } from "../../components/PeriodTabs";
-import FilterPanel from "../../components/FilterPanel";
-import { hasDiscount } from "../../lib/invoiceDiscount";
-import OrderCard from "../../components/OrderCard";
-import QuickActions from "../../components/QuickActions";
-import { TodayHeader, ActionInbox, SectionTitle, todayStats } from "../../components/Today";
-import Link from "next/link";
-import { PageLoading, SkeletonRows, Spinner } from "../../components/Loading";
+import SupervisorDashboard, { DashboardSkeleton, PeriodMenu } from "../../components/SupervisorDashboard";
+import { PageLoading } from "../../components/Loading";
+import Icon from "../../components/Icon";
 import { apiFetch } from "../../lib/apiFetch";
 import { cachedGet, invalidate } from "../../lib/apiCache";
 import { useLiveRefresh } from "../../lib/useLiveRefresh";
-import { getClients } from "../../lib/clientsStore";
-import { formatDate, formatNumber } from "../../lib/labels";
+import { rangeText } from "../../lib/dashboardView";
 
-export default function SupervisorDashboard() {
-  const { user, role, token, loading, logout } = useAuth(["supervisor"]);
-  const [orders, setOrders] = useState([]);
-  const [nextCursor, setNextCursor] = useState(null);
-  const [loadingMore, setLoadingMore] = useState(false);
-  const [clientsById, setClientsById] = useState({});
-  const [routeFilter, setRouteFilter] = useState("all");
-  const [pendingRequests, setPendingRequests] = useState(0);
+// The supervisor's home: a summary of the operation for a chosen period.
+// The invoice list that used to live here is now at /invoices.
+export default function SupervisorHome() {
+  const { role, token, loading, logout } = useAuth(["supervisor"]);
+  const [period, setPeriod] = useState("today");
+  const [unit, setUnit] = useState("qty");
+  const [data, setData] = useState(null);
   const [fetching, setFetching] = useState(true);
   const [error, setError] = useState("");
+  const [pending, setPending] = useState(0);
 
-  const [statusFilter, setStatusFilter] = useState("active");
-  const [nameQuery, setNameQuery] = useState("");
-  const [locationQuery, setLocationQuery] = useState("");
-  const [storeClass, setStoreClass] = useState("");
-  const [discountFilter, setDiscountFilter] = useState("");
-  const [priceFilter, setPriceFilter] = useState(""); // "" | "with" | "without"
-  const [sampleFilter, setSampleFilter] = useState(""); // "" | "with" | "without" // "" | "with" | "without"
-  const [dateFrom, setDateFrom] = useState("");
-  const [dateTo, setDateTo] = useState("");
-  const [period, setPeriod] = useState(7); // days; ignored when a custom date range is set
-
-  useEffect(() => {
-    if (!token) return;
-    fetchAll();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [token, dateFrom, dateTo, period, routeFilter]);
-
-  function ordersUrl(cursor) {
-    const params = new URLSearchParams();
-    params.set("from", dateFrom || periodStartISO(period));
-    if (dateTo) params.set("to", dateTo);
-    if (routeFilter !== "all") params.set("route", routeFilter);
-    if (cursor) params.set("cursor", cursor);
-    return `/api/orders/list?${params.toString()}`;
-  }
-
-  async function fetchAll() {
+  async function load(p) {
     setFetching(true);
-    setError("");
     try {
-      const [ordersData, clients, pendingData] = await Promise.all([
-        cachedGet(apiFetch, ordersUrl(), token),
-        getClients(apiFetch, token, user.uid),
-        cachedGet(apiFetch, "/api/requests/list?status=pending", token).catch(() => ({ requests: [] })),
-      ]);
-      setPendingRequests(pendingData.requests.length);
-      setOrders(ordersData.orders);
-      setNextCursor(ordersData.nextCursor);
-      setClientsById(Object.fromEntries(clients.map((c) => [c.id, c])));
+      const d = await cachedGet(apiFetch, `/api/dashboard/summary?period=${p}`, token);
+      setData(d);
+      setError("");
     } catch (err) {
       setError(err.message);
     } finally {
@@ -74,219 +34,58 @@ export default function SupervisorDashboard() {
     }
   }
 
-  async function loadMore() {
-    if (!nextCursor) return;
-    setLoadingMore(true);
-    try {
-      const data = await cachedGet(apiFetch, ordersUrl(nextCursor), token);
-      setOrders((prev) => [...prev, ...data.orders]);
-      setNextCursor(data.nextCursor);
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setLoadingMore(false);
-    }
-  }
+  useEffect(() => {
+    if (token) load(period);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [token, period]);
 
-  async function updateStatus(orderId, status) {
-    try {
-      const res = await apiFetch(`/api/orders/${orderId}/status`, {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ status }),
-      });
-      if (!res.ok) throw new Error((await res.json()).error);
-      invalidate("/api/orders/list");
-      fetchAll();
-    } catch (err) {
-      setError(err.message);
-    }
-  }
+  useEffect(() => {
+    if (!token) return;
+    cachedGet(apiFetch, "/api/requests/list?status=pending", token)
+      .then((d) => setPending((d.requests || []).length))
+      .catch(() => {});
+  }, [token]);
 
-  const matchesFilters = useMemo(() => {
-    return (order) => {
-      if (routeFilter !== "all" && order.route !== routeFilter) return false;
-      if (nameQuery) {
-        const name = clientsById[order.clientId]?.name || "";
-        if (!name.toLowerCase().includes(nameQuery.toLowerCase())) return false;
-      }
-      if (locationQuery) {
-        const location = clientsById[order.clientId]?.location || "";
-        if (!location.toLowerCase().includes(locationQuery.toLowerCase())) return false;
-      }
-      if (storeClass && clientsById[order.clientId]?.storeClass !== storeClass) return false;
-      if (discountFilter === "with" && !hasDiscount(order)) return false;
-      if (discountFilter === "without" && hasDiscount(order)) return false;
-      if (sampleFilter === "with" && !order.hasFreeSample) return false;
-      if (sampleFilter === "without" && order.hasFreeSample) return false;
-      if (priceFilter === "with" && !order.hasPriceAdjustment) return false;
-      if (priceFilter === "without" && order.hasPriceAdjustment) return false;
-      return true;
-    };
-  }, [clientsById, routeFilter, nameQuery, locationQuery, storeClass, discountFilter, sampleFilter, priceFilter]);
-
-  const baseFiltered = useMemo(() => orders.filter(matchesFilters), [orders, matchesFilters]);
-  const counts = useMemo(
-    () => ({
-      active: baseFiltered.filter((o) => o.status !== "cancelled").length,
-      cancelled: baseFiltered.filter((o) => o.status === "cancelled").length,
-    }),
-    [baseFiltered]
-  );
-  const visible = useMemo(
-    () =>
-      statusFilter === "cancelled"
-        ? baseFiltered.filter((o) => o.status === "cancelled")
-        : baseFiltered.filter((o) => o.status !== "cancelled"),
-    [baseFiltered, statusFilter]
-  );
-
-  const totalRevenue = visible
-    .filter((o) => o.status !== "cancelled")
-    .reduce((sum, o) => sum + (o.total || 0), 0);
-
-  useLiveRefresh(token, ["orders_car1", "orders_car2", "requests"], () => {
-    invalidate("/api/orders/list");
-    fetchAll();
+  useLiveRefresh(token, ["orders_car1", "orders_car2", "inventory", "transfers"], () => {
+    invalidate("/api/dashboard");
+    invalidate("/api/requests");
+    load(period);
   });
-
-  const today = useMemo(() => todayStats(orders), [orders]);
-  const inbox =
-    pendingRequests > 0
-      ? [
-          {
-            key: "requests",
-            href: "/requests",
-            icon: "inbox",
-            tone: "warn",
-            title: `${pendingRequests} ${pendingRequests === 1 ? "طلب تعديل أو إلغاء" : "طلبات تعديل أو إلغاء"} بانتظار قرارك`,
-            meta: "فواتير لن تتغير حتى توافق أو ترفض",
-            cta: "قرّر الآن",
-          },
-        ]
-      : [];
 
   if (loading) return <PageLoading />;
 
   return (
     <div className="min-h-screen bg-canvas">
       <Nav role={role} logout={logout} />
-      <main className="max-w-5xl mx-auto px-4 pt-5 pb-8 sm:px-8">
-        <TodayHeader
-          title="نظرة اليوم"
-          subtitle={routeFilter === "car1" ? "مبيعات جملة" : routeFilter === "car2" ? "مبيعات تجزئة" : "كل المسارات"}
-          aside={
-            <FilterChips
-              className="shrink-0"
-              value={routeFilter === "all" ? "" : routeFilter}
-              onChange={(v) => setRouteFilter(v || "all")}
-              options={[["car1", "جملة"], ["car2", "تجزئة"]]}
-            />
-          }
-          stats={[
-            { label: "فواتير اليوم", value: fetching ? "…" : today.count },
-            { label: "مبيعات اليوم", value: fetching ? "…" : formatNumber(today.total) },
-            { label: "بانتظار قرارك", value: pendingRequests, tone: pendingRequests > 0 ? "warn" : undefined },
-          ]}
-        />
-
-        <ActionInbox items={inbox} emptyText="لا توجد قرارات معلّقة" />
-
-        <QuickActions
-          actions={[
-            { href: "/reports/sales", label: "تقرير المبيعات", icon: "chart" },
-            { href: "/margin", label: "هامش التشغيل", icon: "percent" },
-            { href: "/inventory", label: "المخزون", icon: "box" },
-            { href: "/products", label: "الأسعار والمنتجات", icon: "tag" },
-          ]}
-        />
-
-        <SectionTitle>الفواتير</SectionTitle>
-
-        <PeriodTabs
-          value={dateFrom || dateTo ? null : period}
-          onChange={(days) => {
-            setPeriod(days);
-            setDateFrom("");
-            setDateTo("");
-          }}
-        />
-
-        <div className="flex flex-wrap items-start justify-between gap-2 mb-1">
-          <StatusTabs value={statusFilter} onChange={setStatusFilter} counts={counts} />
-          <FilterPanel
-          nameQuery={nameQuery}
-          onNameChange={setNameQuery}
-          locationQuery={locationQuery}
-          onLocationChange={setLocationQuery}
-          storeClass={storeClass}
-          onStoreClassChange={setStoreClass}
-          discountFilter={discountFilter}
-          onDiscountFilterChange={setDiscountFilter}
-          sampleFilter={sampleFilter}
-          priceFilter={priceFilter}
-          onPriceFilterChange={setPriceFilter}
-          onSampleFilterChange={setSampleFilter}
-          dateFrom={dateFrom}
-          onDateFromChange={setDateFrom}
-          dateTo={dateTo}
-          onDateToChange={setDateTo}
-          />
+      <main className="max-w-[1360px] mx-auto px-4 md:px-10 pt-5 md:pt-8 pb-10 md:pb-14 flex flex-col gap-9 md:gap-11">
+        <div className="flex flex-wrap items-end justify-between gap-4">
+          <div>
+            <div className="text-sm text-muted">{data ? rangeText(period, data.period) : " "}</div>
+            <h1 className="font-display text-[34px] leading-[1.2] font-bold text-ink mt-1">لوحة العمليات</h1>
+          </div>
+          <div className="flex flex-wrap items-center gap-3">
+            {pending > 0 && (
+              <Link href="/requests" className="h-12 px-4 rounded-2xl flex items-center gap-2 text-sm font-bold bg-amber-100 text-amber-700">
+                <span className="num min-w-[22px] h-[22px] px-1.5 rounded-full bg-amber-700 text-amber-100 text-xs flex items-center justify-center">{pending}</span>
+                {pending === 1 ? "طلب بانتظار قرارك" : "طلبات بانتظار قرارك"}
+              </Link>
+            )}
+            <PeriodMenu period={period} onChange={setPeriod} />
+          </div>
         </div>
 
-        {(nameQuery || locationQuery || storeClass || discountFilter || sampleFilter || priceFilter) && nextCursor && (
-          <p className="text-xs text-amber-600 mb-3">
-            البحث يشمل الفواتير المحمّلة فقط — اضغط "تحميل المزيد" أو حدد فترة لنتائج أشمل.
-          </p>
-        )}
-
-        <p className="text-sm text-muted mb-3">
-          <span className="num font-semibold text-ink">{visible.length}</span> فاتورة معروضة — الإجمالي <span className="num font-semibold text-ink tabular-ltr">{formatNumber(totalRevenue)}</span> (باستثناء الملغاة){nextCursor ? " · توجد فواتير أخرى لم تُحمَّل" : ""}
-        </p>
-
         {error && (
-          <div role="alert" className="text-red-600 bg-red-50 rounded-xl px-3 py-2.5 text-sm mb-4 flex items-center justify-between gap-2">
-            <span>{error}</span>
-            <button onClick={fetchAll} className="underline shrink-0">إعادة المحاولة</button>
+          <div role="alert" className="flex items-center justify-between gap-3 text-red-600 bg-red-50 rounded-xl px-3 py-2.5 text-sm">
+            <span className="flex items-center gap-2"><Icon name="alert" size={18} />{error}</span>
+            <button type="button" onClick={() => load(period)} className="font-semibold underline shrink-0">إعادة المحاولة</button>
           </div>
         )}
 
-        {fetching ? (
-          <SkeletonRows count={4} />
+        {!data ? (
+          error ? null : <DashboardSkeleton />
         ) : (
-          <div className="space-y-2">
-            {visible.length === 0 && (
-              <p className="text-muted text-sm bg-white rounded-2xl shadow px-4 py-6 text-center">لا توجد فواتير مطابقة.</p>
-            )}
-            {visible.map((order) => (
-              <OrderCard
-                key={order.id}
-                order={order}
-                name={clientsById[order.clientId]?.name}
-                location={clientsById[order.clientId]?.location}
-                edited={order.edited}
-                badge={
-                  <span className={`shrink-0 text-[11px] font-semibold rounded-md px-1.5 py-0.5 ${order.route === "car1" ? "bg-accent-soft text-accent-ink" : "bg-blue-100 text-blue-700"}`}>
-                    {order.route === "car1" ? "جملة" : "تجزئة"}
-                  </span>
-                }
-                subtitle={order.deliveryDate ? `التسليم: ${formatDate(order.deliveryDate)}` : null}
-                onStatusChange={updateStatus}
-              />
-            ))}
-            {nextCursor && (
-              <button
-                onClick={loadMore}
-                disabled={loadingMore}
-                className="w-full bg-white rounded-2xl shadow text-sm font-semibold text-ink-soft h-12 flex items-center justify-center gap-2 disabled:opacity-50"
-              >
-                {loadingMore && <Spinner className="w-4 h-4" />}
-                {loadingMore ? "جارٍ التحميل..." : "تحميل المزيد"}
-              </button>
-            )}
+          <div className={fetching ? "opacity-60 transition-opacity" : "transition-opacity"} aria-busy={fetching}>
+            <SupervisorDashboard data={data} unit={unit} onUnit={setUnit} />
           </div>
         )}
       </main>
