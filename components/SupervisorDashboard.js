@@ -1,310 +1,484 @@
 import { useEffect, useRef, useState } from "react";
 import Icon from "./Icon";
-import { PERIODS, buildView, V } from "../lib/dashboardView";
+import { UNIT, TREND_KINDS, buildView, niceScale, todayYmd, V, fmt } from "../lib/dashboardView";
 
 // The supervisor's home: how the operation is doing, at a glance.
-// Presentational only — every figure comes from lib/dashboardView.js, which
-// reads the one /api/dashboard/summary response, so the sections can't
-// disagree with each other. Colours come from the .dash palette.
+// Presentational only — every figure comes from lib/dashboardView.js.
+// Colour rules (styles/globals.css, .dash): wholesale is always forest
+// green, retail always navy, in every section; products use cool tones.
+// No yellow or red anywhere on this page — a fall is shown by its sign
+// and a neutral chip, not by an alarm colour.
 
-const AMBER = { bg: "rgb(var(--amber-100))", ink: "rgb(var(--amber-700))" };
 const num = "dn";
+const NEUTRAL = { bg: "rgb(var(--gray-100))", ink: "rgb(var(--gray-700))" };
+
+/* ── shared pieces ─────────────────────────────────────────────────────── */
 
 function Section({ id, title, hint, aside, children }) {
   return (
-    <section aria-labelledby={id}>
-      <div className="flex flex-wrap items-end justify-between gap-3 mb-4">
-        <div>
-          <h2 id={id} className="font-display text-[22px] font-bold text-ink">{title}</h2>
-          <p className="text-sm text-muted mt-1">{hint}</p>
+    <section aria-labelledby={id} className="flex flex-col gap-5">
+      <header className="flex flex-wrap items-end justify-between gap-x-4 gap-y-3">
+        <div className="flex items-start gap-3 min-w-0">
+          <span aria-hidden="true" className="mt-1.5 w-1.5 h-6 rounded-full shrink-0" style={{ background: V("tot") }} />
+          <div className="min-w-0">
+            <h2 id={id} className="font-display text-xl font-bold text-ink">{title}</h2>
+            {hint && <p className="text-sm text-muted mt-1 leading-relaxed">{hint}</p>}
+          </div>
         </div>
         {aside}
-      </div>
+      </header>
       {children}
     </section>
   );
 }
 
+const Card = ({ className = "", children, style }) => (
+  <div className={`bg-white rounded-2xl shadow min-w-0 ${className}`} style={style}>{children}</div>
+);
+
 function Delta({ d }) {
   if (!d) return null;
   return (
     <span
-      className="h-[26px] px-2.5 rounded-full text-xs font-bold flex items-center whitespace-nowrap"
-      style={{ background: d.up ? V("ws") : AMBER.bg, color: d.up ? V("w") : AMBER.ink }}
+      className="h-7 px-2.5 rounded-full text-xs font-bold inline-flex items-center gap-1 whitespace-nowrap"
+      style={{ background: d.up ? V("ws") : NEUTRAL.bg, color: d.up ? V("w") : NEUTRAL.ink }}
     >
+      <Icon name={d.up ? "trendUp" : "trendDown"} size={14} strokeWidth={2.4} />
       {d.text}
     </span>
   );
 }
 
-function SplitBar({ a, b, h = 16, aColor = V("w"), bColor = V("r"), track = "rgb(var(--gray-100))" }) {
+function SplitBar({ a, b, h = 12, aColor = V("w"), bColor = V("r"), track = "rgb(var(--gray-100))" }) {
   return (
     <div className="flex overflow-hidden" style={{ height: h, borderRadius: h / 2, background: track }}>
       <div style={{ flex: `${a} 1 0%`, background: aColor }} />
-      <div style={{ flex: `${b} 1 0%`, background: bColor, marginInlineStart: 3 }} />
+      <div style={{ flex: `${b} 1 0%`, background: bColor, marginInlineStart: 2 }} />
     </div>
   );
 }
 
-export function PeriodMenu({ period, onChange }) {
-  const [open, setOpen] = useState(false);
-  const ref = useRef(null);
-  useEffect(() => {
-    if (!open) return;
-    const onDoc = (e) => ref.current && !ref.current.contains(e.target) && setOpen(false);
-    const onKey = (e) => e.key === "Escape" && setOpen(false);
-    document.addEventListener("mousedown", onDoc);
-    document.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("mousedown", onDoc);
-      document.removeEventListener("keydown", onKey);
-    };
-  }, [open]);
-  const cur = PERIODS.find((p) => p.id === period) || PERIODS[0];
+function Segmented({ label, options, value, onChange }) {
   return (
-    <div ref={ref} className="relative">
-      <button
-        type="button"
-        aria-haspopup="listbox"
-        aria-expanded={open}
-        onClick={() => setOpen((v) => !v)}
-        className="h-12 px-4 rounded-2xl border border-line bg-white text-ink flex items-center gap-2.5 text-[15px] font-semibold"
-      >
-        <Icon name="calendar" size={18} />
-        <span>{cur.label}</span>
-        <Icon name="chevronDown" size={16} className={`transition-transform ${open ? "rotate-180" : ""}`} />
-      </button>
-      {open && (
-        <div role="listbox" aria-label="الفترة" className="absolute top-[calc(100%+8px)] end-0 z-30 w-[300px] max-w-[calc(100vw-2rem)] p-1.5 rounded-[18px] bg-white border border-line shadow-lg flex flex-col">
-          {PERIODS.map((p) => {
-            const on = p.id === period;
-            return (
-              <button
-                key={p.id}
-                type="button"
-                role="option"
-                aria-selected={on}
-                onClick={() => { setOpen(false); onChange(p.id); }}
-                className={`min-h-[46px] px-3 py-2 rounded-xl flex items-center justify-between gap-2.5 text-sm text-start ${on ? "bg-surface-2 font-bold" : "font-medium hover:bg-surface-2"}`}
-              >
-                <span>{p.label}</span>
-                {on && <Icon name="check" size={18} strokeWidth={2.6} />}
-              </button>
-            );
-          })}
-        </div>
+    <div role="group" aria-label={label} className="inline-flex gap-1 p-1 rounded-xl bg-surface-2">
+      {options.map((o) => (
+        <button
+          key={o.id}
+          type="button"
+          aria-pressed={value === o.id}
+          onClick={() => onChange(o.id)}
+          className={`h-9 px-3.5 rounded-lg text-sm text-ink ${value === o.id ? "bg-white font-bold shadow-sm" : "font-medium text-muted"}`}
+        >
+          {o.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+/* ── date range (same pattern as the app's other date filters) ─────────── */
+
+export function DateRange({ from, to, onChange }) {
+  const today = todayYmd();
+  const set = (f, t) => {
+    if (!f || !t) return;
+    if (f > t) [f, t] = [t, f]; // picking an end before the start just swaps them
+    onChange(f, t);
+  };
+  const isToday = from === today && to === today;
+  return (
+    <div role="group" aria-label="فترة الملخص" className="flex flex-wrap items-center gap-2 rounded-2xl border border-line bg-white px-3 py-2">
+      <Icon name="calendar" size={18} className="text-muted" />
+      <label className="flex items-center gap-2 text-sm text-muted">
+        من
+        <input type="date" value={from} max={today} onChange={(e) => set(e.target.value, to)} className="h-9 rounded-lg border border-line bg-white px-2 text-sm text-ink" />
+      </label>
+      <label className="flex items-center gap-2 text-sm text-muted">
+        إلى
+        <input type="date" value={to} max={today} onChange={(e) => set(from, e.target.value)} className="h-9 rounded-lg border border-line bg-white px-2 text-sm text-ink" />
+      </label>
+      {!isToday && (
+        <button type="button" onClick={() => onChange(today, today)} className="h-9 px-3 rounded-lg text-sm font-semibold text-ink-soft hover:bg-surface-2">
+          اليوم
+        </button>
       )}
     </div>
   );
 }
 
-function Bubbles({ panels }) {
+/* ── trend chart ───────────────────────────────────────────────────────── */
+
+const SERIES = [
+  { key: "t", label: "الإجمالي", color: V("tl"), width: 3 },
+  { key: "w", label: "جملة", color: V("w"), width: 2.25 },
+  { key: "r", label: "تجزئة", color: V("r"), width: 2.25 },
+];
+
+export function TrendChart({ trend, kind, onKind, loading }) {
+  const wrap = useRef(null);
+  const [w, setW] = useState(900);
+  const [show, setShow] = useState({ t: true, w: true, r: true });
+  const [hover, setHover] = useState(null);
+
+  useEffect(() => {
+    const el = wrap.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver((e) => setW(Math.max(300, Math.round(e[0].contentRect.width))));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  const pts = trend ? trend.points : [];
+  const n = pts.length;
+  const H = w < 600 ? 240 : 300;
+  // Right-to-left like the rest of the app: oldest at the right, newest at the
+  // left; the units axis sits on the right (the start side).
+  const plotL = 8, plotR = w - 52, plotT = 14, plotB = H - 34;
+  const vals = pts.flatMap((p) => SERIES.filter((s) => show[s.key]).map((s) => p[s.key]));
+  const { max, step } = niceScale(Math.max(0, ...vals), 4);
+  const x = (i) => (n <= 1 ? (plotL + plotR) / 2 : plotR - (i * (plotR - plotL)) / (n - 1));
+  const y = (v) => plotB - (v / max) * (plotB - plotT);
+  const line = (key) => pts.map((p, i) => `${i ? "L" : "M"}${x(i).toFixed(1)},${y(p[key]).toFixed(1)}`).join(" ");
+  const ticks = [];
+  for (let v = 0; v <= max + 1e-9; v += step) ticks.push(v);
+  const every = Math.max(1, Math.ceil(n / Math.max(2, Math.floor((plotR - plotL) / 72))));
+  const empty = n > 0 && pts.every((p) => p.t === 0);
+
+  const pick = (clientX) => {
+    if (!n || !wrap.current) return;
+    const px = clientX - wrap.current.getBoundingClientRect().left;
+    const i = n <= 1 ? 0 : Math.round((plotR - px) / ((plotR - plotL) / (n - 1)));
+    setHover(Math.max(0, Math.min(n - 1, i)));
+  };
+  const onKey = (e) => {
+    if (!n) return;
+    const cur = hover ?? n - 1;
+    const next = { ArrowLeft: cur + 1, ArrowRight: cur - 1, Home: 0, End: n - 1 }[e.key];
+    if (next === undefined) return;
+    e.preventDefault();
+    setHover(Math.max(0, Math.min(n - 1, next)));
+  };
+  const toggle = (k) => setShow((s) => {
+    const next = { ...s, [k]: !s[k] };
+    return Object.values(next).some(Boolean) ? next : s; // keep at least one line visible
+  });
+  const hp = hover != null ? pts[hover] : null;
+  const tipLeft = hover != null ? Math.max(0, Math.min(w - 196, x(hover) - 98)) : 0;
+
   return (
-    <div className="grid gap-5 lg:grid-cols-3">
-      {panels.map((p) => (
-        <div key={p.key} className="bg-white rounded-[28px] shadow p-5 flex flex-col items-center gap-4 min-w-0">
-          <div className="w-full flex items-center justify-between gap-2">
-            <h3 className="text-base font-bold text-ink">{p.title}</h3>
-            <Delta d={p.delta} />
+    <Card className="p-5 md:p-6 flex flex-col gap-5">
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div className="flex flex-wrap gap-x-8 gap-y-3">
+          <div>
+            <div className="text-xs text-muted">مجموع {trend ? trend.span : ""}</div>
+            <div className="mt-0.5"><span className={`${num} font-display text-[28px] font-bold leading-tight text-ink`}>{trend ? trend.total : "—"}</span> <span className="text-sm text-muted">{UNIT}</span></div>
           </div>
-          <div className="w-[196px] h-[196px] rounded-full flex items-center justify-center" style={{ background: p.ring }}>
-            <div className="w-[178px] h-[178px] rounded-full bg-white flex items-center justify-center">
-              <div className="w-[160px] h-[160px] rounded-full flex flex-col items-center justify-center gap-0.5" style={{ background: p.fill, color: p.fillInk }}>
-                <span className="text-xs opacity-90">{p.caption}</span>
-                <span className={`${num} font-display text-[42px] font-bold leading-[1.1]`}>{p.total.toLocaleString("en-US")}</span>
-                <span className="text-xs opacity-90">كرتونة</span>
+          <div>
+            <div className="text-xs text-muted">المتوسط في {trend ? trend.per : ""}</div>
+            <div className="mt-0.5"><span className={`${num} font-display text-[28px] font-bold leading-tight text-ink`}>{trend ? trend.avg : "—"}</span> <span className="text-sm text-muted">{UNIT}</span></div>
+          </div>
+        </div>
+        <Segmented label="دقة المنحنى" options={TREND_KINDS} value={kind} onChange={(k) => { setHover(null); onKind(k); }} />
+      </div>
+
+      <div className="flex flex-wrap gap-2" role="group" aria-label="الخطوط الظاهرة">
+        {SERIES.map((s) => (
+          <button
+            key={s.key}
+            type="button"
+            aria-pressed={show[s.key]}
+            onClick={() => toggle(s.key)}
+            className={`h-8 px-3 rounded-full border text-[13px] font-semibold inline-flex items-center gap-2 ${show[s.key] ? "border-line bg-white text-ink" : "border-dashed border-line bg-transparent text-muted"}`}
+          >
+            <span className="w-4 rounded-full" style={{ height: s.key === "t" ? 4 : 3, background: show[s.key] ? s.color : "rgb(var(--gray-300))" }} />
+            {s.label}
+          </button>
+        ))}
+      </div>
+
+      <figure className="m-0">
+        <figcaption className="sr-only">عدد الوحدات المباعة {trend ? trend.span : ""}، من الأقدم إلى الأحدث.</figcaption>
+        <div
+          ref={wrap}
+          className={`relative select-none outline-none rounded-xl focus-visible:ring-2 ${loading ? "opacity-50" : ""}`}
+          style={{ height: H, touchAction: "pan-y" }}
+          tabIndex={0}
+          aria-label="منحنى تطور المبيعات — استخدم الأسهم للتنقل بين النقاط"
+          onPointerMove={(e) => pick(e.clientX)}
+          onPointerDown={(e) => pick(e.clientX)}
+          onPointerLeave={() => setHover(null)}
+          onKeyDown={onKey}
+          onBlur={() => setHover(null)}
+        >
+          <svg width={w} height={H} aria-hidden="true" className="block overflow-visible">
+            <defs>
+              <linearGradient id="trendArea" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor={V("tl", 0.22)} />
+                <stop offset="100%" stopColor={V("tl", 0)} />
+              </linearGradient>
+            </defs>
+            {ticks.map((v) => (
+              <g key={v}>
+                <line x1={plotL} x2={plotR} y1={y(v)} y2={y(v)} stroke="rgb(var(--gray-200))" strokeDasharray={v ? "3 5" : undefined} />
+                <text x={plotR + 10} y={y(v) + 4} fontSize="11" fill="rgb(var(--gray-500))" style={{ direction: "ltr" }}>{fmt(v)}</text>
+              </g>
+            ))}
+            {pts.map((p, i) => (i === n - 1 || (i % every === 0 && n - 1 - i >= every)) && (
+              <text key={i} x={x(i)} y={H - 10} fontSize="11" textAnchor="middle" fill="rgb(var(--gray-500))">{p.label}</text>
+            ))}
+            {show.t && n > 1 && <path d={`${line("t")} L${x(n - 1)},${plotB} L${x(0)},${plotB} Z`} fill="url(#trendArea)" />}
+            {SERIES.filter((s) => show[s.key] && n > 0).map((s) => (
+              <path key={s.key} d={line(s.key)} fill="none" stroke={s.color} strokeWidth={s.width} strokeLinejoin="round" strokeLinecap="round" />
+            ))}
+            {hp && (
+              <g>
+                <line x1={x(hover)} x2={x(hover)} y1={plotT} y2={plotB} stroke="rgb(var(--gray-400))" strokeDasharray="4 4" />
+                {SERIES.filter((s) => show[s.key]).map((s) => (
+                  <circle key={s.key} cx={x(hover)} cy={y(hp[s.key])} r="5" fill="rgb(var(--white))" stroke={s.color} strokeWidth="2.5" />
+                ))}
+              </g>
+            )}
+          </svg>
+          {empty && <div className="absolute inset-0 flex items-center justify-center text-sm text-muted">لا توجد مبيعات في هذه الفترة</div>}
+          {hp && (
+            <div className="absolute top-2 w-[196px] rounded-xl bg-white shadow-lg border border-line px-3 py-2.5 pointer-events-none" style={{ left: tipLeft }}>
+              <div className="text-xs font-semibold text-ink mb-1.5">{hp.tip}</div>
+              {SERIES.filter((s) => show[s.key]).map((s) => (
+                <div key={s.key} className="flex items-center justify-between gap-3 text-xs py-0.5">
+                  <span className="flex items-center gap-2 text-muted"><span className="w-2.5 h-2.5 rounded-full" style={{ background: s.color }} />{s.label}</span>
+                  <span className={`${num} font-bold text-ink`}>{fmt(hp[s.key])}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+        <table className="sr-only">
+          <thead><tr><th>الفترة</th><th>الإجمالي</th><th>جملة</th><th>تجزئة</th></tr></thead>
+          <tbody>{pts.map((p, i) => <tr key={i}><td>{p.tip}</td><td>{p.t}</td><td>{p.w}</td><td>{p.r}</td></tr>)}</tbody>
+        </table>
+      </figure>
+    </Card>
+  );
+}
+
+/* ── headline units ────────────────────────────────────────────────────── */
+
+function Kpis({ kpis }) {
+  return (
+    <div className="grid gap-5 md:grid-cols-3">
+      {kpis.map((k) => (
+        <Card key={k.key} className="p-5 flex flex-col gap-5">
+          <div className="flex items-center justify-between gap-2">
+            <h3 className="text-[15px] font-bold text-ink">{k.title}</h3>
+            <Delta d={k.delta} />
+          </div>
+          <div className="flex items-center gap-5">
+            <div className="w-[132px] h-[132px] rounded-full shrink-0 flex items-center justify-center" style={{ background: k.ring }}>
+              <div className="w-[118px] h-[118px] rounded-full bg-white flex items-center justify-center">
+                <div className="w-[104px] h-[104px] rounded-full flex flex-col items-center justify-center" style={{ background: k.fill, color: k.fillInk }}>
+                  <span className={`${num} font-display text-[30px] font-bold leading-none`}>{k.total}</span>
+                  <span className="text-[11px] mt-1 opacity-90">{UNIT}</span>
+                </div>
               </div>
             </div>
-          </div>
-          <div className="text-[13px] text-muted">{p.sub}</div>
-          <div className="w-full flex flex-col gap-1.5">
-            <div className="flex h-2 rounded-md overflow-hidden gap-[3px]">
-              {p.groups.map((g) => <div key={g.id} style={{ flex: `${Math.max(g.qty, 0.0001)} 1 0%`, background: g.color }} />)}
-            </div>
-            <div className="flex justify-between gap-2 text-xs text-muted">
-              {p.groups.map((g) => (
-                <span key={g.id}>
-                  <span className="inline-block w-2 h-2 rounded-full me-1.5" style={{ background: g.color }} />
-                  {g.label} <span className={`${num} font-bold text-ink`}>{Math.round(g.share)}%</span>
-                </span>
+            <div className="flex-1 min-w-0 flex flex-col gap-3">
+              {k.sub.map((s) => (
+                <div key={s.label} className="flex items-baseline justify-between gap-2">
+                  <span className="text-[13px] font-semibold" style={{ color: s.color }}>{s.label}</span>
+                  <span className={`${num} text-lg font-bold text-ink`}>{s.value}</span>
+                </div>
+              ))}
+              <div className="h-px bg-line" />
+              {k.groups.map((g) => (
+                <div key={g.id} className="flex flex-col gap-1">
+                  <div className="flex items-center justify-between gap-2 text-xs">
+                    <span className="flex items-center gap-1.5 text-muted"><span className="w-2 h-2 rounded-full" style={{ background: g.color }} />{g.label}</span>
+                    <span className={`${num} font-bold text-ink`}>{g.share}</span>
+                  </div>
+                  <div className="h-1.5 rounded-full bg-surface-2 overflow-hidden flex"><span className="h-full rounded-full" style={{ width: `${g.w}%`, background: g.color }} /></div>
+                </div>
               ))}
             </div>
           </div>
-          <div className="w-full grid grid-cols-2 items-end justify-items-center gap-y-3 sm:flex sm:flex-wrap sm:justify-center sm:gap-2 pt-3.5 border-t border-dashed border-line">
-            {p.sats.map((s) => (
-              <div key={s.id} className="w-[84px] flex flex-col items-center gap-1.5">
-                <div
-                  className={`${num} rounded-full flex items-center justify-center font-bold`}
-                  style={{ width: s.d, height: s.d, background: s.color.bg, color: s.color.ink, fontSize: s.d >= 70 ? 17 : 13 }}
-                >
-                  {Math.round(s.share)}%
-                </div>
-                <span className="text-xs font-semibold text-center leading-[1.3] text-ink">{s.name}</span>
-                <span className={`${num} text-[11px] text-muted`}>{s.qty.toLocaleString("en-US")}</span>
-              </div>
-            ))}
-          </div>
-        </div>
+        </Card>
       ))}
     </div>
   );
 }
 
-const ROW = "grid grid-cols-[minmax(0,1fr)_auto] lg:grid-cols-[minmax(0,240px)_minmax(0,1fr)_130px_150px] items-center gap-x-4 gap-y-3 lg:gap-x-[22px]";
-
-function ItemTable({ table, unit }) {
-  const { rows, total, unitLabel } = table;
-  return (
-    <div className="flex flex-col gap-2.5">
-      <div className={`${ROW} hidden lg:grid px-[22px] text-xs font-semibold text-muted`}>
-        <span>الصنف</span>
-        <span className="flex justify-between"><span>جملة</span><span>تجزئة</span></span>
-        <span>الإجمالي</span>
-        <span className="text-center">الحصة من المبيعات</span>
-      </div>
-      {rows.map((r) => (
-        <div key={r.id} className={`${ROW} bg-white rounded-[22px] shadow px-5 lg:px-[22px] py-4`}>
-          <div className="min-w-0 flex items-center gap-3">
-            <span className="w-3.5 h-3.5 rounded-full shrink-0" style={{ background: r.dot }} />
-            <div className="min-w-0">
-              <div className="text-[17px] font-bold text-ink">{r.name}</div>
-              <div className="flex items-center gap-1.5 mt-1">
-                <span className="text-xs text-muted">{r.group}</span>
-                {r.top && <span className="h-5 px-2 rounded-full text-[11px] font-bold flex items-center" style={{ background: AMBER.bg, color: AMBER.ink }}>الأعلى مبيعًا</span>}
-              </div>
-            </div>
-          </div>
-          <div className="order-3 col-span-2 lg:order-none lg:col-span-1 min-w-0">
-            <div className="flex justify-between items-baseline mb-2">
-              <span className={`${num} text-[15px] font-bold`} style={{ color: V("w") }}>{r.w} <span className="text-xs font-medium text-muted">{r.wPct}</span></span>
-              <span className={`${num} text-[15px] font-bold`} style={{ color: V("r") }}>{r.r} <span className="text-xs font-medium text-muted">{r.rPct}</span></span>
-            </div>
-            <SplitBar a={r.wFlex} b={r.rFlex} />
-          </div>
-          <div className="order-2 lg:order-none">
-            <div className={`${num} font-display text-[28px] font-bold leading-[1.1] text-ink`}>{r.total}</div>
-            <div className="text-xs text-muted">{unitLabel}</div>
-          </div>
-          <div className="order-4 col-span-2 lg:order-none lg:col-span-1 relative h-[42px] rounded-xl bg-surface-2 overflow-hidden flex items-center justify-center">
-            <div className="absolute inset-y-0 end-auto right-0" style={{ width: `${r.shareW}%`, background: V("fill", 0.13) }} />
-            <span className={`${num} relative text-base font-bold text-ink`}>{r.share}</span>
-          </div>
-        </div>
-      ))}
-      <div className={`${ROW} rounded-[22px] px-5 lg:px-[22px] py-4`} style={{ background: V("tot"), color: V("toti") }}>
-        <div className="text-[17px] font-bold">الإجمالي</div>
-        <div className="order-3 col-span-2 lg:order-none lg:col-span-1 min-w-0">
-          <div className="flex justify-between items-baseline mb-2">
-            <span className={`${num} text-[15px] font-bold`}>{total.w} <span className="text-xs font-medium opacity-80">{total.wPct}</span></span>
-            <span className={`${num} text-[15px] font-bold`}>{total.r} <span className="text-xs font-medium opacity-80">{total.rPct}</span></span>
-          </div>
-          <SplitBar a={total.wFlex} b={total.rFlex} aColor={V("wx")} bColor={V("rx")} track="transparent" />
-        </div>
-        <div className="order-2 lg:order-none">
-          <div className={`${num} font-display text-[28px] font-bold leading-[1.1]`}>{total.total}</div>
-          <div className="text-xs opacity-80">{unitLabel}</div>
-        </div>
-        <div className={`${num} order-4 col-span-2 lg:order-none lg:col-span-1 text-center text-base font-bold`}>100%</div>
-      </div>
-    </div>
-  );
-}
+/* ── money ─────────────────────────────────────────────────────────────── */
 
 function Money({ money }) {
   return (
     <div className="grid gap-5 md:grid-cols-2">
       {money.map((m) => (
-        <div key={m.title} className="bg-white rounded-[28px] shadow p-6 flex flex-col gap-[18px] min-w-0">
+        <Card key={m.title} className="p-6 flex flex-col gap-5">
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <h3 className="text-base font-bold text-ink">{m.title}</h3>
-            {m.pill && <span className="h-7 px-3 rounded-full text-[13px] font-bold flex items-center" style={{ background: V("ws"), color: V("w") }}>{m.pill}</span>}
+            <h3 className="text-[15px] font-bold text-ink">{m.title}</h3>
+            {m.pill && <span className="h-7 px-3 rounded-full text-[13px] font-bold inline-flex items-center" style={{ background: V("ws"), color: V("w") }}>{m.pill}</span>}
           </div>
-          <div className="flex flex-wrap items-baseline gap-2.5">
-            <span className={`${num} font-display text-[46px] font-bold leading-[1.1] text-ink`}>{m.total}</span>
+          <div className="flex flex-wrap items-baseline gap-x-2.5 gap-y-2">
+            <span className={`${num} font-display text-[40px] font-bold leading-[1.1] text-ink`}>{m.total}</span>
             <span className="text-[15px] font-semibold text-muted">SDG</span>
             <Delta d={m.delta} />
           </div>
-          <SplitBar a={m.af} b={m.bf} h={18} />
+          <SplitBar a={m.af} b={m.bf} h={14} />
           <div className="grid gap-3 sm:grid-cols-2">
             {[["جملة", m.ap, m.aAmt, m.aSub, "w", "ws"], ["تجزئة", m.bp, m.bAmt, m.bSub, "r", "rs"]].map(([label, p, amt, sub, c, soft]) => (
-              <div key={label} className="rounded-2xl px-4 py-3.5 min-w-0" style={{ background: V(soft) }}>
+              <div key={label} className="rounded-xl px-4 py-3.5" style={{ background: V(soft) }}>
                 <div className="flex items-center justify-between gap-2 text-[13px] font-semibold" style={{ color: V(c) }}>
                   <span>{label}</span><span className={num}>{p}</span>
                 </div>
                 <div className="mt-1"><span className={`${num} text-xl font-bold text-ink`}>{amt}</span> <span className="text-xs text-muted">SDG</span></div>
-                {sub && <div className="text-xs text-muted mt-0.5">{sub}</div>}
+                {sub && <div className="text-xs text-muted mt-1">{sub}</div>}
               </div>
             ))}
           </div>
           {m.note && (
-            <div className="flex items-start gap-2 text-xs leading-relaxed text-muted">
+            <p className="flex items-start gap-2 text-xs leading-relaxed text-muted m-0">
               <Icon name="info" size={16} className="mt-0.5" />
               <span>{m.note}</span>
-            </div>
+            </p>
           )}
-        </div>
+        </Card>
       ))}
     </div>
   );
 }
 
+/* ── items ─────────────────────────────────────────────────────────────── */
+
+// Mobile: a card per product (name + total, then wholesale | retail, then the
+// mix bar). Desktop: aligned columns.
+const ROW = "grid grid-cols-2 lg:grid-cols-[minmax(0,1.25fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1.5fr)] items-center gap-x-6 gap-y-4";
+
+function Cell({ value, cap, color, unit }) {
+  return (
+    <div className="min-w-0">
+      <div><span className={`${num} font-display text-[22px] font-bold leading-tight`} style={{ color: color || "inherit" }}>{value}</span>{unit && <span className="text-xs text-muted ms-1.5">{unit}</span>}</div>
+      <div className="text-xs text-muted mt-0.5">{cap}</div>
+    </div>
+  );
+}
+
+function ItemTable({ table }) {
+  const { rows, total, unitLabel } = table;
+  return (
+    <div className="flex flex-col gap-3">
+      <div className={`${ROW} hidden lg:grid px-6 text-xs font-semibold text-muted`}>
+        <span>الصنف</span>
+        <span style={{ color: V("w") }}>جملة</span>
+        <span style={{ color: V("r") }}>تجزئة</span>
+        <span>الإجمالي</span>
+        <span>توزيع الصنف بين الجملة والتجزئة</span>
+      </div>
+      {rows.map((r) => (
+        <Card key={r.id} className={`${ROW} px-5 lg:px-6 py-5`}>
+          <div className="order-1 lg:order-none min-w-0 flex items-center gap-3">
+            <span className="w-3 h-3 rounded-full shrink-0" style={{ background: r.dot }} />
+            <div className="min-w-0">
+              <div className="text-base font-bold text-ink">{r.name}</div>
+              <div className="flex flex-wrap items-center gap-1.5 mt-1">
+                <span className="text-xs text-muted">{r.group}</span>
+                {r.top && <span className="h-5 px-2 rounded-full text-[11px] font-bold inline-flex items-center gap-1" style={{ background: V("ws"), color: V("w") }}><Icon name="star" size={11} strokeWidth={2.4} />الأعلى</span>}
+              </div>
+            </div>
+          </div>
+          <div className="order-3 lg:order-none"><Cell value={r.w} cap={r.wCap} color={V("w")} /></div>
+          <div className="order-4 lg:order-none"><Cell value={r.r} cap={r.rCap} color={V("r")} /></div>
+          <div className="order-2 lg:order-none text-end lg:text-start">
+            <Cell value={r.total} cap={r.tCap} unit={unitLabel} />
+            <div className="hidden lg:flex h-1 mt-2 rounded-full bg-surface-2 overflow-hidden"><span className="h-full rounded-full" style={{ width: `${r.shareW}%`, background: V("tot", 0.55) }} /></div>
+          </div>
+          <div className="order-5 lg:order-none col-span-2 lg:col-span-1 min-w-0">
+            <SplitBar a={r.wFlex} b={r.rFlex} h={10} />
+            <div className="flex justify-between mt-2 text-xs">
+              <span style={{ color: V("w") }}>جملة <span className={`${num} font-bold`}>{r.wMix}</span></span>
+              <span style={{ color: V("r") }}>تجزئة <span className={`${num} font-bold`}>{r.rMix}</span></span>
+            </div>
+          </div>
+        </Card>
+      ))}
+      <div className={`${ROW} rounded-2xl px-5 lg:px-6 py-5`} style={{ background: V("tot"), color: V("toti") }}>
+        <div className="order-1 lg:order-none text-base font-bold">الإجمالي</div>
+        <div className="order-3 lg:order-none"><Cell value={total.w} cap={<span style={{ color: V("toti", 0.75) }}>{total.wCap}</span>} color={V("wx")} /></div>
+        <div className="order-4 lg:order-none"><Cell value={total.r} cap={<span style={{ color: V("toti", 0.75) }}>{total.rCap}</span>} color={V("rx")} /></div>
+        <div className="order-2 lg:order-none text-end lg:text-start">
+          <div><span className={`${num} font-display text-[22px] font-bold leading-tight`}>{total.total}</span><span className="text-xs ms-1.5" style={{ color: V("toti", 0.75) }}>{unitLabel}</span></div>
+          <div className="text-xs mt-0.5" style={{ color: V("toti", 0.75) }}>100%</div>
+        </div>
+        <div className="order-5 lg:order-none col-span-2 lg:col-span-1 min-w-0">
+          <SplitBar a={total.wFlex} b={total.rFlex} h={10} aColor={V("wx")} bColor={V("rx")} track="transparent" />
+          <div className="flex justify-between mt-2 text-xs" style={{ color: V("toti", 0.85) }}>
+            <span>جملة <span className={`${num} font-bold`}>{total.wMix}</span></span>
+            <span>تجزئة <span className={`${num} font-bold`}>{total.rMix}</span></span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ── invoices & customers ──────────────────────────────────────────────── */
+
 const LEVEL = {
-  amber: { bg: AMBER.bg, ink: AMBER.ink },
-  navy: { bg: V("rs"), ink: V("r") },
-  green: { bg: V("ws"), ink: V("w") },
+  slate: { bg: NEUTRAL.bg, ink: NEUTRAL.ink, icon: "alert" },
+  navy: { bg: V("rs"), ink: V("r"), icon: "info" },
+  green: { bg: V("ws"), ink: V("w"), icon: "check" },
 };
 
 function Customers({ invoices, charts }) {
   return (
-    <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-[minmax(0,300px)_minmax(0,1fr)_minmax(0,1fr)]">
-      <div className="bg-white rounded-[28px] shadow p-6 flex flex-col gap-[18px] min-w-0 md:col-span-2 lg:col-span-1">
-        <h3 className="text-base font-bold text-ink">الفواتير الصادرة</h3>
+    <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-[minmax(0,280px)_minmax(0,1fr)_minmax(0,1fr)]">
+      <Card className="p-6 flex flex-col gap-5 md:col-span-2 xl:col-span-1">
+        <h3 className="text-[15px] font-bold text-ink">الفواتير الصادرة</h3>
         <div className="flex items-baseline gap-2">
-          <span className={`${num} font-display text-[56px] font-bold leading-[1.05] text-ink`}>{invoices.total}</span>
+          <span className={`${num} font-display text-[48px] font-bold leading-none text-ink`}>{invoices.total}</span>
           <span className="text-sm text-muted">فاتورة</span>
         </div>
-        <SplitBar a={invoices.wf} b={invoices.rf} h={14} />
-        <div className="flex flex-col gap-3">
+        <SplitBar a={invoices.wf} b={invoices.rf} h={10} />
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
           {[["جملة", invoices.w, invoices.wAvg, "w", "ws"], ["تجزئة", invoices.r, invoices.rAvg, "r", "rs"]].map(([label, n, avg, c, soft]) => (
-            <div key={label} className="rounded-2xl px-3.5 py-3" style={{ background: V(soft) }}>
-              <div className="flex items-baseline justify-between"><span className="text-[13px] font-semibold" style={{ color: V(c) }}>{label}</span><span className={`${num} text-[22px] font-bold text-ink`}>{n}</span></div>
-              <div className="text-xs text-muted mt-0.5">متوسط الفاتورة {avg}</div>
+            <div key={label} className="rounded-xl px-4 py-3" style={{ background: V(soft) }}>
+              <div className="flex items-baseline justify-between"><span className="text-[13px] font-semibold" style={{ color: V(c) }}>{label}</span><span className={`${num} text-xl font-bold text-ink`}>{n}</span></div>
+              <div className="text-xs text-muted mt-1">متوسط الفاتورة {avg}</div>
             </div>
           ))}
         </div>
-      </div>
+      </Card>
       {charts.map((c) => {
         const lv = LEVEL[c.level.tone];
+        const color = V(c.colorName);
         return (
-          <div key={c.title} className="bg-white rounded-[28px] shadow p-6 flex flex-col gap-3.5 min-w-0">
+          <Card key={c.title} className="p-6 flex flex-col gap-4">
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <h3 className="text-base font-bold text-ink">{c.title}</h3>
-              {!c.empty && <span className="h-[26px] px-2.5 rounded-full text-xs font-bold flex items-center" style={{ background: lv.bg, color: lv.ink }}>{c.level.label}</span>}
+              <h3 className="text-[15px] font-bold text-ink">{c.title}</h3>
+              {!c.empty && <span className="h-7 px-2.5 rounded-full text-xs font-bold inline-flex items-center gap-1" style={{ background: lv.bg, color: lv.ink }}><Icon name={lv.icon} size={13} strokeWidth={2.4} />{c.level.label}</span>}
             </div>
             {c.empty ? (
-              <p className="text-sm text-muted py-8 text-center">لا توجد مبيعات في هذه الفترة</p>
+              <p className="text-sm text-muted py-10 text-center m-0">لا توجد مبيعات في هذه الفترة</p>
             ) : (
               <>
                 <div>
-                  <div className={`${num} font-display text-[34px] font-bold leading-[1.1]`} style={{ color: c.color }}>{c.top3}</div>
-                  <div className="text-[13px] text-muted mt-0.5">من المبيعات عند أكبر 3 عملاء</div>
+                  <span className={`${num} font-display text-[32px] font-bold leading-none`} style={{ color }}>{c.top3}</span>
+                  <span className="text-[13px] text-muted ms-2">من المبيعات عند أكبر 3 عملاء</span>
                 </div>
-                <div className="flex h-[22px] rounded-lg overflow-hidden gap-0.5" aria-hidden="true">
-                  {c.strip.map((s, i) => <div key={i} style={{ flex: `${s.f} 1 0%`, background: s.neutral ? "rgb(var(--gray-500))" : c.color, opacity: s.op }} />)}
+                <div className="flex h-3 rounded-full overflow-hidden gap-0.5" aria-hidden="true">
+                  {c.strip.map((s, i) => <div key={i} style={{ flex: `${s.f} 1 0%`, background: s.neutral ? "rgb(var(--gray-300))" : color, opacity: s.op }} />)}
                 </div>
-                <div className="flex flex-col gap-0.5">
-                  <div className="grid grid-cols-[24px_minmax(0,1fr)_minmax(0,1.2fr)_44px] gap-2.5 px-2 text-[11px] font-semibold text-muted">
+                <div className="flex flex-col gap-1">
+                  <div className="grid grid-cols-[22px_minmax(0,1fr)_minmax(0,1.2fr)_42px] gap-3 px-2 text-[11px] font-semibold text-muted">
                     <span /><span>العميل</span><span>حصته من المبيعات</span><span className="text-end">تراكمي</span>
                   </div>
                   {c.rows.map((r, i) => (
-                    <div key={i} className="grid grid-cols-[24px_minmax(0,1fr)_minmax(0,1.2fr)_44px] gap-2.5 items-center min-h-[38px] px-2 rounded-[10px]" style={{ background: r.band }}>
+                    <div key={i} className="grid grid-cols-[22px_minmax(0,1fr)_minmax(0,1.2fr)_42px] gap-3 items-center min-h-[40px] px-2 rounded-lg" style={{ background: r.band }}>
                       <span className={`${num} text-xs font-bold text-muted`}>{r.rank}</span>
-                      <span className="text-[13px] font-semibold text-ink truncate">{r.name}</span>
+                      <span className="text-[13px] font-semibold text-ink truncate" title={r.name}>{r.name}</span>
                       <span className="flex items-center gap-2 min-w-0">
-                        <span className="flex-1 h-2.5 rounded-md bg-surface-2 overflow-hidden flex">
-                          <span className="h-full rounded-md" style={{ width: `${r.barW}%`, background: r.neutral ? "rgb(var(--gray-500))" : c.color, opacity: r.op }} />
+                        <span className="flex-1 h-2 rounded-full bg-surface-2 overflow-hidden flex">
+                          <span className="h-full rounded-full" style={{ width: `${r.barW}%`, background: r.neutral ? "rgb(var(--gray-300))" : color, opacity: r.op }} />
                         </span>
-                        <span className={`${num} min-w-[46px] text-[13px] font-bold text-end`}>{r.pct}</span>
+                        <span className={`${num} min-w-[46px] text-[13px] font-bold text-end text-ink`}>{r.pct}</span>
                       </span>
                       <span className={`${num} text-xs text-muted text-end`}>{r.cum}</span>
                     </div>
@@ -312,63 +486,65 @@ function Customers({ invoices, charts }) {
                 </div>
               </>
             )}
-          </div>
+          </Card>
         );
       })}
     </div>
   );
 }
 
+/* ── stock ─────────────────────────────────────────────────────────────── */
+
 function Stock({ stock }) {
   return (
-    <div className="grid gap-5 lg:grid-cols-3">
+    <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
       {stock.map((k) => (
-        <div key={k.key} className="bg-white rounded-[28px] shadow p-[22px] flex flex-col gap-[18px] min-w-0">
-          <h3 className="text-base font-bold text-ink">{k.title}</h3>
-          <div className="flex flex-col sm:flex-row items-center gap-5">
-            <div className="w-[140px] h-[140px] rounded-full shrink-0 flex items-center justify-center" style={{ background: k.donut }}>
-              <div className="w-24 h-24 rounded-full bg-white flex flex-col items-center justify-center">
-                <span className={`${num} font-display text-[26px] font-bold leading-[1.1] text-ink`}>{k.total}</span>
-                <span className="text-[11px] text-muted">كرتونة</span>
+        <Card key={k.key} className="p-6 flex flex-col gap-5">
+          <h3 className="text-[15px] font-bold text-ink">{k.title}</h3>
+          <div className="flex flex-col sm:flex-row items-center gap-6">
+            <div className="w-[128px] h-[128px] rounded-full shrink-0 flex items-center justify-center" style={{ background: k.donut }}>
+              <div className="w-[88px] h-[88px] rounded-full bg-white flex flex-col items-center justify-center">
+                <span className={`${num} font-display text-[24px] font-bold leading-none text-ink`}>{k.total}</span>
+                <span className="text-[11px] text-muted mt-1">{UNIT}</span>
               </div>
             </div>
-            <div className="flex-1 min-w-0 w-full flex flex-col gap-2.5">
+            <div className="flex-1 min-w-0 w-full flex flex-col gap-3">
               {k.items.map((it) => (
                 <div key={it.id} className="flex flex-col gap-1.5">
                   <div className="flex items-center justify-between gap-2">
-                    <span className="flex items-center gap-2 text-[13px] font-semibold text-ink min-w-0"><span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: it.color }} />{it.name}</span>
-                    <span className="flex items-center gap-1.5">
-                      {it.low && <span className="h-5 px-[7px] rounded-full text-[11px] font-bold flex items-center" style={{ background: AMBER.bg, color: AMBER.ink }}>منخفض</span>}
-                      <span className={`${num} text-sm font-bold`}>{it.qty}</span>
+                    <span className="flex items-center gap-2 text-[13px] font-semibold text-ink min-w-0"><span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: it.color }} /><span className="truncate">{it.name}</span></span>
+                    <span className="flex items-center gap-1.5 shrink-0">
+                      {it.low && <span className="h-5 px-2 rounded-full text-[11px] font-bold inline-flex items-center gap-1" style={{ background: NEUTRAL.bg, color: NEUTRAL.ink }}><Icon name="alert" size={11} strokeWidth={2.4} />منخفض</span>}
+                      <span className={`${num} text-sm font-bold text-ink`}>{it.qty}</span>
                     </span>
                   </div>
-                  <div className="h-1.5 rounded bg-surface-2 overflow-hidden flex"><span className="h-full rounded" style={{ width: `${it.barW}%`, background: it.color }} /></div>
+                  <div className="h-1.5 rounded-full bg-surface-2 overflow-hidden flex"><span className="h-full rounded-full" style={{ width: `${it.barW}%`, background: it.color }} /></div>
                 </div>
               ))}
             </div>
           </div>
-          <div className="flex gap-2.5">
-            <div className="flex-1 min-w-0 rounded-[14px] px-3 py-2.5" style={{ background: V("ws") }}>
-              <div className="text-xs font-semibold" style={{ color: V("w") }}>{k.inLabel}</div>
-              <div className={`${num} text-lg font-bold mt-0.5 text-ink`}>{k.inQty}</div>
-            </div>
-            <div className="flex-1 min-w-0 rounded-[14px] px-3 py-2.5" style={{ background: AMBER.bg }}>
-              <div className="text-xs font-semibold" style={{ color: AMBER.ink }}>{k.outLabel}</div>
-              <div className={`${num} text-lg font-bold mt-0.5 text-ink`}>{k.outQty}</div>
-            </div>
+          <div className="grid grid-cols-2 gap-3 mt-auto">
+            {[[k.inLabel, k.inQty, "plus"], [k.outLabel, k.outQty, "minus"]].map(([label, q, icon]) => (
+              <div key={label} className="rounded-xl bg-surface-2 px-3.5 py-3">
+                <div className="flex items-center gap-1.5 text-xs font-semibold text-muted"><Icon name={icon} size={13} strokeWidth={2.6} />{label}</div>
+                <div className={`${num} text-lg font-bold text-ink mt-1`}>{q}</div>
+              </div>
+            ))}
           </div>
-        </div>
+        </Card>
       ))}
     </div>
   );
 }
 
+/* ── page body ─────────────────────────────────────────────────────────── */
+
 export function DashboardSkeleton() {
   return (
-    <div className="flex flex-col gap-10" aria-busy="true">
-      <div className="grid gap-5 lg:grid-cols-3">{[0, 1, 2].map((i) => <div key={i} className="bg-white rounded-[28px] shadow h-[470px] animate-pulse" />)}</div>
-      <div className="bg-white rounded-[28px] shadow h-[360px] animate-pulse" />
-      <div className="grid gap-5 md:grid-cols-2">{[0, 1].map((i) => <div key={i} className="bg-white rounded-[28px] shadow h-[300px] animate-pulse" />)}</div>
+    <div className="flex flex-col gap-12" aria-busy="true">
+      <div className="grid gap-5 md:grid-cols-3">{[0, 1, 2].map((i) => <div key={i} className="bg-white rounded-2xl shadow h-[220px] animate-pulse" />)}</div>
+      <div className="grid gap-5 md:grid-cols-2">{[0, 1].map((i) => <div key={i} className="bg-white rounded-2xl shadow h-[300px] animate-pulse" />)}</div>
+      <div className="bg-white rounded-2xl shadow h-[360px] animate-pulse" />
     </div>
   );
 }
@@ -376,33 +552,29 @@ export function DashboardSkeleton() {
 export default function SupervisorDashboard({ data, unit, onUnit }) {
   const view = buildView(data, unit);
   return (
-    <div className="dash flex flex-col gap-11">
-      <Section id="d1" title="المبيعات بالكرتونة" hint="حجم المبيعات وتوزيعها بين الجملة والتجزئة وبين الأصناف. حجم الفقاعة يعكس الحصة.">
-        <Bubbles panels={view.panels} />
+    <div className="flex flex-col gap-12">
+      <Section id="d1" title="الوحدات المباعة" hint="عدد الوحدات المباعة في الفترة المختارة، وتوزيعها بين الجملة والتجزئة وبين مجموعتي المنتجات.">
+        <Kpis kpis={view.kpis} />
+      </Section>
+      <Section id="d2" title="المبالغ" hint="إجمالي المبيعات وهامش التشغيل بالجنيه السوداني.">
+        <Money money={view.money} />
       </Section>
       <Section
-        id="d2"
+        id="d3"
         title="المبيعات حسب الصنف"
-        hint="لكل صنف: كم بيع بالجملة وكم بالتجزئة، وحصته من إجمالي المبيعات. مرتّبة من الأعلى."
-        aside={
-          <div role="group" aria-label="وحدة العرض" className="flex gap-1 p-1 rounded-2xl bg-surface-2">
-            {[["qty", "بالكرتونة"], ["sdg", "بالجنيه"]].map(([id, label]) => (
-              <button key={id} type="button" aria-pressed={unit === id} onClick={() => onUnit(id)} className={`h-10 px-4 rounded-[10px] text-sm text-ink ${unit === id ? "bg-white font-bold shadow-sm" : "font-medium"}`}>{label}</button>
-            ))}
-          </div>
-        }
+        hint="حصة كل صنف من مبيعات الجملة ومن مبيعات التجزئة ومن الإجمالي، وكيف تتوزع مبيعاته بين القناتين."
+        aside={<Segmented label="وحدة العرض" options={[{ id: "qty", label: "بالوحدات" }, { id: "sdg", label: "بالجنيه" }]} value={unit} onChange={onUnit} />}
       >
-        <ItemTable table={view.table} unit={unit} />
-      </Section>
-      <Section id="d3" title="المبالغ" hint="إجمالي المبيعات وهامش التشغيل بالجنيه السوداني، موزّعين بين الجملة والتجزئة.">
-        <Money money={view.money} />
+        <ItemTable table={view.table} />
       </Section>
       <Section id="d4" title="الفواتير وتركّز العملاء" hint="هل تعتمد المبيعات على عدد قليل من العملاء؟ كل شريحة وكل شريط يمثّل عميلًا.">
         <Customers invoices={view.invoices} charts={view.charts} />
       </Section>
-      <Section id="d5" title="المخزون الحالي" hint="الرصيد لحظي ولا يتأثر بالفلتر. أما الحركة أسفل كل بطاقة فتخص الفترة المختارة.">
+      <Section id="d5" title="المخزون الحالي" hint="الرصيد لحظي ولا يتأثر بالتاريخ المختار، أما الحركة أسفل كل بطاقة فتخص الفترة المختارة.">
         <Stock stock={view.stock} />
       </Section>
     </div>
   );
 }
+
+export { Section };

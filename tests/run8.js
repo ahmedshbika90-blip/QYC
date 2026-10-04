@@ -10,26 +10,28 @@ eval(header + `
   const API = "pages/api/dashboard/summary.js";
   const iso = (d) => d.toISOString();
 
-  // 1. Periods. Sudan is UTC+2 all year; the week starts on Saturday.
+  // 1. Date ranges (Sudan calendar, UTC+2) and trend buckets.
   const sun = new Date("2026-10-04T10:00:00Z"); // Sunday 12:00 Khartoum
-  assert.strictEqual(iso(DS.periodRange("today", sun).from), "2026-10-03T22:00:00.000Z");
-  assert.strictEqual(iso(DS.periodRange("yesterday", sun).from), "2026-10-02T22:00:00.000Z"); // Saturday
-  assert.strictEqual(iso(DS.periodRange("yesterday", sun).to), "2026-10-03T21:59:59.999Z");
-  assert.strictEqual(iso(DS.periodRange("wtd", sun).from), "2026-10-02T22:00:00.000Z"); // Sat 3 Oct 00:00
-  assert.strictEqual(iso(DS.periodRange("wtd", new Date("2026-10-09T10:00:00Z")).from), "2026-10-02T22:00:00.000Z"); // Friday: 6 days in
-  assert.strictEqual(iso(DS.periodRange("wtd", new Date("2026-10-10T10:00:00Z")).from), "2026-10-09T22:00:00.000Z"); // Saturday: a fresh week
-  assert.strictEqual(iso(DS.periodRange("mtd", sun).from), "2026-09-30T22:00:00.000Z"); // 1 Oct 00:00
-  assert.strictEqual(iso(DS.periodRange("mtd", sun).prev.from), "2026-08-31T22:00:00.000Z"); // 1 Sep 00:00
-  assert.strictEqual(iso(DS.periodRange("mtd", sun).prev.to), "2026-09-04T10:00:00.000Z"); // same 3.5 days in
-  assert.strictEqual(iso(DS.periodRange("mtd", new Date("2026-01-05T10:00:00Z")).prev.from), "2025-11-30T22:00:00.000Z"); // January → December of last year
-  assert.strictEqual(DS.periodRange("all", sun).from, null);
-  assert.strictEqual(DS.periodRange("all", sun).prev, null);
-  assert.strictEqual(DS.periodRange("nonsense", sun).id, "today");
-  ok("periods follow Sudan's clock: today/yesterday/week-from-Saturday/month, with like-for-like previous windows; year rollover handled");
+  const R = (f, t) => DS.rangeFromDates(f, t, sun);
+  assert.deepStrictEqual([iso(R().from), iso(R().to), R().days], ["2026-10-03T22:00:00.000Z", iso(sun), 1]); // default: today so far
+  assert.strictEqual(iso(R().prev.from), "2026-10-02T22:00:00.000Z"); // vs yesterday, same hours
+  assert.strictEqual(iso(R().prev.to), "2026-10-03T10:00:00.000Z");
+  assert.deepStrictEqual([iso(R("2026-10-02").from), iso(R("2026-10-02").to)], ["2026-10-01T22:00:00.000Z", "2026-10-02T21:59:59.999Z"]); // one past day
+  assert.strictEqual(R("2026-10-01", "2026-10-04").days, 4);
+  assert.strictEqual(iso(R("2026-10-01", "2026-10-04").prev.from), "2026-09-26T22:00:00.000Z"); // the 4 days before
+  assert.strictEqual(iso(R("2026-10-04", "2026-12-31").to), iso(sun)); // never past "now"
+  assert.throws(() => R("2026-10-04", "2026-10-01"), /بعد/); // from after to
+  assert.throws(() => R("2026-13-01"), /غير صالح/);
+  const days = DS.trendBuckets("day", sun), weeks = DS.trendBuckets("week", sun), months = DS.trendBuckets("month", sun);
+  assert.deepStrictEqual([days.length, iso(days[29].from), iso(days[0].from)], [30, "2026-10-03T22:00:00.000Z", "2026-09-04T22:00:00.000Z"]);
+  assert.deepStrictEqual([weeks.length, iso(weeks[11].from)], [12, "2026-10-02T22:00:00.000Z"]); // this week began Saturday 3 Oct
+  assert.ok(weeks.every((w) => new Date(w.from.getTime() + 2 * 3600e3).getUTCDay() === 6)); // every bucket starts on a Saturday
+  assert.deepStrictEqual([months.length, iso(months[11].from), iso(months[0].from)], [12, "2026-09-30T22:00:00.000Z", "2025-10-31T22:00:00.000Z"]); // Nov 2025 … Oct 2026
+  ok("date ranges follow Sudan's calendar (inclusive, capped at now, like-for-like comparison); trend buckets: 30 days / 12 Saturday-weeks / 12 months");
 
   // 2. Seed.
-  const T0 = DS.periodRange("today").from;
-  const y0 = DS.periodRange("yesterday").from;
+  const y0 = new Date(DS.rangeFromDates().from.getTime() - 24 * 3600e3);
+  const ymd = (d) => d.toLocaleDateString("en-CA", { timeZone: "Africa/Khartoum" });
   const nowish = new Date(Date.now() - 1000).toISOString();
   const yday = new Date(y0.getTime() + 3 * 3600e3).toISOString(); // yesterday 03:00
   const before = new Date(y0.getTime() - 21 * 3600e3).toISOString(); // the day before, 03:00
@@ -62,11 +64,14 @@ eval(header + `
   assert.strictEqual((await call(API, { ...A1x })).status, 403);
   assert.strictEqual((await call(API, { ...WK })).status, 403);
   assert.strictEqual((await call(API, { ...SUP, method: "POST" })).status, 405);
-  assert.strictEqual((await call(API, { ...SUP, query: { period: "decade" } })).status, 400);
-  ok("only the supervisor can read the dashboard; wrong method / period refused");
+  assert.strictEqual((await call(API, { ...SUP, query: { from: "2026-02-31x" } })).status, 400);
+  assert.strictEqual((await call(API, { ...SUP, query: { from: ymd(new Date()), to: ymd(y0) } })).status, 400); // from after to
+  assert.strictEqual((await call("pages/api/dashboard/trend.js", { ...A1x })).status, 403);
+  assert.strictEqual((await call("pages/api/dashboard/trend.js", { ...SUP, query: { bucket: "decade" } })).status, 400);
+  ok("only the supervisor can read the dashboard and its trend; bad dates / bucket refused");
 
   // 4. Today's figures, hand-computed.
-  const t = await call(API, { ...SUP, query: { period: "today" } });
+  const t = await call(API, { ...SUP, query: {} }); // default: today
   assert.strictEqual(t.status, 200, JSON.stringify(t.json));
   const s = t.json, P = (id) => s.products.find((p) => p.id === id);
   // cartons: paid goods only (the free sample and the cancelled invoice are excluded)
@@ -105,17 +110,29 @@ eval(header + `
   assert.deepStrictEqual(s.movement, { w: { in: 7, out: 19 }, r: { in: 3, out: 9 }, depot: { in: 40, out: 15 } });
   ok("movement: vans loaded vs sold; depot received vs issued (loadings + transfers); pending and past documents ignored");
 
-  // 9. Change vs the previous window; none for 'all'.
-  const y = (await call(API, { ...SUP, query: { period: "yesterday" } })).json;
-  assert.deepStrictEqual([y.totals.w.qty, y.totals.r.qty], [5, 3]);
+  // 9. Change vs the previous window; multi-day ranges.
+  const y = (await call(API, { ...SUP, query: { from: ymd(y0), to: ymd(y0) } })).json; // yesterday only
+  assert.deepStrictEqual([y.totals.w.qty, y.totals.r.qty, y.period.days], [5, 3, 1]);
   assert.strictEqual(y.deltas.w, 25); // 5 vs 4 the day before
   assert.strictEqual(y.deltas.r, null); // nothing to compare against — never a made-up percentage
   assert.strictEqual(y.deltas.t, 100); // 8 vs 4
   assert.ok(t.json.deltas && "sales" in t.json.deltas && "margin" in t.json.deltas);
-  const all = (await call(API, { ...SUP, query: { period: "all" } })).json;
-  assert.strictEqual(all.deltas, null);
-  assert.deepStrictEqual([all.totals.w.qty, all.totals.r.qty], [28, 12]); // today 19+9, yesterday 5+3, before 4
-  ok("change vs previous window (null when there is nothing to compare); 'all' covers every invoice and has no comparison");
+  const three = (await call(API, { ...SUP, query: { from: ymd(new Date(y0.getTime() - 24 * 3600e3)), to: ymd(new Date()) } })).json;
+  assert.deepStrictEqual([three.totals.w.qty, three.totals.r.qty, three.period.days], [28, 12, 3]); // today 19+9, yesterday 5+3, before 4
+  assert.strictEqual(three.deltas.t, null); // the 3 days before had no sales
+  ok("change vs the same-length window before (null when there's nothing to compare); multi-day ranges add up");
+
+  // 10. Trend series: paid units per day, split wholesale / retail.
+  const tr = (await call("pages/api/dashboard/trend.js", { ...SUP, query: { bucket: "day" } })).json;
+  const last = tr.buckets.length - 1;
+  assert.strictEqual(tr.buckets.length, 30);
+  assert.deepStrictEqual([tr.buckets[last].w, tr.buckets[last].r], [19, 9]); // today (sample + cancelled excluded)
+  assert.deepStrictEqual([tr.buckets[last - 1].w, tr.buckets[last - 1].r], [5, 3]); // yesterday
+  assert.deepStrictEqual([tr.buckets[last - 2].w, tr.buckets[last - 2].r], [4, 0]); // the day before
+  const trw = (await call("pages/api/dashboard/trend.js", { ...SUP, query: { bucket: "week" } })).json;
+  assert.strictEqual(trw.buckets.length, 12);
+  assert.strictEqual(trw.buckets.reduce((a, b) => a + b.w + b.r, 0), 40); // every unit lands in exactly one week
+  ok("trend: units per day/week land in the right bucket and add up; same rules as the summary");
 
   console.log("ALL DASHBOARD SCENARIOS PASSED");
 })().catch((e) => { console.error("FAIL:", e.message); process.exit(1); });

@@ -1,25 +1,18 @@
 const { requireUser, requireRole } = require("../../../lib/apiAuth");
-const { PERIOD_IDS, buildSummary } = require("../../../lib/dashboardSummary");
+const { buildSummary } = require("../../../lib/dashboardSummary");
 
-// Supervisor-only operations summary for the home dashboard:
-//   GET /api/dashboard/summary?period=today|yesterday|wtd|mtd|all
-// Everything the page draws comes from this one response, so the sections
-// can never disagree with each other. It carries margin and prices-derived
-// figures, which is why only the supervisor may call it.
+// Supervisor-only operations summary for a range of days (Sudan calendar):
+//   GET /api/dashboard/summary?from=YYYY-MM-DD&to=YYYY-MM-DD   (default: today)
+// Every section of the dashboard is drawn from this one response, so the
+// sections can never disagree. It carries margin, hence supervisor only.
 export default async function handler(req, res) {
-  if (req.method !== "GET") {
-    return res.status(405).json({ error: "طريقة الطلب غير مسموح بها" });
-  }
+  if (req.method !== "GET") return res.status(405).json({ error: "طريقة الطلب غير مسموح بها" });
   try {
     const decoded = await requireUser(req);
     requireRole(decoded, ["supervisor"]);
-    const period = String(req.query.period || "today");
-    if (!PERIOD_IDS.includes(period)) {
-      return res.status(400).json({ error: "فترة غير صالحة" });
-    }
-    return res.status(200).json(await buildSummary(period));
+    const { from, to } = req.query;
+    return res.status(200).json(await buildSummary({ from: from ? String(from) : undefined, to: to ? String(to) : undefined }));
   } catch (err) {
-    const status = err.statusCode || 500;
-    return res.status(status).json({ error: err.message });
+    return res.status(err.statusCode || 500).json({ error: err.message });
   }
 }
