@@ -26,7 +26,7 @@ export default async function handler(req, res) {
     if (restrictedRoute && order.route !== restrictedRoute) {
       return res.status(403).json({ error: "غير مصرح: هذا خارج مسارك" });
     }
-    if (!restrictedRoute && decoded.role !== "supervisor") {
+    if (!restrictedRoute && decoded.role !== "manager") {
       return res.status(403).json({ error: "غير مصرح: الصلاحية غير معروفة" });
     }
 

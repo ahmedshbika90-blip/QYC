@@ -35,11 +35,11 @@ export default async function handler(req, res) {
     if (restrictedRoute && order.route !== restrictedRoute) {
       return res.status(403).json({ error: "غير مصرح: هذا خارج مسارك" });
     }
-    if (!restrictedRoute && decoded.role !== "supervisor") {
+    if (!restrictedRoute && decoded.role !== "manager") {
       return res.status(403).json({ error: "غير مصرح: الصلاحية غير معروفة" });
     }
     if (restrictedRoute && isLocked(order)) {
-      return res.status(403).json({ error: "الفاتورة مقفلة — أرسل طلب تعديل إلى المشرف", locked: true });
+      return res.status(403).json({ error: "الفاتورة مقفلة — أرسل طلب تعديل إلى المدير", locked: true });
     }
 
     const result = await adminDb.runTransaction((tx) => editItemsTx(tx, orderRef, items, decoded.uid, {}, { discount }));
@@ -47,7 +47,7 @@ export default async function handler(req, res) {
 
     return res.status(200).json({
       ok: true,
-      items: decoded.role === "supervisor" ? result.items : stripCost(result.items),
+      items: decoded.role === "manager" ? result.items : stripCost(result.items),
       total: result.total,
     });
   } catch (err) {

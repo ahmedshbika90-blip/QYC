@@ -33,7 +33,7 @@ export default async function handler(req, res) {
     const role = decoded.role;
     const items = [];
 
-    if (role === "supervisor") {
+    if (role === "manager") {
       const [pendingRequests, pendingReceived, pendingDamage] = await Promise.all([
         adminDb.collection("changeRequests").where("status", "==", "pending").get(),
         adminDb.collection("inventoryDocs").where("type", "==", "received").where("status", "==", "pending").get(),
@@ -88,7 +88,7 @@ export default async function handler(req, res) {
           bucket: "transfer",
           needsAction: true,
           requestType: "تحويل",
-          from: "المشرف",
+          from: "المدير",
           state: "بانتظار الإخراج من المخزن",
           href: "/warehouse/transfers",
           at: d.data().createdAt,
@@ -129,7 +129,7 @@ export default async function handler(req, res) {
             bucket: "inventory",
             needsAction: false,
             requestType: r.type === "damage" ? "تسجيل تالف" : "استلام بضاعة",
-            from: "المشرف",
+            from: "المدير",
             state: r.status === "confirmed" ? "تم الاعتماد" : "تم الرفض",
             note: r.rejectReason || "",
             tone: r.status === "confirmed" ? "good" : "bad",
@@ -157,7 +157,7 @@ export default async function handler(req, res) {
             bucket: "modification",
             needsAction: false,
             requestType: changeLabel(r.type),
-            from: "المشرف",
+            from: "المدير",
             state: r.status === "approved" ? "تمت الموافقة" : "تم الرفض",
             note: r.decisionNote || "",
             tone: r.status === "approved" ? "good" : "bad",

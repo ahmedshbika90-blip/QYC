@@ -37,7 +37,7 @@ export default async function handler(req, res) {
 
   try {
     const decoded = await requireUser(req);
-    requireRole(decoded, ["supervisor"]);
+    requireRole(decoded, ["manager"]);
 
     const { name, unit, category, priceCar1, priceCar2, avgCost, openingStock, minStock, requestId } = req.body || {};
     if (!isValidRequestId(requestId)) {

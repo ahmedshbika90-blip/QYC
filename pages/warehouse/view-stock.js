@@ -10,7 +10,7 @@ import { formatQty } from "../../lib/labels";
 // loading/offloading, no editing anywhere on this page — the role exists
 // purely so someone can check stock levels without touching them.
 export default function DepotViewStock() {
-  const { role, token, loading, logout } = useAuth(["depot_viewer", "supervisor", "warehouse_keeper"]);
+  const { role, token, loading, logout } = useAuth(["depot_viewer", "manager", "warehouse_keeper"]);
   const [products, setProducts] = useState([]);
   const [fetching, setFetching] = useState(true);
   const [search, setSearch] = useState("");

@@ -31,6 +31,7 @@ function makeDb() {
       async set(v, o) { ref._set(v, o); },
       async update(v) { ref._update(v); },
       async create(v) { ref._create(v); },
+      async delete() { delete col(c)[id]; },
     };
     return ref;
   }
@@ -41,6 +42,8 @@ function makeDb() {
       limit: (n) => query(c, filters, order, n, after),
       startAfter: (v) => query(c, filters, order, lim, v),
       doc: (id) => docRef(c, id || `auto${++autoId}`),
+      async add(v) { const r = docRef(c, `auto${++autoId}`); r._set(v); return r; },
+      count: () => ({ async get() { const r = await query(c, filters, order, lim, after).get(); return { data: () => ({ count: r.size }) }; } }),
       async get() {
         let rows = Object.entries(col(c)).map(([id, d]) => ({ id, d }));
         const val = (d, f) => f.split(".").reduce((o, k) => (o == null ? o : o[k]), d);
@@ -78,6 +81,7 @@ function makeDb() {
         set(r, v, o) { wrote = true; r._set(v, o); },
         update(r, v) { wrote = true; r._update(v); },
         create(r, v) { wrote = true; r._create(v); },
+        delete(r) { wrote = true; delete col(r._c)[r.id]; },
       };
       return fn(tx);
     },

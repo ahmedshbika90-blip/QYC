@@ -34,7 +34,7 @@ export default function SalesReport() {
       const params = new URLSearchParams();
       if (from) params.set("from", from);
       if (to) params.set("to", to);
-      if (role === "supervisor" && routeFilter !== "all") params.set("route", routeFilter);
+      if (role === "manager" && routeFilter !== "all") params.set("route", routeFilter);
 
       const res = await apiFetch(`/api/reports/sales?${params.toString()}`, {
         headers: { Authorization: `Bearer ${token}` },
@@ -63,7 +63,7 @@ export default function SalesReport() {
     const count = report.orderCount ?? 0;
     if (
       !confirm(
-        `مشاركة التقرير تقفل فواتيره (${count}) من التعديل والإلغاء — أي تغيير بعدها يحتاج موافقة المشرف. متابعة؟`
+        `مشاركة التقرير تقفل فواتيره (${count}) من التعديل والإلغاء — أي تغيير بعدها يحتاج موافقة المدير. متابعة؟`
       )
     )
       return;
@@ -162,7 +162,7 @@ export default function SalesReport() {
                 className="w-full border rounded-lg px-3 h-12 text-base"
               />
             </div>
-            {role === "supervisor" && (
+            {role === "manager" && (
               <div>
                 {/* Nothing selected = every route; tap the selected one again to clear. */}
                 <FilterChips

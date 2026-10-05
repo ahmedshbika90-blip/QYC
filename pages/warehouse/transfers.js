@@ -115,7 +115,7 @@ export default function WarehouseTransfers() {
                     })}
                   </ul>
                   {t.note && <p className="text-xs text-muted mt-2">ملاحظة: {t.note}</p>}
-                  <p className="text-xs text-muted mt-1">من المشرف · {formatDateTime(t.createdAt)}</p>
+                  <p className="text-xs text-muted mt-1">من المدير · {formatDateTime(t.createdAt)}</p>
                   {short && <p className="text-xs text-red-600 mt-2">الرصيد في المخزن لا يكفي لهذا التحويل.</p>}
                   <button
                     type="button"

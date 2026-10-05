@@ -1,3 +1,78 @@
+# Roles round — admin, manager, sales supervisor, accountant, executive, English
+
+## Roles
+- New `lib/roles.js`: one place for role keys, Arabic titles, descriptions and
+  home pages (the home map used to be copied in three files, and one copy was
+  missing the depot viewer).
+- `supervisor` → `manager` everywhere (API checks, pages, wording "المشرف" →
+  "المدير"). Old `supervisor` claims are normalised to `manager`, so nobody is
+  locked out before the admin re-saves them.
+- `agent_car1` is now titled **مشرف المبيعات**, `agent_car2` **مندوب المبيعات**
+  (keys unchanged — they're tied to the van routes in stored data).
+- New roles: `admin`, `accountant`, `executive`.
+
+## Admin — `/admin/users`
+- List / search / filter accounts; create (email, temporary password, name,
+  role); change role; disable / re-enable; set a new password.
+- An admin can't change their own role or disable themselves.
+- Every change goes to `auditLog` (shown at the bottom of the page).
+- Role change, disable and password reset revoke the person's sessions.
+  `requireUser` now checks for that (60 s cache per instance), returns 401 +
+  `X-Session-Revoked`, and the browser signs out with a message on the login
+  page. Before this, a demoted user kept the old role for up to an hour.
+
+## Sales supervisor (car1) — `/fleet-history`
+- Every van's cargo documents (deliveries, returns, damage), **confirmed only**,
+  with a visible van filter built from `ROUTES` (a car3 appears automatically).
+- Server: `/api/inventory/list?scope=fleet`; car1 may open other vans'
+  confirmed documents. Supplier cost is now stripped from documents for every
+  role except the manager.
+
+## Accountant
+- `/accounting/invoices`: all routes, payment status (unpaid / partial / paid),
+  totals for what's shown, filters, search.
+- `/accounting/invoices/[id]`: invoice (read-only) + payments: bank, reference
+  (digits only, max 11 — Arabic digits accepted), amount, date, note.
+  Several payments per invoice; void with a reason (kept for the record).
+- Rules enforced on the server: no overpayment, no payments on cancelled
+  invoices, a bank + reference pair only once across all invoices, retry-safe.
+- `/stock`: every location's balance (no average cost).
+- Payments are stored outside the invoice document, so no existing endpoint
+  can expose them to another role.
+
+## Executive — `/executive` (view only)
+- **ملخص العمليات**: sales trend (same chart as the manager's), donut
+  wholesale vs retail units with the total inside, pie الوافي vs شيبسيانو,
+  units per item with % of total, invoices split by route, sales value **at
+  inventory cost** split by route.
+- **العملاء والمسارات**: registered customers by route with %, route cards
+  (invoices, units, buyers, reach), top 10 customers (invoices, units, % of
+  units), link to `/executive/customers` (full database, searchable, 50 at a
+  time, cached on the device).
+- **المخزون**: current stock (quantities only) and approved goods-received
+  history with totals per product; sub-tabs keep each view short.
+- The executive never receives selling prices, margin, supplier prices or
+  average cost.
+
+## English
+- EN / ع toggle in the top bar and on the login page; choice saved per device
+  and applied before first paint (no RTL flash).
+- `lib/i18n.js` translates the rendered page from `lib/i18nDict.js` (1,028
+  strings incl. server error messages), flips to LTR, translates dialogs,
+  and puts the Arabic back when switching back. The dictionary is a separate
+  chunk loaded only in English mode. Dates switch to English month names; the
+  trend chart follows the reading direction.
+- `node scripts/i18n-check.js` lists any Arabic string without English.
+
+## Data / deploy
+- `firestore.rules`: live-update counter readable by the new roles.
+- `firestore.indexes.json`: + `auditLog (area, at desc)`,
+  `inventoryDocs (type, createdAt desc)`.
+- New live-update area `payments`.
+- Tests: `tests/run9.js` (11 scenarios) — all 9 suites pass.
+
+---
+
 # Masar — round 3 (Oct 2026)
 
 `npm test` (5 suites, new `tests/run5.js`) passes; `next build` succeeds.

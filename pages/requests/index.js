@@ -36,8 +36,8 @@ const AGENT_ORDER_TABS = [
 // Both sets of hooks are declared unconditionally (rules of hooks), each
 // gated internally by role so the wrong one never actually fetches.
 export default function RequestsPage() {
-  const { role, token, loading, logout } = useAuth(["supervisor", "agent_car1", "agent_car2"]);
-  const isSupervisor = role === "supervisor";
+  const { role, token, loading, logout } = useAuth(["manager", "agent_car1", "agent_car2"]);
+  const isSupervisor = role === "manager";
   const isAgent = role === "agent_car1" || role === "agent_car2";
 
   // ---- Supervisor: change-request review ----
@@ -300,7 +300,7 @@ export default function RequestsPage() {
           <SkeletonRows count={4} />
         ) : orderRequests.length === 0 ? (
           <p className="text-gray-400">
-            {agentOrderTab === "pending" ? "لا توجد طلبات بانتظار قرار المشرف." : "لا توجد طلبات بهذه الحالة."}
+            {agentOrderTab === "pending" ? "لا توجد طلبات بانتظار قرار المدير." : "لا توجد طلبات بهذه الحالة."}
           </p>
         ) : (
           <div className="bg-white rounded-lg shadow divide-y">

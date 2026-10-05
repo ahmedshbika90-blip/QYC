@@ -18,7 +18,7 @@ export default async function handler(req, res) {
 
   try {
     const decoded = await requireUser(req);
-    requireRole(decoded, ["supervisor"]);
+    requireRole(decoded, ["manager"]);
 
     const { id } = req.query;
     const { action, costPrices, rejectReason } = req.body || {};

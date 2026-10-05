@@ -24,7 +24,9 @@ export default async function handler(req, res) {
     const decoded = await requireUser(req);
 
     const restrictedRoute = ROLE_TO_ROUTE[decoded.role];
-    if (!restrictedRoute && decoded.role !== "supervisor") {
+    // The executive gets the full customer database, read-only (no client
+    // write endpoint accepts that role).
+    if (!restrictedRoute && !["manager", "executive"].includes(decoded.role)) {
       return res.status(403).json({ error: "غير مصرح: الصلاحية غير معروفة" });
     }
 

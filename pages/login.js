@@ -5,6 +5,8 @@ import { auth } from "../lib/firebaseClient";
 import { markActivity } from "../lib/session";
 import { Spinner } from "../components/Loading";
 import Icon from "../components/Icon";
+import { ROLE_HOME, normalizeRole } from "../lib/roles";
+import LangToggle from "../components/LangToggle";
 
 // Staff login. Clients don't use the app directly — agents place
 // invoices on their behalf.
@@ -15,6 +17,7 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
   const router = useRouter();
   const idleLogout = router.query.reason === "idle";
+  const revokedLogout = router.query.reason === "revoked";
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -24,13 +27,9 @@ export default function Login() {
       const cred = await signInWithEmailAndPassword(auth, email, password);
       markActivity(); // starts this device's idle session
       const tokenResult = await cred.user.getIdTokenResult();
-      const role = tokenResult.claims.role;
+      const role = normalizeRole(tokenResult.claims.role);
 
-      if (role === "agent_car1") router.push("/dashboard/car1");
-      else if (role === "agent_car2") router.push("/dashboard/car2");
-      else if (role === "supervisor") router.push("/dashboard/supervisor");
-      else if (role === "warehouse_keeper") router.push("/dashboard/warehouse");
-      else if (role === "depot_viewer") router.push("/warehouse/view-stock");
+      if (ROLE_HOME[role]) router.push(ROLE_HOME[role]);
       else setError("لا توجد صلاحية مرتبطة بهذا الحساب. يرجى التواصل مع الإدارة.");
     } catch (err) {
       // Only say "wrong password" when that's actually the reason — on a
@@ -50,6 +49,7 @@ export default function Login() {
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-canvas px-4 py-10">
+      <LangToggle className="fixed top-3 end-3 bg-white shadow" />
       <div className="flex flex-col items-center gap-3 mb-8 text-center">
         <span className="w-16 h-16 rounded-2xl bg-accent text-on-accent flex items-center justify-center shadow-lg">
           <Icon name="route" size={34} strokeWidth={2.2} />
@@ -68,6 +68,12 @@ export default function Login() {
         {idleLogout && !error && (
           <p className="text-amber-700 text-sm bg-amber-50 rounded-lg px-3 py-2 mb-4">
             تم تسجيل خروجك تلقائيًا بسبب عدم النشاط لفترة طويلة، لحماية حسابك.
+          </p>
+        )}
+
+        {revokedLogout && !error && (
+          <p className="text-amber-700 text-sm bg-amber-50 rounded-lg px-3 py-2 mb-4">
+            تم تحديث صلاحيات حسابك أو إيقافه من قبل مدير النظام. سجّل الدخول من جديد.
           </p>
         )}
 

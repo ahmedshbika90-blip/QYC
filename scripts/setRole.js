@@ -1,7 +1,10 @@
 /**
  * One-off script to assign a role to a staff/agent Firebase Auth account.
  * Run with: node scripts/setRole.js <email> <role>
- * role must be one of: agent_car1, agent_car2, supervisor
+ * role must be one of the roles in lib/roles.js.
+ *
+ * Day to day, roles are managed from /admin/users. This script is for the
+ * FIRST admin only:  node scripts/setRole.js you@company.com admin
  *
  * Automatically loads credentials from .env.local — no extra setup needed,
  * just run it from the project root (where .env.local lives).
@@ -9,7 +12,7 @@
 require("dotenv").config({ path: require("path").join(__dirname, "..", ".env.local") });
 const { adminAuth } = require("../lib/firebaseAdmin");
 
-const VALID_ROLES = ["agent_car1", "agent_car2", "supervisor", "warehouse_keeper", "depot_viewer"];
+const { ASSIGNABLE_ROLES: VALID_ROLES } = require("../lib/roles");
 
 async function main() {
   const [, , email, role] = process.argv;
@@ -21,7 +24,8 @@ async function main() {
   }
 
   const user = await adminAuth.getUserByEmail(email);
-  await adminAuth.setCustomUserClaims(user.uid, { role });
+  await adminAuth.setCustomUserClaims(user.uid, { ...(user.customClaims || {}), role });
+  await adminAuth.revokeRefreshTokens(user.uid);
   console.log(`Set role "${role}" for ${email} (uid: ${user.uid})`);
   console.log("They must sign out and back in for the new role to take effect.");
 }

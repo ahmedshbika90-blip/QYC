@@ -6,12 +6,49 @@ on-demand (no fixed schedule) and Car 2 orders are auto-slotted into a fixed
 weekly delivery day. A supervisor account sees everything.
 
 ## Roles
-- `agent_car1` — sees/manages only car1 clients and orders
-- `agent_car2` — sees/manages only car2 clients and orders
-- `supervisor` — sees/manages all clients and orders, only one who can reassign a client's route
+Roles are Firebase Auth custom claims (`role`), managed by the **admin** at
+`/admin/users` — every role's definition, label and home page lives in
+`lib/roles.js`.
 
-Roles are stored as Firebase Auth custom claims, not in Firestore, so
-security rules and API routes can check them directly off the ID token.
+| Role key | Title | Home | Can |
+|---|---|---|---|
+| `admin` | مدير النظام | `/admin/users` | create accounts, assign roles, disable/enable, set passwords; nothing else |
+| `manager` | المدير | `/dashboard/supervisor` | everything operational (was `supervisor`) |
+| `agent_car1` | مشرف المبيعات | `/dashboard/car1` | wholesale van invoices; stock of every van; approves retail shipping requests; `/fleet-history` (every van's **approved** cargo movements, filter by van) |
+| `agent_car2` | مندوب المبيعات | `/dashboard/car2` | retail van invoices and shipping requests, own van only |
+| `warehouse_keeper` | أمين المخزن | `/dashboard/warehouse` | receiving, fulfilling shipping requests, transfers — no prices |
+| `accountant` | المحاسب | `/accounting/invoices` | all invoices (read-only), all stock (`/stock`), records/voids **payments** — seen by this role only |
+| `executive` | الإدارة التنفيذية | `/executive` | view-only dashboard: operations summary, customers & routes, inventory |
+| `depot_viewer` | مطّلع على المخزن الرئيسي | `/warehouse/view-stock` | main depot balances only |
+
+Accounts still carrying the old `supervisor` claim keep working as `manager`
+(normalised in `lib/apiAuth.js` and `lib/useAuth.js`); saving them once on the
+admin page rewrites the claim.
+
+**First admin:** `node scripts/setRole.js you@company.com admin`. After that,
+everything is done from `/admin/users`.
+
+**Role changes apply within a minute.** Changing a role, disabling an account
+or setting a new password revokes that account's sessions; every API call
+checks this (cached 60 s per server instance), and the browser signs the
+person out with an explanation.
+
+## Payments (accountant)
+Stored apart from invoices so no other endpoint can leak them:
+`invoicePayments/{orderId}` (the payments list + totals) and
+`paymentRefs/{bank}__{ref}` (makes a bank reference usable once). A payment
+has a bank (Bank of Khartoum, The Nile Bank, National Bank of Omdurman,
+Faisal Islamic Bank — `lib/paymentsShared.js`), a reference of 1–11 digits,
+an amount and a date. Payments can't exceed the invoice total, can't be
+recorded on a cancelled invoice, and are voided with a reason rather than
+deleted.
+
+## English
+The **EN / ع** button (top bar and login page) switches the whole
+interface. Arabic stays the source; `lib/i18n.js` translates the rendered
+page from `lib/i18nDict.js` (loaded only when English is chosen) and flips
+the layout to left-to-right. After adding Arabic text anywhere, run
+`node scripts/i18n-check.js` — it lists any string without English.
 
 ## Arabic / RTL
 The whole interface is in Arabic with a global `dir="rtl"` layout (set in
@@ -65,8 +102,9 @@ would otherwise scramble delivery-date scheduling.
      Generate new private key. Paste `client_email` and `private_key` from the
      downloaded JSON exactly as they appear (keep the `\n` escapes and quotes).
 
-4. **Deploy Firestore rules** — paste `firestore.rules` into the console's
-   Rules tab, or `firebase deploy --only firestore:rules` with the CLI.
+4. **Deploy Firestore rules and indexes** — `firebase deploy --only firestore:rules,firestore:indexes`
+   (or paste `firestore.rules` into the console's Rules tab and create the
+   indexes listed in `firestore.indexes.json`).
 
 5. **Create staff/agent accounts** — Firebase console → Authentication →
    Users → Add user, for each of your 3 staff members.

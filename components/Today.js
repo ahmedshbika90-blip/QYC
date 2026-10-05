@@ -1,3 +1,4 @@
+import { locale } from "../lib/langState";
 import Link from "next/link";
 import Icon from "./Icon";
 
@@ -7,7 +8,7 @@ import Icon from "./Icon";
 // next (QuickActions, from ./QuickActions).
 
 function todayLabel() {
-  return new Date().toLocaleDateString("ar-EG", {
+  return new Date().toLocaleDateString(locale(), {
     calendar: "gregory",
     numberingSystem: "latn",
     weekday: "long",

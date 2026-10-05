@@ -25,7 +25,7 @@ function Stat({ label, value, strong }) {
 // Supervisor-only: selling price minus supplier cost, from the live
 // (locked, not cancelled) invoices, by car and period.
 export default function MarginPage() {
-  const { role, token, loading, logout } = useAuth(["supervisor"]);
+  const { role, token, loading, logout } = useAuth(["manager"]);
   const [data, setData] = useState(null);
   const [fetching, setFetching] = useState(true);
   const [error, setError] = useState("");

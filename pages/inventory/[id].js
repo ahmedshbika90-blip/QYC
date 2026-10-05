@@ -178,13 +178,13 @@ export default function InventoryDocDetail() {
   }
   if (!doc) return null;
 
-  const canReviewReceived = role === "supervisor" && doc.type === "received" && doc.status === "pending";
-  const canReviewDamage = role === "supervisor" && doc.type === "damage" && doc.status === "pending";
+  const canReviewReceived = role === "manager" && doc.type === "received" && doc.status === "pending";
+  const canReviewDamage = role === "manager" && doc.type === "damage" && doc.status === "pending";
   const isMovement = doc.type === "loading" || doc.type === "offloading";
   const canConfirmMovement =
     isMovement && doc.status === "pending" && ROLE_TO_ROUTE[role] === doc.route;
   const canCancelMovement =
-    role === "supervisor" && isMovement && ["pending", "disputed"].includes(doc.status);
+    role === "manager" && isMovement && ["pending", "disputed"].includes(doc.status);
 
   const seqLabel = { 1: "الأول", 2: "الثاني", 3: "الثالث", 4: "الرابع", 5: "الخامس" };
   const seqText =
@@ -248,7 +248,7 @@ export default function InventoryDocDetail() {
                 : doc.status === "disputed"
                 ? "متنازع عليها"
                 : doc.type === "received" || doc.type === "damage"
-                ? "بانتظار اعتماد المشرف"
+                ? "بانتظار اعتماد المدير"
                 : "بانتظار التأكيد"}
             </span>
           </div>

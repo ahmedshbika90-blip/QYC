@@ -15,7 +15,7 @@ const ROLE_TO_ROUTE = {
 };
 
 // Staff-only version of order creation, for phone-in orders etc.
-// Deliberately excludes "supervisor" — only agents place orders, and only
+// Deliberately excludes "manager" — only agents place orders, and only
 // for clients on their own route.
 export default async function handler(req, res) {
   if (req.method !== "POST") {

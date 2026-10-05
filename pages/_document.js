@@ -1,4 +1,5 @@
 import { Html, Head, Main, NextScript } from "next/document";
+import { LANG_BOOTSTRAP } from "../lib/i18n";
 
 // Runs before first paint so a saved dark preference never flashes white.
 // Kept tiny and dependency-free on purpose — it is inlined into every page.
@@ -19,6 +20,8 @@ export default function Document() {
           rel="stylesheet"
         />
         <script dangerouslySetInnerHTML={{ __html: THEME_BOOTSTRAP }} />
+        {/* English/Arabic: sets dir before first paint (lib/i18n.js). */}
+        <script dangerouslySetInnerHTML={{ __html: LANG_BOOTSTRAP }} />
       </Head>
       <body>
         <Main />

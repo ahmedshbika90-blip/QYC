@@ -18,7 +18,7 @@ import { getClients } from "../lib/clientsStore";
 import { formatDate, formatNumber } from "../lib/labels";
 
 export default function SupervisorDashboard() {
-  const { user, role, token, loading, logout } = useAuth(["supervisor"]);
+  const { user, role, token, loading, logout } = useAuth(["manager"]);
   const [orders, setOrders] = useState([]);
   const [nextCursor, setNextCursor] = useState(null);
   const [loadingMore, setLoadingMore] = useState(false);

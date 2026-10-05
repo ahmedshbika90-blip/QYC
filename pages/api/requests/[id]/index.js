@@ -17,7 +17,7 @@ export default async function handler(req, res) {
     if (!snap.exists) return res.status(404).json({ error: "الطلب غير موجود" });
     const request = snap.data();
 
-    if (decoded.role !== "supervisor") {
+    if (decoded.role !== "manager") {
       if (request.requestedBy !== decoded.uid) {
         return res.status(403).json({ error: "غير مصرح" });
       }

@@ -61,7 +61,7 @@ export default function ClientDetail() {
 
   // After 12 hours an agent's save becomes a request to the supervisor
   // (lib/clientEditLock.js). The supervisor always saves directly.
-  const locked = role !== "supervisor" && client && isClientEditLocked(client);
+  const locked = role !== "manager" && client && isClientEditLocked(client);
   const pending = Boolean(client?.pendingRequest);
 
   async function handleSave(e) {
@@ -123,11 +123,11 @@ export default function ClientDetail() {
         {done ? (
           <SuccessScreen
             tone={done === "requested" ? "warn" : "success"}
-            title={done === "requested" ? "أُرسل طلب التعديل للمشرف" : "تم حفظ بيانات العميل"}
+            title={done === "requested" ? "أُرسل طلب التعديل للمدير" : "تم حفظ بيانات العميل"}
             number={client.id}
             hint={
               done === "requested"
-                ? "لن تتغير بيانات العميل حتى يوافق المشرف. ستصلك رسالة بالقرار."
+                ? "لن تتغير بيانات العميل حتى يوافق المدير. ستصلك رسالة بالقرار."
                 : "التعديلات محفوظة وتظهر في كل الشاشات."
             }
             secondary={{ label: "قائمة العملاء", href: "/clients" }}
@@ -142,29 +142,29 @@ export default function ClientDetail() {
           </div>
         )}
 
-        {pending && role !== "supervisor" ? (
+        {pending && role !== "manager" ? (
           <div className="flex items-start gap-2 bg-amber-50 text-amber-700 rounded-xl px-3 py-3 text-sm mb-4">
             <Icon name="lock" size={18} className="mt-0.5 shrink-0" />
-            <span>يوجد طلب تعديل لهذا العميل بانتظار موافقة المشرف — لا يمكن تعديله حتى يصدر القرار.</span>
+            <span>يوجد طلب تعديل لهذا العميل بانتظار موافقة المدير — لا يمكن تعديله حتى يصدر القرار.</span>
           </div>
         ) : locked ? (
           <div className="flex items-start gap-2 bg-amber-50 text-amber-700 rounded-xl px-3 py-3 text-sm mb-4">
             <Icon name="lock" size={18} className="mt-0.5 shrink-0" />
             <span>
-              مرّ أكثر من {CLIENT_EDIT_WINDOW_HOURS} ساعة على تسجيل هذا العميل — أي تعديل يُرسل للمشرف للموافقة أولًا.
+              مرّ أكثر من {CLIENT_EDIT_WINDOW_HOURS} ساعة على تسجيل هذا العميل — أي تعديل يُرسل للمدير للموافقة أولًا.
             </span>
           </div>
         ) : (
-          role !== "supervisor" &&
+          role !== "manager" &&
           clientEditDeadline(client) && (
             <p className="text-xs text-muted mb-4">
-              يمكنك التعديل مباشرة حتى {formatDateTime(clientEditDeadline(client).toISOString())}، بعدها يحتاج التعديل موافقة المشرف.
+              يمكنك التعديل مباشرة حتى {formatDateTime(clientEditDeadline(client).toISOString())}، بعدها يحتاج التعديل موافقة المدير.
             </p>
           )
         )}
 
         <form onSubmit={handleSave} className="space-y-4">
-        <fieldset disabled={pending && role !== "supervisor"} className="space-y-4 disabled:opacity-60">
+        <fieldset disabled={pending && role !== "manager"} className="space-y-4 disabled:opacity-60">
           <div>
             <label className="block text-sm text-gray-600 mb-1">اسم العميل</label>
             <input
@@ -250,15 +250,15 @@ export default function ClientDetail() {
             <select
               value={form.route}
               onChange={(e) => setForm({ ...form, route: e.target.value })}
-              disabled={role !== "supervisor"}
+              disabled={role !== "manager"}
               className="w-full border rounded-lg px-3 h-12 text-base disabled:bg-gray-100 disabled:text-gray-400"
             >
               <option value="car1">مبيعات جملة (حسب الطلب)</option>
               <option value="car2">مبيعات تجزئة (خط أسبوعي ثابت)</option>
             </select>
-            {role !== "supervisor" && (
+            {role !== "manager" && (
               <p className="text-xs text-gray-400 mt-1">
-                المشرف فقط يمكنه تغيير مسار العميل.
+                المدير فقط يمكنه تغيير مسار العميل.
               </p>
             )}
           </div>
@@ -276,7 +276,7 @@ export default function ClientDetail() {
           {locked && (
             <div>
               <label className="block text-sm text-gray-600 mb-1" htmlFor="edit-reason">
-                سبب التعديل (يظهر للمشرف)
+                سبب التعديل (يظهر للمدير)
               </label>
               <textarea
                 id="edit-reason"
@@ -297,7 +297,7 @@ export default function ClientDetail() {
             className="w-full bg-accent text-on-accent rounded-lg h-12 text-base font-medium active:bg-accent-strong disabled:opacity-50 flex items-center justify-center gap-2"
           >
             {saving && <Spinner className="w-4 h-4" />}
-            {saving ? "جارٍ الإرسال..." : locked ? "إرسال طلب التعديل للمشرف" : "حفظ التغييرات"}
+            {saving ? "جارٍ الإرسال..." : locked ? "إرسال طلب التعديل للمدير" : "حفظ التغييرات"}
           </button>
         </fieldset>
         </form>

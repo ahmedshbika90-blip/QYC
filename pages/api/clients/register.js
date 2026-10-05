@@ -54,7 +54,7 @@ export default async function handler(req, res) {
 
   try {
     const decoded = await requireUser(req);
-    requireRole(decoded, ["agent_car1", "agent_car2", "supervisor"]);
+    requireRole(decoded, ["agent_car1", "agent_car2", "manager"]);
 
     const { nameFirst, nameMiddle, nameLast, storeName, location, storeClass, requestId } = req.body || {};
     // Arabic-keyboard digits (٠١٢…) are accepted and stored as English digits.

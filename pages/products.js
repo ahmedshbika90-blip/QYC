@@ -71,7 +71,7 @@ function ListSelect({ value, onChange, options, placeholder, current, className 
 
 export default function Products() {
   const { role, token, loading, logout } = useAuth();
-  const isSupervisor = role === "supervisor";
+  const isSupervisor = role === "manager";
 
   const [products, setProducts] = useState([]);
   const [fetching, setFetching] = useState(true);
@@ -207,7 +207,7 @@ export default function Products() {
         <h1 className="font-display text-2xl font-bold mb-1 text-ink">{isSupervisor ? "كتالوج المنتجات" : "المخزون"}</h1>
         {!isSupervisor && (
           <p className="text-sm text-gray-400 mb-6">
-            للعرض فقط — المشرف وحده يمكنه إضافة أو تعديل المنتجات وأسعارها.
+            للعرض فقط — المدير وحده يمكنه إضافة أو تعديل المنتجات وأسعارها.
           </p>
         )}
 

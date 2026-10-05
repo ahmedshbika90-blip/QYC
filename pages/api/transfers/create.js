@@ -25,7 +25,7 @@ export default async function handler(req, res) {
   }
   try {
     const decoded = await requireUser(req);
-    requireRole(decoded, ["supervisor"]);
+    requireRole(decoded, ["manager"]);
 
     const { items, note, requestId } = req.body || {};
     if (!requestId || typeof requestId !== "string") throw fail("رقم الطلب مطلوب");

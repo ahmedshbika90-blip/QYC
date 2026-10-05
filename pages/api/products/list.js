@@ -41,7 +41,7 @@ export default async function handler(req, res) {
     }
 
     // Average supplier cost is supervisor-only.
-    if (decoded.role !== "supervisor") {
+    if (decoded.role !== "manager") {
       products = products.map(({ avgCost, ...rest }) => rest);
     }
 

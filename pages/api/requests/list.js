@@ -33,7 +33,7 @@ export default async function handler(req, res) {
       return res.status(200).json({ requests, nextCursor: null });
     }
 
-    if (decoded.role !== "supervisor") {
+    if (decoded.role !== "manager") {
       return res.status(403).json({ error: "غير مصرح" });
     }
 

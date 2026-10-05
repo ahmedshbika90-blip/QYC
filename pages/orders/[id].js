@@ -180,12 +180,12 @@ export default function OrderDetail() {
   const lineTotal = cartLineTotal;
 
   // Agents can't change a locked invoice directly — they ask the supervisor.
-  const needsRequest = order && role !== "supervisor" && order.locked;
+  const needsRequest = order && role !== "manager" && order.locked;
   const [done, setDone] = useState(null); // "requested-edit" | "requested-cancel" | "saved"
 
   async function sendChangeRequest(type, items, discount) {
     if (!reason.trim()) {
-      setError("اكتب سبب الطلب ليراه المشرف");
+      setError("اكتب سبب الطلب ليراه المدير");
       return;
     }
     setSendingRequest(true);
@@ -276,14 +276,14 @@ export default function OrderDetail() {
             tone={requested ? "warn" : "success"}
             title={
               done === "requested-cancel"
-                ? "أُرسل طلب إلغاء الفاتورة للمشرف"
+                ? "أُرسل طلب إلغاء الفاتورة للمدير"
                 : done === "requested-edit"
-                ? "أُرسل طلب تعديل الفاتورة للمشرف"
+                ? "أُرسل طلب تعديل الفاتورة للمدير"
                 : "تم حفظ تعديل الفاتورة"
             }
             number={shortCode(order.id)}
-            hint={requested ? "لن تتغير الفاتورة حتى يوافق المشرف. ستصلك رسالة بالقرار." : "تم تحديث الكميات والمخزون."}
-            secondary={{ label: "الفواتير", href: role === "supervisor" ? "/dashboard/supervisor" : `/dashboard/${order.route}` }}
+            hint={requested ? "لن تتغير الفاتورة حتى يوافق المدير. ستصلك رسالة بالقرار." : "تم تحديث الكميات والمخزون."}
+            secondary={{ label: "الفواتير", href: role === "manager" ? "/dashboard/supervisor" : `/dashboard/${order.route}` }}
             primary={{ label: "عرض الفاتورة", onClick: () => setDone(null) }}
           />
         </main>
@@ -334,9 +334,9 @@ export default function OrderDetail() {
               <span className="text-sm text-red-500 bg-red-50 rounded-lg px-3 h-11 flex items-center self-start">
                 ملغاة
               </span>
-            ) : order.pendingRequest && role !== "supervisor" ? (
+            ) : order.pendingRequest && role !== "manager" ? (
               <span className="text-sm text-amber-700 bg-amber-50 rounded-lg px-3 py-2 self-start">
-                طلب {order.pendingRequest.type === "cancel" ? "إلغاء" : "تعديل"} بانتظار موافقة المشرف
+                طلب {order.pendingRequest.type === "cancel" ? "إلغاء" : "تعديل"} بانتظار موافقة المدير
               </span>
             ) : !editing && !cancelRequestOpen ? (
               <div className="flex gap-2 self-start">
@@ -365,14 +365,14 @@ export default function OrderDetail() {
               {order.locked
                 ? `🔒 مقفلة — ${
                     order.lockReason === "reported" ? "ضمن تقرير تمت مشاركته" : "مرّ أكثر من ٩ ساعات على إنشائها"
-                  }${role !== "supervisor" ? ". أي تعديل أو إلغاء يحتاج موافقة المشرف." : "."}`
+                  }${role !== "manager" ? ". أي تعديل أو إلغاء يحتاج موافقة المدير." : "."}`
                 : order.editableUntil
                 ? `يمكن التعديل أو الإلغاء حتى ${formatDateTime(order.editableUntil)}، أو حتى مشاركة تقرير يشملها.`
                 : ""}
             </p>
           )}
 
-          {role === "supervisor" && order.pendingRequest && (
+          {role === "manager" && order.pendingRequest && (
             <a
               href={`/requests/${order.pendingRequest.id}`}
               className="block text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mb-3"
@@ -389,13 +389,13 @@ export default function OrderDetail() {
             >
               {order.lastRequest.status === "approved" ? "تمت الموافقة على" : "رُفض"} طلب
               {order.lastRequest.type === "cancel" ? " الإلغاء" : " التعديل"} — {formatDateTime(order.lastRequest.decidedAt)}
-              {order.lastRequest.note && <span className="block text-xs mt-0.5">ملاحظة المشرف: {order.lastRequest.note}</span>}
+              {order.lastRequest.note && <span className="block text-xs mt-0.5">ملاحظة المدير: {order.lastRequest.note}</span>}
             </div>
           )}
 
           {cancelRequestOpen && (
             <div className="border border-red-200 bg-red-50 rounded-lg p-3 mb-4 space-y-2">
-              <p className="text-sm text-red-700">طلب إلغاء الفاتورة — سيراجعه المشرف قبل التنفيذ.</p>
+              <p className="text-sm text-red-700">طلب إلغاء الفاتورة — سيراجعه المدير قبل التنفيذ.</p>
               <textarea
                 value={reason}
                 onChange={(e) => setReason(e.target.value)}
@@ -500,7 +500,7 @@ export default function OrderDetail() {
                   onChange={(e) => setReason(e.target.value)}
                   rows={2}
                   maxLength={500}
-                  placeholder="سبب التعديل (مطلوب) — سيراجعه المشرف قبل التنفيذ"
+                  placeholder="سبب التعديل (مطلوب) — سيراجعه المدير قبل التنفيذ"
                   className="w-full border rounded-lg px-3 py-2 text-base"
                 />
               )}
@@ -573,7 +573,7 @@ export default function OrderDetail() {
             <p>تاريخ الفاتورة: {formatDateTime(order.createdAt)}</p>
           </div>
 
-          {role === "supervisor" && order.editHistory?.length > 0 && (
+          {role === "manager" && order.editHistory?.length > 0 && (
             <details className="mb-4 text-sm">
               <summary className="text-gray-500 cursor-pointer select-none">
                 سجل التعديلات ({order.editHistory.length})

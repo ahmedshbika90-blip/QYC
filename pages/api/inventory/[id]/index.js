@@ -1,5 +1,6 @@
 const { adminDb } = require("../../../../lib/firebaseAdmin");
 const { requireUser } = require("../../../../lib/apiAuth");
+const { ROUTES } = require("../../../../lib/roles");
 
 const ROLE_TO_ROUTE = {
   agent_car1: "car1",
@@ -21,17 +22,20 @@ export default async function handler(req, res) {
     }
     const doc = snap.data();
 
+    // The sales supervisor (car1) may also open other vans' documents once
+    // they're confirmed — the same ones his fleet history lists.
+    const fleetView = decoded.role === "agent_car1" && doc.status === "confirmed" && ROUTES.includes(doc.route);
     const restrictedRoute = ROLE_TO_ROUTE[decoded.role];
-    if (restrictedRoute && doc.route !== restrictedRoute) {
+    if (restrictedRoute && doc.route !== restrictedRoute && !fleetView) {
       return res.status(403).json({ error: "غير مصرح: هذا خارج مسارك" });
     }
-    if (!restrictedRoute && !["supervisor", "warehouse_keeper"].includes(decoded.role)) {
+    if (!restrictedRoute && !["manager", "warehouse_keeper"].includes(decoded.role)) {
       return res.status(403).json({ error: "غير مصرح: الصلاحية غير معروفة" });
     }
 
     // Supplier price is supervisor-only information — the warehouse
     // keeper never enters it and never sees it, even after approval.
-    if (decoded.role === "warehouse_keeper") {
+    if (decoded.role !== "manager") {
       doc.items = doc.items.map(({ costPrice, ...rest }) => rest);
     }
 

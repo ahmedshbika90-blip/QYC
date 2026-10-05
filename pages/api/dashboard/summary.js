@@ -9,7 +9,7 @@ export default async function handler(req, res) {
   if (req.method !== "GET") return res.status(405).json({ error: "طريقة الطلب غير مسموح بها" });
   try {
     const decoded = await requireUser(req);
-    requireRole(decoded, ["supervisor"]);
+    requireRole(decoded, ["manager"]);
     const { from, to } = req.query;
     return res.status(200).json(await buildSummary({ from: from ? String(from) : undefined, to: to ? String(to) : undefined }));
   } catch (err) {

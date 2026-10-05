@@ -6,6 +6,8 @@ import { SkeletonRows, Spinner } from "./Loading";
 import { apiFetch } from "../lib/apiFetch";
 import { cachedGet } from "../lib/apiCache";
 import { useLiveRefresh } from "../lib/useLiveRefresh";
+import { ROUTES } from "../lib/roles";
+import { ROUTE_LABELS_SHORT } from "../lib/labels";
 
 // Filterable, date-windowed, paginated inventory history. Used by several
 // pages with different fixed scopes:
@@ -13,6 +15,8 @@ import { useLiveRefresh } from "../lib/useLiveRefresh";
 //   fixedType   — lock to one document type (warehouse inventory section)
 //   excludePending — hide pending docs (agents' Documents: pending ones
 //                    live on the dashboard until confirmed)
+//   scope="fleet"  — every van's CONFIRMED cargo movements (the sales
+//                    supervisor's view); the server enforces both rules
 // Filters the user can still change are shown; locked ones are hidden.
 // `reloadKey` — bump it after creating a document to refresh the list.
 export default function InventoryHistory({
@@ -22,6 +26,7 @@ export default function InventoryHistory({
   excludePending = false,
   showRouteFilter = true,
   reloadKey = 0,
+  scope,
   emptyText = "لا توجد حركات في هذه الفترة.",
 }) {
   const [docs, setDocs] = useState([]);
@@ -47,6 +52,7 @@ export default function InventoryHistory({
     if (route) p.set("route", route);
     if (statusFilter) p.set("status", statusFilter);
     if (excludePending) p.set("excludePending", "1");
+    if (scope) p.set("scope", scope);
     if (cursor) p.set("cursor", cursor);
     return `/api/inventory/list?${p.toString()}`;
   }
@@ -88,7 +94,7 @@ export default function InventoryHistory({
   }
 
   const selectClass = "border rounded-lg px-3 h-11 text-base";
-  const extraActive = [!fixedType && typeFilter, !fixedRoute && routeFilter, statusFilter].filter(Boolean).length;
+  const extraActive = [!fixedType && typeFilter, !fixedRoute && routeFilter, scope !== "fleet" && statusFilter].filter(Boolean).length;
 
   return (
     <div>
@@ -104,19 +110,17 @@ export default function InventoryHistory({
             label="نوع المستند"
             value={typeFilter}
             onChange={setTypeFilter}
-            options={[
-              ["received", "استلام بضاعة"],
-              ["loading", "تسليم بضاعة"],
-              ["offloading", "مرتجع بضاعة"],
-              ["damage", "تالف"],
-            ["transfer", "تحويل"],
-            ]}
+            options={
+              scope === "fleet"
+                ? [["loading", "تسليم بضاعة"], ["offloading", "مرتجع بضاعة"], ["damage", "تالف"]]
+                : [["received", "استلام بضاعة"], ["loading", "تسليم بضاعة"], ["offloading", "مرتجع بضاعة"], ["damage", "تالف"], ["transfer", "تحويل"]]
+            }
           />
         )}
         {!fixedRoute && showRouteFilter && (
-          <FilterChips label="السيارة" value={routeFilter} onChange={setRouteFilter} options={[["car1", "مبيعات جملة"], ["car2", "مبيعات تجزئة"]]} />
+          <FilterChips label="السيارة" value={routeFilter} onChange={setRouteFilter} options={ROUTES.map((r) => [r, `${r} · ${ROUTE_LABELS_SHORT[r] || r}`])} />
         )}
-        <FilterChips
+        {scope !== "fleet" && <FilterChips
           label="الحالة"
           value={statusFilter}
           onChange={setStatusFilter}
@@ -125,7 +129,7 @@ export default function InventoryHistory({
             ["confirmed", "مؤكدة"],
             ["rejected", "مرفوضة"],
           ]}
-        />
+        />}
       </FilterPanel>
 
       {!dateFrom && <p className="text-xs text-gray-400 mb-3">يعرض آخر ٣٠ يومًا — حدد "من تاريخ" لفترة أقدم.</p>}

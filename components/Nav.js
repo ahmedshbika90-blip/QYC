@@ -2,20 +2,15 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/router";
 import { ROLE_LABELS } from "../lib/labels";
+import { ROLE_HOME } from "../lib/roles";
 import { subscribeAuth } from "../lib/currentToken";
 import { useNotifications } from "../lib/useNotifications";
 import { useTheme } from "../lib/theme";
 import PendingActionModal from "./PendingActionModal";
 import NotificationToastStack from "./NotificationToast";
 import Icon from "./Icon";
+import LangToggle from "./LangToggle";
 
-const ROLE_HOME = {
-  agent_car1: "/dashboard/car1",
-  agent_car2: "/dashboard/car2",
-  supervisor: "/dashboard/supervisor",
-  warehouse_keeper: "/dashboard/warehouse",
-  depot_viewer: "/warehouse/view-stock",
-};
 
 // Every destination, once. `badge` says which notifications light it up:
 //   "modification"  invoice / client change requests (الطلبات)
@@ -43,6 +38,12 @@ const L = {
   whCar1: { href: "/warehouse/car1", label: "مبيعات جملة", short: "جملة", icon: "warehouse", badge: "shipping:car1" },
   whCar2: { href: "/warehouse/car2", label: "مبيعات تجزئة", short: "تجزئة", icon: "warehouse", badge: "shipping:car2" },
   viewStock: { href: "/warehouse/view-stock", label: "المخزن الرئيسي", icon: "box" },
+  fleet: { href: "/fleet-history", label: "حركة بضاعة السيارات", short: "حركة السيارات", icon: "truck" },
+  accounts: { href: "/admin/users", label: "الحسابات والصلاحيات", short: "الحسابات", icon: "users" },
+  accInvoices: { href: "/accounting/invoices", label: "الفواتير والمدفوعات", short: "الفواتير", icon: "file" },
+  allStock: { href: "/stock", label: "المخزون", icon: "box" },
+  execDash: { href: "/executive", label: "لوحة المتابعة", short: "اللوحة", icon: "chart" },
+  execClients: { href: "/executive/customers", label: "قاعدة العملاء", short: "العملاء", icon: "users" },
 };
 
 // Per role: `tabs` = the mobile bottom bar (most-used first, max 4 +
@@ -56,6 +57,12 @@ function layoutFor(role) {
   const home = { href: ROLE_HOME[role], label: "الرئيسية", icon: "home" };
   switch (role) {
     case "agent_car1":
+      return {
+        tabs: [home, L.documents, L.clients],
+        center: L.placeOrder,
+        more: [L.requests, L.fleet, L.sales, L.stock],
+        desktop: [home, L.placeOrder, L.documents, L.requests, L.clients, L.fleet, L.sales, L.stock],
+      };
     case "agent_car2":
       return {
         tabs: [home, L.documents, L.clients],
@@ -63,7 +70,7 @@ function layoutFor(role) {
         more: [L.requests, L.sales, L.stock],
         desktop: [home, L.placeOrder, L.documents, L.requests, L.clients, L.sales, L.stock],
       };
-    case "supervisor":
+    case "manager":
       return {
         tabs: [home, L.requests, L.inventory, L.sales],
         more: [L.invoices, L.margin, L.clients, L.products, L.transfers],
@@ -75,6 +82,12 @@ function layoutFor(role) {
         more: [],
         desktop: [home, L.whInventory, L.whShip, L.whCar1, L.whCar2, L.whTransfers],
       };
+    case "admin":
+      return { tabs: [], more: [], desktop: [L.accounts] };
+    case "accountant":
+      return { tabs: [L.accInvoices, L.allStock], more: [], desktop: [L.accInvoices, L.allStock] };
+    case "executive":
+      return { tabs: [L.execDash, L.execClients], more: [], desktop: [L.execDash, L.execClients] };
     case "depot_viewer":
       return { tabs: [], more: [], desktop: [L.viewStock] };
     default:
@@ -205,7 +218,7 @@ export default function Nav({ role, logout }) {
               <span className="font-display font-bold text-lg text-ink">مباشر</span>
               {role && (
                 <span className="text-xs text-muted truncate md:hidden xl:block">
-                  {role === "agent_car1" || role === "agent_car2" ? "مندوب المبيعات" : ROLE_LABELS[role]}
+                  {ROLE_LABELS[role]}
                 </span>
               )}
             </span>
@@ -234,6 +247,7 @@ export default function Nav({ role, logout }) {
           </nav>
 
           <div className="flex items-center gap-1 shrink-0">
+            <LangToggle />
             <button type="button" onClick={toggle} className={iconBtn} aria-label={isDark ? "الوضع الفاتح" : "الوضع الداكن"}>
               <Icon name={isDark ? "sun" : "moon"} />
             </button>

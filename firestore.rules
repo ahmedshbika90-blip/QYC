@@ -24,7 +24,9 @@ service cloud.firestore {
     }
 
     // The single exception: live change counters for real-time refresh
-    // (lib/liveVersions.js). Holds plain numbers only — "orders_car1: 42" —
+    // (lib/liveVersions.js). 'supervisor' is the pre-rename key of
+    // 'manager', kept so accounts not yet re-saved by the admin still get
+    // live updates. Holds plain numbers only — "orders_car1: 42" —
     // no names, prices, or order data; the same values GET /api/versions
     // already returns to any signed-in staff member.
     //   - get only: no list (can't enumerate /meta, which also holds
@@ -32,7 +34,8 @@ service cloud.firestore {
     //   - signed in AND holding a staff role claim, same bar as the API.
     match /meta/versions {
       allow get: if request.auth != null
-        && request.auth.token.role in ['agent_car1', 'agent_car2', 'supervisor', 'warehouse_keeper', 'depot_viewer'];
+        && request.auth.token.role in ['admin', 'manager', 'supervisor', 'agent_car1', 'agent_car2',
+                                    'warehouse_keeper', 'accountant', 'executive', 'depot_viewer'];
     }
   }
 }

@@ -22,7 +22,7 @@ export const TRANSFER_STATUS = {
 // Quantities only — no price, no cost, no destination. The warehouse
 // keeper releases it; stock leaves the depot at that moment.
 export default function Transfers() {
-  const { role, token, loading, logout } = useAuth(["supervisor"]);
+  const { role, token, loading, logout } = useAuth(["manager"]);
   const [products, setProducts] = useState([]);
   const [transfers, setTransfers] = useState([]);
   const [cart, setCart] = useState([]);

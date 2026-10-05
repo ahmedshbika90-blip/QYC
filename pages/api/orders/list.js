@@ -28,7 +28,7 @@ export default async function handler(req, res) {
     const restrictedRoute = ROLE_TO_ROUTE[decoded.role];
     if (restrictedRoute) {
       query = query.where("route", "==", restrictedRoute);
-    } else if (decoded.role !== "supervisor") {
+    } else if (decoded.role !== "manager") {
       const err = new Error("Forbidden: unrecognized role");
       err.statusCode = 403;
       throw err;

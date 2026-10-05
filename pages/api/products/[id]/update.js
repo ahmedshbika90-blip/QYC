@@ -30,7 +30,7 @@ export default async function handler(req, res) {
 
   try {
     const decoded = await requireUser(req);
-    requireRole(decoded, ["supervisor"]);
+    requireRole(decoded, ["manager"]);
 
     const { id } = req.query;
     const { name, unit, category, active, priceCar1, priceCar2, depotStock, avgCost, minStock } = req.body || {};

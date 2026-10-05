@@ -13,7 +13,7 @@ import { getClients } from "../../lib/clientsStore";
 // list (see lib/clientsStore.js) — typing, filtering, or switching filters
 // costs zero Firestore reads.
 export default function ClientsList() {
-  const { user, role, token, loading, logout } = useAuth(["agent_car1", "agent_car2", "supervisor"]);
+  const { user, role, token, loading, logout } = useAuth(["agent_car1", "agent_car2", "manager"]);
   const [clients, setClients] = useState([]);
   const [fetching, setFetching] = useState(true);
   const [error, setError] = useState("");
@@ -115,7 +115,7 @@ export default function ClientsList() {
           onStoreClassChange={setStoreClass}
           extraActiveCount={routeFilter ? 1 : 0}
         >
-          {role === "supervisor" && (
+          {role === "manager" && (
             <FilterChips label="المسار" value={routeFilter} onChange={setRouteFilter} options={[["car1", "مبيعات جملة"], ["car2", "مبيعات تجزئة"]]} />
           )}
         </FilterPanel>
@@ -176,7 +176,7 @@ export default function ClientsList() {
                       {c.storeClass}
                     </span>
                   )}
-                  {role === "supervisor" && (
+                  {role === "manager" && (
                     <span className="text-xs text-gray-400">{c.route === "car1" ? "مبيعات جملة" : "مبيعات تجزئة"}</span>
                   )}
                 </div>

@@ -68,7 +68,7 @@ function ItemsTable({ title, items, total, discount, tone = "gray" }) {
 }
 
 export default function RequestDetail() {
-  const { role, token, loading, logout } = useAuth(["supervisor", "agent_car1", "agent_car2"]);
+  const { role, token, loading, logout } = useAuth(["manager", "agent_car1", "agent_car2"]);
   const router = useRouter();
   const { id } = router.query;
   const [r, setR] = useState(null);
@@ -224,7 +224,7 @@ export default function RequestDetail() {
 
           {error && <p className="text-red-600 text-sm">{error}</p>}
 
-          {r.status === "pending" && role === "supervisor" ? (
+          {r.status === "pending" && role === "manager" ? (
             <div className="border-t pt-4 space-y-3">
               <textarea
                 value={note}
@@ -269,7 +269,7 @@ export default function RequestDetail() {
                   : "bg-amber-50 text-amber-700"
               }`}
             >
-              {r.status === "approved" ? "تمت الموافقة" : r.status === "rejected" ? "تم الرفض" : "بانتظار قرار المشرف"}
+              {r.status === "approved" ? "تمت الموافقة" : r.status === "rejected" ? "تم الرفض" : "بانتظار قرار المدير"}
               {r.decidedAt && <> — {formatDateTime(r.decidedAt)}</>}
               {r.decisionNote && <span className="block text-xs mt-0.5">الملاحظة: {r.decisionNote}</span>}
             </div>

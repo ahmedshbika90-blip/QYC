@@ -15,7 +15,7 @@ function checkAccess(decoded, clientRoute, res) {
     res.status(403).json({ error: "غير مصرح: هذا خارج مسارك" });
     return false;
   }
-  if (!restrictedRoute && decoded.role !== "supervisor") {
+  if (!restrictedRoute && decoded.role !== "manager") {
     res.status(403).json({ error: "غير مصرح: الصلاحية غير معروفة" });
     return false;
   }
@@ -43,8 +43,8 @@ export default async function handler(req, res) {
       // Reassigning route: only a supervisor may move a client between
       // routes, since it changes which agent's queue the client belongs to.
       const { route } = req.body || {};
-      if (route !== undefined && route !== client.route && decoded.role !== "supervisor") {
-        return res.status(403).json({ error: "المشرف فقط يمكنه تغيير مسار العميل" });
+      if (route !== undefined && route !== client.route && decoded.role !== "manager") {
+        return res.status(403).json({ error: "المدير فقط يمكنه تغيير مسار العميل" });
       }
       if (!checkAccess(decoded, client.route, res)) return;
       if (route !== undefined && !["car1", "car2"].includes(route)) {
@@ -53,14 +53,14 @@ export default async function handler(req, res) {
 
       // 12-hour window (lib/clientEditLock.js): after it, an agent's edit
       // has to go through the supervisor as a request instead.
-      if (decoded.role !== "supervisor" && isClientEditLocked(client)) {
+      if (decoded.role !== "manager" && isClientEditLocked(client)) {
         return res.status(423).json({
-          error: `مرّ أكثر من ${CLIENT_EDIT_WINDOW_HOURS} ساعة على تسجيل هذا العميل — التعديل يحتاج موافقة المشرف`,
+          error: `مرّ أكثر من ${CLIENT_EDIT_WINDOW_HOURS} ساعة على تسجيل هذا العميل — التعديل يحتاج موافقة المدير`,
           code: "CLIENT_LOCKED",
         });
       }
-      if (client.pendingRequest && decoded.role !== "supervisor") {
-        return res.status(409).json({ error: "يوجد طلب تعديل لهذا العميل بانتظار المشرف" });
+      if (client.pendingRequest && decoded.role !== "manager") {
+        return res.status(409).json({ error: "يوجد طلب تعديل لهذا العميل بانتظار المدير" });
       }
 
       const updates = {

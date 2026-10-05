@@ -21,7 +21,7 @@ const RESOLVED = ["rejected", "fulfilled", "cancelled"];
 // warehouse keeper can only accept it as-is or cancel it with a reason;
 // car1 can approve/reject a car2 loading request.
 export default function ShippingDetail() {
-  const { role, token, user, loading, logout } = useAuth(["supervisor", "warehouse_keeper", "agent_car1", "agent_car2"]);
+  const { role, token, user, loading, logout } = useAuth(["manager", "warehouse_keeper", "agent_car1", "agent_car2"]);
   const router = useRouter();
   const { id } = router.query;
 

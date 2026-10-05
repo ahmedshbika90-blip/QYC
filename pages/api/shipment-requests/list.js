@@ -32,7 +32,7 @@ export default async function handler(req, res) {
       if (!myRoute) return res.status(403).json({ error: "غير مصرح" });
       query = coll.where("requestedBy", "==", decoded.uid);
     } else if (status === "pending_warehouse") {
-      if (!["warehouse_keeper", "supervisor"].includes(decoded.role)) {
+      if (!["warehouse_keeper", "manager"].includes(decoded.role)) {
         return res.status(403).json({ error: "غير مصرح" });
       }
       query = coll.where("status", "==", "pending_warehouse");
@@ -40,7 +40,7 @@ export default async function handler(req, res) {
       // show only that car's requests.
       if (route === "car1" || route === "car2") query = query.where("route", "==", route);
     } else {
-      if (decoded.role !== "supervisor") return res.status(403).json({ error: "غير مصرح" });
+      if (decoded.role !== "manager") return res.status(403).json({ error: "غير مصرح" });
       query = coll;
       if (status) query = query.where("status", "==", status);
       if (route) query = query.where("route", "==", route);

@@ -25,7 +25,7 @@ export default async function handler(req, res) {
 
   try {
     const decoded = await requireUser(req);
-    requireRole(decoded, ["warehouse_keeper", "supervisor"]);
+    requireRole(decoded, ["warehouse_keeper", "manager"]);
 
     const { source, items, note, requestId } = req.body || {};
     if (!isValidRequestId(requestId)) {
@@ -63,7 +63,7 @@ export default async function handler(req, res) {
 
     const docRef = adminDb.collection("inventoryDocs").doc(requestId);
     const now = new Date().toISOString();
-    const immediate = decoded.role === "supervisor";
+    const immediate = decoded.role === "manager";
 
     const result = await createOnce(
       docRef,

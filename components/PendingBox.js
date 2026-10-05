@@ -65,8 +65,8 @@ export default function PendingBox({ token, pendingMovements = [], toDecide = []
       icon: "inbox",
       title:
         r.type === "client_edit"
-          ? "طلب تعديل عميل — بانتظار المشرف"
-          : `${r.type === "cancel" ? "طلب إلغاء" : "طلب تعديل"} فاتورة ${shortCode(r.orderId)} — بانتظار المشرف`,
+          ? "طلب تعديل عميل — بانتظار المدير"
+          : `${r.type === "cancel" ? "طلب إلغاء" : "طلب تعديل"} فاتورة ${shortCode(r.orderId)} — بانتظار المدير`,
       meta: formatDateTime(r.createdAt || r.requestedAt),
     })),
   ];

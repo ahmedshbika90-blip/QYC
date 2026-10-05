@@ -237,7 +237,7 @@ export default function RegisterClient() {
 
           <div>
             <label className="block text-sm text-gray-600 mb-1">المسار</label>
-            {role === "supervisor" ? (
+            {role === "manager" ? (
               <select
                 value={form.route}
                 onChange={(e) => setForm({ ...form, route: e.target.value })}
@@ -251,7 +251,7 @@ export default function RegisterClient() {
                 {role === "agent_car1" ? "مبيعات جملة (حسب الطلب)" : "مبيعات تجزئة (خط أسبوعي ثابت)"}
               </p>
             )}
-            {role !== "supervisor" && (
+            {role !== "manager" && (
               <p className="text-xs text-gray-400 mt-1">
                 يتم تحديد المسار تلقائيًا حسب حسابك — العملاء الجدد يُسجَّلون على مسارك فقط.
               </p>

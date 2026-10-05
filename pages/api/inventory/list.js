@@ -1,5 +1,6 @@
 const { adminDb } = require("../../../lib/firebaseAdmin");
 const { requireUser } = require("../../../lib/apiAuth");
+const { ROUTES } = require("../../../lib/roles");
 
 const ROLE_TO_ROUTE = {
   agent_car1: "car1",
@@ -31,18 +32,48 @@ export default async function handler(req, res) {
 
   try {
     const decoded = await requireUser(req);
-    const restrictedRoute = ROLE_TO_ROUTE[decoded.role];
-    if (!restrictedRoute && !["supervisor", "warehouse_keeper"].includes(decoded.role)) {
-      return res.status(403).json({ error: "غير مصرح: الصلاحية غير معروفة" });
+    const { status, type, route, from, to, cursor, excludePending, scope } = req.query;
+
+    // "fleet" = the sales supervisor's (car1) view of every van's cargo
+    // movements, like the manager's history but CONFIRMED documents only
+    // and only van documents (no depot receipts/transfers). Optional
+    // ?route= narrows it to one van.
+    const fleet = scope === "fleet";
+    if (fleet && !["agent_car1", "manager"].includes(decoded.role)) {
+      return res.status(403).json({ error: "غير مصرح" });
+    }
+    if (fleet && route && !ROUTES.includes(route)) {
+      return res.status(400).json({ error: "السيارة غير صالحة" });
     }
 
-    const { status, type, route, from, to, cursor, excludePending } = req.query;
+    const restrictedRoute = fleet ? null : ROLE_TO_ROUTE[decoded.role];
+    if (!fleet && !restrictedRoute && !["manager", "warehouse_keeper"].includes(decoded.role)) {
+      return res.status(403).json({ error: "غير مصرح: الصلاحية غير معروفة" });
+    }
     const coll = adminDb.collection("inventoryDocs");
 
     let docs;
     let nextCursor = null;
 
-    if (status === "pending") {
+    if (fleet) {
+      // route + createdAt uses the existing (route ASC, createdAt DESC) index.
+      let query = coll.orderBy("createdAt", "desc");
+      if (route) query = query.where("route", "==", route);
+      const effectiveFrom =
+        from || new Date(Date.now() - DEFAULT_WINDOW_DAYS * 24 * 60 * 60 * 1000).toISOString();
+      query = query.where("createdAt", ">=", effectiveFrom);
+      if (to) {
+        const toDate = new Date(to);
+        toDate.setHours(23, 59, 59, 999);
+        query = query.where("createdAt", "<=", toDate.toISOString());
+      }
+      if (cursor) query = query.startAfter(cursor);
+      query = query.limit(PAGE_SIZE);
+      const snap = await query.get();
+      const raw = snap.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+      nextCursor = raw.length === PAGE_SIZE ? raw[raw.length - 1].createdAt : null;
+      docs = raw.filter((d) => d.status === "confirmed" && ROUTES.includes(d.route));
+    } else if (status === "pending") {
       let query = coll.where("status", "==", "pending");
       if (restrictedRoute) query = query.where("route", "==", restrictedRoute);
       const snap = await query.get();
@@ -82,7 +113,7 @@ export default async function handler(req, res) {
     if (route && !restrictedRoute) docs = docs.filter((d) => d.route === route);
 
     // Supplier price is supervisor-only — never sent to anyone else.
-    if (decoded.role !== "supervisor") {
+    if (decoded.role !== "manager") {
       docs = docs.map((d) => ({ ...d, items: d.items.map(({ costPrice, ...rest }) => rest) }));
     }
 

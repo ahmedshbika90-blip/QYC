@@ -35,7 +35,7 @@ export default async function handler(req, res) {
     const { id } = req.query;
     const { reason, requestId, ...fields } = req.body || {};
     if (!isValidRequestId(requestId)) fail(400, "طلب غير صالح، يرجى تحديث الصفحة والمحاولة مرة أخرى");
-    if (typeof reason !== "string" || !reason.trim()) fail(400, "اكتب سبب التعديل للمشرف");
+    if (typeof reason !== "string" || !reason.trim()) fail(400, "اكتب سبب التعديل للمدير");
     if (reason.length > MAX_REASON) fail(400, `السبب يجب ألا يتجاوز ${MAX_REASON} حرف`);
     if (fields.route !== undefined) delete fields.route; // route changes are supervisor-only, never requested
 
@@ -60,7 +60,7 @@ export default async function handler(req, res) {
     const now = new Date().toISOString();
     await adminDb.runTransaction(async (tx) => {
       const fresh = await tx.get(clientRef);
-      if (fresh.data().pendingRequest) fail(409, "يوجد طلب تعديل لهذا العميل بانتظار المشرف بالفعل");
+      if (fresh.data().pendingRequest) fail(409, "يوجد طلب تعديل لهذا العميل بانتظار المدير بالفعل");
       tx.set(requestRef, {
         type: "client_edit",
         orderId: null,

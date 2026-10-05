@@ -28,7 +28,7 @@ export default async function handler(req, res) {
     const role = decoded.role;
     let count = 0;
 
-    if (role === "supervisor") {
+    if (role === "manager") {
       const [pendingRequests, pendingReceived, pendingDamage] = await Promise.all([
         adminDb.collection("changeRequests").where("status", "==", "pending").get(),
         adminDb.collection("inventoryDocs").where("type", "==", "received").where("status", "==", "pending").get(),

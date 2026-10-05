@@ -15,7 +15,7 @@ import { buildTrend, rangeText, todayYmd, V } from "../../lib/dashboardView";
 // numbers → money → per item → customers → stock.
 // The invoice list that used to live here is at /invoices.
 export default function SupervisorHome() {
-  const { role, token, loading, logout } = useAuth(["supervisor"]);
+  const { role, token, loading, logout } = useAuth(["manager"]);
   const [range, setRange] = useState(() => ({ from: todayYmd(), to: todayYmd() }));
   const [unit, setUnit] = useState("qty");
   const [data, setData] = useState(null);

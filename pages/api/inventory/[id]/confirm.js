@@ -108,7 +108,7 @@ export default async function handler(req, res) {
 }
 
 function requireSupervisor(decoded) {
-  if (decoded.role !== "supervisor") {
+  if (decoded.role !== "manager") {
     const err = new Error("غير مصرح: هذا الإجراء للمشرف فقط");
     err.statusCode = 403;
     throw err;

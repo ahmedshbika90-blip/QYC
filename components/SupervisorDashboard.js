@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import Icon from "./Icon";
+import { useLang } from "../lib/i18n";
 import { UNIT, TREND_KINDS, buildView, niceScale, todayYmd, V, fmt } from "../lib/dashboardView";
 
 // The supervisor's home: how the operation is doing, at a glance.
@@ -119,6 +120,9 @@ export function TrendChart({ trend, kind, onKind, loading }) {
   const [w, setW] = useState(900);
   const [show, setShow] = useState({ t: true, w: true, r: true });
   const [hover, setHover] = useState(null);
+  // Time runs with the reading direction: newest at the left in Arabic,
+  // at the right in English; the units axis sits on the start side.
+  const rtl = useLang() !== "en";
 
   useEffect(() => {
     const el = wrap.current;
@@ -133,10 +137,11 @@ export function TrendChart({ trend, kind, onKind, loading }) {
   const H = w < 600 ? 240 : 300;
   // Right-to-left like the rest of the app: oldest at the right, newest at the
   // left; the units axis sits on the right (the start side).
-  const plotL = 8, plotR = w - 52, plotT = 14, plotB = H - 34;
+  const plotL = rtl ? 8 : 52, plotR = rtl ? w - 52 : w - 8, plotT = 14, plotB = H - 34;
   const vals = pts.flatMap((p) => SERIES.filter((s) => show[s.key]).map((s) => p[s.key]));
   const { max, step } = niceScale(Math.max(0, ...vals), 4);
-  const x = (i) => (n <= 1 ? (plotL + plotR) / 2 : plotR - (i * (plotR - plotL)) / (n - 1));
+  const step_ = n <= 1 ? 0 : (plotR - plotL) / (n - 1);
+  const x = (i) => (n <= 1 ? (plotL + plotR) / 2 : rtl ? plotR - i * step_ : plotL + i * step_);
   const y = (v) => plotB - (v / max) * (plotB - plotT);
   const line = (key) => pts.map((p, i) => `${i ? "L" : "M"}${x(i).toFixed(1)},${y(p[key]).toFixed(1)}`).join(" ");
   const ticks = [];
@@ -147,13 +152,14 @@ export function TrendChart({ trend, kind, onKind, loading }) {
   const pick = (clientX) => {
     if (!n || !wrap.current) return;
     const px = clientX - wrap.current.getBoundingClientRect().left;
-    const i = n <= 1 ? 0 : Math.round((plotR - px) / ((plotR - plotL) / (n - 1)));
+    const i = n <= 1 ? 0 : Math.round((rtl ? plotR - px : px - plotL) / step_);
     setHover(Math.max(0, Math.min(n - 1, i)));
   };
   const onKey = (e) => {
     if (!n) return;
     const cur = hover ?? n - 1;
-    const next = { ArrowLeft: cur + 1, ArrowRight: cur - 1, Home: 0, End: n - 1 }[e.key];
+    const fwd = rtl ? "ArrowLeft" : "ArrowRight", back = rtl ? "ArrowRight" : "ArrowLeft";
+    const next = { [fwd]: cur + 1, [back]: cur - 1, Home: 0, End: n - 1 }[e.key];
     if (next === undefined) return;
     e.preventDefault();
     setHover(Math.max(0, Math.min(n - 1, next)));
@@ -220,7 +226,7 @@ export function TrendChart({ trend, kind, onKind, loading }) {
             {ticks.map((v) => (
               <g key={v}>
                 <line x1={plotL} x2={plotR} y1={y(v)} y2={y(v)} stroke="rgb(var(--gray-200))" strokeDasharray={v ? "3 5" : undefined} />
-                <text x={plotR + 10} y={y(v) + 4} fontSize="11" fill="rgb(var(--gray-500))" style={{ direction: "ltr" }}>{fmt(v)}</text>
+                <text x={rtl ? plotR + 10 : plotL - 10} y={y(v) + 4} fontSize="11" textAnchor={rtl ? "start" : "end"} fill="rgb(var(--gray-500))" style={{ direction: "ltr" }}>{fmt(v)}</text>
               </g>
             ))}
             {pts.map((p, i) => (i === n - 1 || (i % every === 0 && n - 1 - i >= every)) && (

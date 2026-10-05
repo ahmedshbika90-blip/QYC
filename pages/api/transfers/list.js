@@ -11,7 +11,7 @@ export default async function handler(req, res) {
   }
   try {
     const decoded = await requireUser(req);
-    requireRole(decoded, ["supervisor", "warehouse_keeper"]);
+    requireRole(decoded, ["manager", "warehouse_keeper"]);
     const snap = await adminDb.collection("transfers").orderBy("createdAt", "desc").limit(200).get();
     let transfers = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
     if (req.query.status) transfers = transfers.filter((t) => t.status === req.query.status);

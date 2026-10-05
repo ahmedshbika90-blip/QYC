@@ -390,12 +390,12 @@ export default function PlaceOrder() {
 
   if (loading) return <PageLoading />;
 
-  if (role === "supervisor") {
+  if (role === "manager") {
     return (
       <div className="min-h-screen bg-gray-50">
         <Nav role={role} logout={logout} />
         <p className="p-8 text-gray-500">
-          المشرف يتابع الطلبات ولا يقوم بتقديمها مباشرة — استخدم حسابات المندوبين
+          المدير يتابع الطلبات ولا يقوم بتقديمها مباشرة — استخدم حسابات المندوبين
           لتسجيل الطلبات الهاتفية.
         </p>
       </div>

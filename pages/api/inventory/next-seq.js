@@ -11,7 +11,7 @@ export default async function handler(req, res) {
   }
   try {
     const decoded = await requireUser(req);
-    requireRole(decoded, ["warehouse_keeper", "supervisor"]);
+    requireRole(decoded, ["warehouse_keeper", "manager"]);
     const { route, type } = req.query;
     if (!["car1", "car2"].includes(route) || !["loading", "offloading"].includes(type)) {
       return res.status(400).json({ error: "طلب غير صالح" });

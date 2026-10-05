@@ -3,13 +3,7 @@ import { useRouter } from "next/router";
 import { onAuthStateChanged } from "firebase/auth";
 import { auth } from "../lib/firebaseClient";
 import { PageLoading } from "../components/Loading";
-
-const ROLE_HOME = {
-  agent_car1: "/dashboard/car1",
-  agent_car2: "/dashboard/car2",
-  supervisor: "/dashboard/supervisor",
-  warehouse_keeper: "/dashboard/warehouse",
-};
+import { ROLE_HOME, normalizeRole } from "../lib/roles";
 
 export default function Home() {
   const router = useRouter();
@@ -21,7 +15,7 @@ export default function Home() {
         return;
       }
       const tokenResult = await u.getIdTokenResult();
-      const role = tokenResult.claims.role;
+      const role = normalizeRole(tokenResult.claims.role);
       router.replace(ROLE_HOME[role] || "/login");
     });
     return () => unsub();

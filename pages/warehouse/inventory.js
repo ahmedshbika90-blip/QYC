@@ -111,7 +111,7 @@ export default function WarehouseInventory() {
       requestIds.reset();
       setCart([]);
       setNote("");
-      setSuccess("تم التسجيل — بانتظار اعتماد المشرف.");
+      setSuccess("تم التسجيل — بانتظار اعتماد المدير.");
       invalidate("/api/inventory");
       setReloadKey((k) => k + 1);
     } catch (err) {
@@ -248,8 +248,8 @@ export default function WarehouseInventory() {
         {tab === "damage" && damageSuccess && (
           <SuccessScreen
             tone="warn"
-            title="أُرسل التالف للمشرف"
-            hint="لن يُخصم شيء من المخزن حتى يعتمده المشرف. ستصلك رسالة بالقرار."
+            title="أُرسل التالف للمدير"
+            hint="لن يُخصم شيء من المخزن حتى يعتمده المدير. ستصلك رسالة بالقرار."
             secondary={{ label: "رصيد المخزن", onClick: () => { setDamageSuccess(""); setTab("stock"); } }}
             primary={{ label: "تسجيل تالف آخر", onClick: () => setDamageSuccess("") }}
           />
@@ -257,7 +257,7 @@ export default function WarehouseInventory() {
 
         {tab === "damage" && !damageSuccess && (
           <form onSubmit={submitDamage} className="bg-white rounded-lg shadow p-4 space-y-4">
-            <p className="text-xs text-gray-400">يُرسل للمشرف للاعتماد أولًا — لا يُخصم من رصيد المخزن إلا بعد موافقته.</p>
+            <p className="text-xs text-gray-400">يُرسل للمدير للاعتماد أولًا — لا يُخصم من رصيد المخزن إلا بعد موافقته.</p>
             <ProductCartPicker products={products} cart={damageCart} setCart={setDamageCart} />
             <textarea
               value={damageNote}
@@ -281,7 +281,7 @@ export default function WarehouseInventory() {
         {tab === "receive" && success && (
           <SuccessScreen
             title="تم تسجيل الاستلام"
-            hint="بانتظار اعتماد المشرف — يُضاف إلى رصيد المخزن بعد الاعتماد."
+            hint="بانتظار اعتماد المدير — يُضاف إلى رصيد المخزن بعد الاعتماد."
             secondary={{ label: "سجل الاستلام", onClick: () => { setSuccess(""); setTab("history"); } }}
             primary={{ label: "استلام آخر", onClick: () => setSuccess("") }}
           />
@@ -289,13 +289,13 @@ export default function WarehouseInventory() {
 
         {tab === "receive" && !success && (
           <form onSubmit={submit} className="bg-white rounded-lg shadow p-4 space-y-4">
-            <p className="text-xs text-gray-400">يُضاف إلى رصيد المخزن بعد اعتماد المشرف.</p>
+            <p className="text-xs text-gray-400">يُضاف إلى رصيد المخزن بعد اعتماد المدير.</p>
             <ProductCartPicker products={products} cart={cart} setCart={setCart} />
             <textarea
               value={note}
               onChange={(e) => setNote(e.target.value)}
               rows={2}
-              placeholder="ملاحظتك (اختياري) — يراها المشرف"
+              placeholder="ملاحظتك (اختياري) — يراها المدير"
               className="w-full border rounded-lg px-3 py-2 text-base"
             />
             {error && <p className="text-red-600 text-sm">{error}</p>}

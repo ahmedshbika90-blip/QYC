@@ -16,7 +16,7 @@ export default async function handler(req, res) {
     const request = snap.data();
 
     const allowed =
-      decoded.role === "supervisor" ||
+      decoded.role === "manager" ||
       decoded.role === "warehouse_keeper" ||
       request.requestedBy === decoded.uid ||
       (decoded.role === "agent_car1" && request.route === "car2");

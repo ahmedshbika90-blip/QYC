@@ -15,7 +15,7 @@ import { useLiveRefresh } from "../../lib/useLiveRefresh";
 // needing approval, loading/offloading awaiting an agent), then the full
 // filterable, date-bounded history. Tap a pending receipt to approve it.
 export default function InventoryPage() {
-  const { role, token, loading, logout } = useAuth(["supervisor"]);
+  const { role, token, loading, logout } = useAuth(["manager"]);
   const [pending, setPending] = useState([]);
 
   useEffect(() => {
