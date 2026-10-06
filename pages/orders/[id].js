@@ -561,6 +561,18 @@ export default function OrderDetail() {
                 </p>
               )}
               <InvoiceTotals subtotal={orderSubtotal(order)} discount={orderDiscount(order)} className="mb-4" />
+              {order.payment && order.status !== "cancelled" && (
+                <div className="grid grid-cols-2 gap-2 mb-4">
+                  <div className="rounded-xl bg-green-50 px-3 py-2.5">
+                    <p className="text-xs font-semibold text-green-700">المدفوع</p>
+                    <p className="num font-bold text-ink mt-0.5">{formatNumber(order.payment.paid)}</p>
+                  </div>
+                  <div className="rounded-xl bg-amber-50 px-3 py-2.5">
+                    <p className="text-xs font-semibold text-amber-700">المتبقي</p>
+                    <p className="num font-bold text-ink mt-0.5">{formatNumber(order.payment.remaining)}</p>
+                  </div>
+                </div>
+              )}
             </>
           )}
 

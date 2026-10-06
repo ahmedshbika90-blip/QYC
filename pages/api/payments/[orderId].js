@@ -1,5 +1,5 @@
 const { requireUser, requireRole, sendError } = require("../../../lib/apiAuth");
-const { addPayment, voidPayment, summarize } = require("../../../lib/payments");
+const { addPayment, voidPayment, editPayment, summarize } = require("../../../lib/payments");
 const { adminDb } = require("../../../lib/firebaseAdmin");
 const { bumpVersions } = require("../../../lib/versions");
 
@@ -7,6 +7,7 @@ const { bumpVersions } = require("../../../lib/versions");
 //   GET  /api/payments/:orderId                       → { payments, summary }
 //   POST /api/payments/:orderId  { ref, bank, amount, date, note?, requestId }
 //   POST /api/payments/:orderId  { action: "void", paymentId, reason }
+//   POST /api/payments/:orderId  { action: "edit", paymentId, ref, bank, amount, date, note? }
 export default async function handler(req, res) {
   try {
     const decoded = await requireUser(req);
@@ -26,9 +27,10 @@ export default async function handler(req, res) {
 
     if (req.method === "POST") {
       const body = req.body || {};
-      const result = body.action === "void" ? await voidPayment(decoded, orderId, body) : await addPayment(decoded, orderId, body);
+      const run = { void: voidPayment, edit: editPayment }[body.action] || addPayment;
+      const result = await run(decoded, orderId, body);
       if (!result.duplicate) await bumpVersions(["payments"]);
-      return res.status(body.action === "void" || result.duplicate ? 200 : 201).json(result);
+      return res.status(body.action || result.duplicate ? 200 : 201).json(result);
     }
 
     return res.status(405).json({ error: "طريقة الطلب غير مسموح بها" });

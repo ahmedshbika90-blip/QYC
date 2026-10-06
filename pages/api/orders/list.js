@@ -1,6 +1,7 @@
 const { adminDb } = require("../../../lib/firebaseAdmin");
 const { requireUser } = require("../../../lib/apiAuth");
 const { presentOrder } = require("../../../lib/invoiceLock");
+const { paymentDocsFor, publicPayment } = require("../../../lib/payments");
 
 const ROLE_TO_ROUTE = {
   agent_car1: "car1",
@@ -69,6 +70,11 @@ export default async function handler(req, res) {
     // presentOrder: lock state from the server clock; edit history and
     // cost data removed for everyone but the supervisor.
     const orders = snap.docs.map((doc) => presentOrder(doc.id, doc.data(), decoded.role));
+    // Amount paid so far on each invoice (one batched read for the page).
+    const payDocs = await paymentDocsFor(orders.map((o) => o.id));
+    orders.forEach((o) => {
+      o.payment = publicPayment(o, payDocs[o.id]);
+    });
 
     // A same-size page suggests there may be more beyond it — the client
     // passes this back as `cursor` to load the next page ("تحميل المزيد").

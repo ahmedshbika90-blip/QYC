@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/router";
 import Link from "next/link";
 import { useAuth } from "../../lib/useAuth";
+import { getAuthFlags } from "../../lib/authFlags";
 import Nav from "../../components/Nav";
 import BackButton from "../../components/BackButton";
 import SuccessScreen from "../../components/SuccessScreen";
@@ -93,7 +94,7 @@ export default function ShippingDetail() {
     );
   }
 
-  const canDecide = role === "agent_car1" && r.route === "car2" && r.status === "pending_car1";
+  const canDecide = getAuthFlags().salesSupervisor && r.requestedBy !== user?.uid && r.status === "pending_car1";
   const canAct = role === "warehouse_keeper" && r.status === "pending_warehouse";
   const home = role === "warehouse_keeper" ? `/warehouse/${r.route}` : "/documents";
 
@@ -231,7 +232,7 @@ export default function ShippingDetail() {
             <p className="text-sm text-muted border-t border-line pt-4">بانتظار تنفيذ أمين المخزن.</p>
           )}
           {r.status === "pending_car1" && !canDecide && (
-            <p className="text-sm text-muted border-t border-line pt-4">بانتظار موافقة مبيعات الجملة.</p>
+            <p className="text-sm text-muted border-t border-line pt-4">بانتظار موافقة مشرف المبيعات.</p>
           )}
         </div>
       </main>

@@ -2,7 +2,8 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/router";
 import { ROLE_LABELS } from "../lib/labels";
-import { ROLE_HOME } from "../lib/roles";
+import { ROLE_HOME, jobTitle } from "../lib/roles";
+import { getAuthFlags } from "../lib/authFlags";
 import { subscribeAuth } from "../lib/currentToken";
 import { useNotifications } from "../lib/useNotifications";
 import { useTheme } from "../lib/theme";
@@ -55,8 +56,10 @@ const L = {
 // because they gate stock movement.
 function layoutFor(role) {
   const home = { href: ROLE_HOME[role], label: "الرئيسية", icon: "home" };
+  // Sales staff on either route: the supervisor also gets the vans' history.
+  if ((role === "agent_car1" || role === "agent_car2") && getAuthFlags().salesSupervisor) role = "sales_supervisor";
   switch (role) {
-    case "agent_car1":
+    case "sales_supervisor":
       return {
         tabs: [home, L.documents, L.clients],
         center: L.placeOrder,
@@ -141,7 +144,46 @@ function ThemeSwitch({ pref, choose }) {
   );
 }
 
+// Signing out by choice asks once — a stray tap on a shared phone in the
+// field would otherwise drop unsaved work. (Automatic idle sign-out doesn't
+// ask; see lib/useAuth.js.)
+function LogoutConfirm({ onCancel, onConfirm }) {
+  useEffect(() => {
+    const onKey = (e) => e.key === "Escape" && onCancel();
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onCancel]);
+  return (
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 p-4" onClick={onCancel}>
+      <div
+        role="alertdialog"
+        aria-modal="true"
+        aria-labelledby="logout-title"
+        className="w-full max-w-sm bg-white rounded-3xl shadow-xl p-6 flex flex-col gap-4"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center gap-3">
+          <span className="w-11 h-11 rounded-2xl bg-red-50 text-red-600 flex items-center justify-center shrink-0">
+            <Icon name="logout" />
+          </span>
+          <h2 id="logout-title" className="font-display text-lg font-bold text-ink">تسجيل الخروج؟</h2>
+        </div>
+        <p className="text-sm text-muted">ستحتاج إلى إدخال البريد الإلكتروني وكلمة المرور للدخول مرة أخرى.</p>
+        <div className="grid grid-cols-2 gap-2">
+          <button type="button" autoFocus onClick={onCancel} className="h-12 rounded-xl border border-line font-semibold text-ink-soft">
+            البقاء
+          </button>
+          <button type="button" onClick={onConfirm} className="h-12 rounded-xl bg-red-600 text-white font-semibold">
+            تسجيل الخروج
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function Nav({ role, logout }) {
+  const [confirmOut, setConfirmOut] = useState(false);
   const router = useRouter();
   const [auth, setAuth] = useState({ token: null, uid: null });
   const [sheetOpen, setSheetOpen] = useState(false);
@@ -204,6 +246,7 @@ export default function Nav({ role, logout }) {
 
   return (
     <>
+      {confirmOut && <LogoutConfirm onCancel={() => setConfirmOut(false)} onConfirm={() => { setConfirmOut(false); logout(); }} />}
       <PendingActionModal role={role} uid={auth.uid} items={items} loaded={loaded} refreshSeen={refreshSeen} />
       <NotificationToastStack toasts={toasts} uid={auth.uid} onDismiss={dismissToast} refreshSeen={refreshSeen} />
 
@@ -211,14 +254,11 @@ export default function Nav({ role, logout }) {
       <header className="sticky top-0 z-20 bg-canvas/85 backdrop-blur-md border-b border-line">
         <div className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between gap-3">
           <Link href={ROLE_HOME[role] || "/"} className="flex items-center gap-2.5 min-w-0">
-            <span className="w-9 h-9 rounded-xl bg-accent text-on-accent flex items-center justify-center">
-              <Icon name="route" size={20} strokeWidth={2.2} />
-            </span>
             <span className="flex flex-col leading-tight min-w-0">
-              <span className="font-display font-bold text-lg text-ink">مباشر</span>
+              <span className="font-display font-bold text-xl text-accent-ink">مباشر</span>
               {role && (
                 <span className="text-xs text-muted truncate md:hidden xl:block">
-                  {ROLE_LABELS[role]}
+                  {jobTitle(role, getAuthFlags().salesSupervisor)}
                 </span>
               )}
             </span>
@@ -251,7 +291,7 @@ export default function Nav({ role, logout }) {
             <button type="button" onClick={toggle} className={iconBtn} aria-label={isDark ? "الوضع الفاتح" : "الوضع الداكن"}>
               <Icon name={isDark ? "sun" : "moon"} />
             </button>
-            <button type="button" onClick={logout} className={iconBtn} aria-label="تسجيل الخروج">
+            <button type="button" onClick={() => setConfirmOut(true)} className={iconBtn} aria-label="تسجيل الخروج">
               <Icon name="logout" />
             </button>
           </div>
@@ -366,7 +406,7 @@ export default function Nav({ role, logout }) {
               <ThemeSwitch pref={pref} choose={choose} />
               <button
                 type="button"
-                onClick={logout}
+                onClick={() => setConfirmOut(true)}
                 className="h-12 rounded-xl flex items-center justify-center gap-2 text-red-600 bg-red-50 font-semibold"
               >
                 <Icon name="logout" size={18} />

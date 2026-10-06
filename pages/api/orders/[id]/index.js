@@ -1,6 +1,7 @@
 const { adminDb } = require("../../../../lib/firebaseAdmin");
 const { requireUser } = require("../../../../lib/apiAuth");
 const { presentOrder } = require("../../../../lib/invoiceLock");
+const { publicPayment } = require("../../../../lib/payments");
 
 const ROLE_TO_ROUTE = {
   agent_car1: "car1",
@@ -34,7 +35,9 @@ export default async function handler(req, res) {
     const client = clientSnap.exists ? clientSnap.data() : null;
 
     // Lock state from the server clock; supervisor-only fields removed for others.
-    return res.status(200).json({ ...presentOrder(snap.id, order, decoded.role), client });
+    const paySnap = await adminDb.collection("invoicePayments").doc(snap.id).get();
+    const payment = publicPayment(order, paySnap.exists ? paySnap.data() : null);
+    return res.status(200).json({ ...presentOrder(snap.id, order, decoded.role), client, payment });
   } catch (err) {
     const status = err.statusCode || 500;
     return res.status(status).json({ error: err.message });

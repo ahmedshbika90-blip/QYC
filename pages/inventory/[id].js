@@ -9,7 +9,7 @@ import { invalidate } from "../../lib/apiCache";
 import { useLiveRefresh } from "../../lib/useLiveRefresh";
 import { shareElementAsPdf } from "../../lib/sharePdf";
 import { formatDateTime } from "../../lib/labels";
-import { cleanMoneyInput } from "../../lib/qty";
+import { cleanMoneyInput, money2 } from "../../lib/qty";
 
 const TYPE_LABELS = {
   received: "استلام بضاعة",
@@ -309,6 +309,7 @@ export default function InventoryDocDetail() {
                       onChange={(e) =>
                         setCostPrices((prev) => ({ ...prev, [it.productId]: cleanMoneyInput(e.target.value) }))
                       }
+                      onBlur={(e) => setCostPrices((prev) => ({ ...prev, [it.productId]: money2(e.target.value) }))}
                       placeholder="سعر المورد للوحدة"
                       className="w-40 border rounded-lg px-3 h-10 text-sm text-end placeholder:text-right"
                     />

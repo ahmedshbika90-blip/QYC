@@ -4,9 +4,9 @@ import { signInWithEmailAndPassword } from "firebase/auth";
 import { auth } from "../lib/firebaseClient";
 import { markActivity } from "../lib/session";
 import { Spinner } from "../components/Loading";
-import Icon from "../components/Icon";
 import { ROLE_HOME, normalizeRole } from "../lib/roles";
 import LangToggle from "../components/LangToggle";
+import PasswordInput from "../components/PasswordInput";
 
 // Staff login. Clients don't use the app directly — agents place
 // invoices on their behalf.
@@ -51,11 +51,8 @@ export default function Login() {
     <div className="min-h-screen flex flex-col items-center justify-center bg-canvas px-4 py-10">
       <LangToggle className="fixed top-3 end-3 bg-white shadow" />
       <div className="flex flex-col items-center gap-3 mb-8 text-center">
-        <span className="w-16 h-16 rounded-2xl bg-accent text-on-accent flex items-center justify-center shadow-lg">
-          <Icon name="route" size={34} strokeWidth={2.2} />
-        </span>
         <div>
-          <p className="font-display text-3xl font-bold text-ink">مباشر</p>
+          <p className="font-display text-4xl font-bold text-accent-ink">مباشر</p>
           <p className="text-sm text-muted mt-1">إدارة المبيعات والتوزيع</p>
         </div>
       </div>
@@ -92,12 +89,12 @@ export default function Login() {
         />
 
         <label className="block text-sm font-medium text-ink-soft mb-1.5">كلمة المرور</label>
-        <input
-          type="password"
+        <PasswordInput
           value={password}
           onChange={(e) => setPassword(e.target.value)}
-          className="w-full border border-line rounded-xl px-3.5 h-12 text-base mb-6"
-          dir="ltr"
+          className="mb-6"
+          inputClassName="w-full border border-line rounded-xl px-3.5 h-12 text-base"
+          autoComplete="current-password"
           required
         />
 

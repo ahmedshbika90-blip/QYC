@@ -111,6 +111,7 @@ export default function PlaceOrder() {
         try {
           await submitPayload({ clientId: item.clientId, items: item.items, requestId: item.requestId });
           updateQueue((list) => list.filter((q) => q.requestId !== item.requestId));
+          refreshProducts();
         } catch (err) {
           if (err.isNetworkError || err.isAuthError) break; // temporary — try again later
           // The server refused it (e.g. stock no longer enough). Resending
@@ -124,6 +125,37 @@ export default function PlaceOrder() {
     } finally {
       flushing.current = false;
       setRetrying(false);
+    }
+  }
+
+  // After an invoice is accepted (or saved on the device to send later), take
+  // its quantities off the van's "available" right away, so the next invoice
+  // shows what is really left instead of the stale number. A fresh copy is
+  // then fetched in the background to pick up anything else that moved.
+  function deductLocal(route, items) {
+    const sold = {};
+    (items || []).forEach((it) => {
+      sold[it.productId] = (sold[it.productId] || 0) + (Number(it.qty) || 0);
+    });
+    setProducts((list) => {
+      const next = list.map((p) =>
+        sold[p.id] ? { ...p, stock: { ...p.stock, [route]: Math.max(0, (p.stock?.[route] ?? 0) - sold[p.id]) } } : p
+      );
+      if (user) writeJSON(`${PRODUCTS_PREFIX}${user.uid}`, next);
+      return next;
+    });
+  }
+
+  async function refreshProducts() {
+    try {
+      const res = await apiFetch("/api/products/list", { headers: { Authorization: `Bearer ${tokenRef.current}` } });
+      const data = await res.json();
+      if (!res.ok) return;
+      if (user) writeJSON(`${PRODUCTS_PREFIX}${user.uid}`, data.products);
+      setProducts(data.products);
+      setProductsStale(false);
+    } catch {
+      // offline — the local deduction stands until the next successful load
     }
   }
 
@@ -349,6 +381,8 @@ export default function PlaceOrder() {
     setSubmitting(true);
     try {
       const data = await submitPayload(payload);
+      deductLocal(selectedClient.route, payload.items);
+      refreshProducts();
       setResult(data);
       setCart([]);
       setInvoiceDiscount("");
@@ -370,6 +404,7 @@ export default function PlaceOrder() {
           },
         ]);
         if (saved) {
+          deductLocal(selectedClient.route, payload.items);
           setQueue(readJSON(queueKey, []));
           setCart([]);
           setInvoiceDiscount("");

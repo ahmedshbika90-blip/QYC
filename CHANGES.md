@@ -1,3 +1,49 @@
+# Round 3 — sales jobs by route, payment edit/search, paid on invoices, polish
+
+## Sales staff: job and route chosen separately
+- The admin picks **مشرف المبيعات** or **مندوب المبيعات**, then **جملة** or
+  **تجزئة**. Stored as `role` (route: `agent_car1`/`agent_car2`) +
+  `salesSupervisor` (true/false); every route rule keeps working unchanged.
+- Supervisor powers now follow the flag, on either route: every van's stock,
+  approving agents' delivery requests (any route, never their own), van
+  cargo history. An agent sees only their own van + depot (enforced on the
+  server). A supervisor's own requests go straight to the warehouse keeper.
+- Existing accounts: wholesale = supervisor, retail = agent (as before) until
+  the admin re-saves them; flagged on the admin page.
+
+## Accountant
+- Search by **رقم العملية**: a "رقم العملية" tab on the invoice list asks the
+  server (one lookup per bank) and lists the matching invoice(s).
+- **Edit a payment** (bank, reference, amount, date, note). Same rules as
+  adding; earlier values kept in the payment's `edits` history.
+- After recording a payment: **رجوع إلى الفواتير**, **دفعة لفاتورة أخرى**
+  (opens the list with the search ready), or another payment on the same one.
+
+## Invoices
+- Everyone who can see an invoice (manager, sales staff) now sees **paid**
+  and **remaining** on the invoice card and page. Bank names, references
+  and dates stay with the accountant.
+- Fixed: after an invoice is sent (or saved offline), the "available"
+  quantities on the order screen now drop right away, then refresh from the
+  server. Before, they stayed at the old number until reload, so the next
+  invoice failed on the server's stock check.
+
+## Polish
+- Brand: the icon is gone — just the word **مباشر** (top bar, login).
+- Sign-out asks for confirmation (automatic idle sign-out doesn't).
+- Money always shows two decimals: on the dashboards and in every money
+  field (price, supplier cost, discount, adjusted price, payment) — the field
+  rounds to `0.00` form when you leave it.
+- Password fields: **press and hold** the eye to see the password.
+- Executive: a quiet greeting at the top (صباح الخير / مساء الخير + first
+  name) with a profile picture — tap to add or change; resized to 256 px in
+  the browser and stored in `profiles/{uid}` (≈20 KB).
+
+## Tests
+- `tests/run10.js` (5 scenarios). All 10 suites pass.
+
+---
+
 # Roles round — admin, manager, sales supervisor, accountant, executive, English
 
 ## Roles

@@ -46,13 +46,12 @@ export default async function handler(req, res) {
       const queries = [
         adminDb.collection("inventoryDocs").where("route", "==", myRoute).where("status", "==", "pending").get(),
       ];
-      if (role === "agent_car1") {
-        queries.push(
-          adminDb.collection("shipmentRequests").where("route", "==", "car2").where("status", "==", "pending_car1").get()
-        );
+      if (decoded.salesSupervisor) {
+        queries.push(adminDb.collection("shipmentRequests").where("status", "==", "pending_car1").get());
       }
       const snaps = await Promise.all(queries);
-      count = snaps.reduce((sum, snap) => sum + snap.size, 0);
+      // A supervisor's own pending request isn't something for them to decide.
+      count = snaps.reduce((sum, snap) => sum + snap.docs.filter((d) => d.data().requestedBy !== decoded.uid).length, 0);
     }
     // Any other role (e.g. depot_viewer): count stays 0.
 

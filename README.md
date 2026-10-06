@@ -14,8 +14,8 @@ Roles are Firebase Auth custom claims (`role`), managed by the **admin** at
 |---|---|---|---|
 | `admin` | مدير النظام | `/admin/users` | create accounts, assign roles, disable/enable, set passwords; nothing else |
 | `manager` | المدير | `/dashboard/supervisor` | everything operational (was `supervisor`) |
-| `agent_car1` | مشرف المبيعات | `/dashboard/car1` | wholesale van invoices; stock of every van; approves retail shipping requests; `/fleet-history` (every van's **approved** cargo movements, filter by van) |
-| `agent_car2` | مندوب المبيعات | `/dashboard/car2` | retail van invoices and shipping requests, own van only |
+| `agent_car1` / `agent_car2` + `salesSupervisor: true` | مشرف المبيعات (جملة / تجزئة) | `/dashboard/car1` or `/car2` | invoices on their route; every van's stock; approves agents' shipping requests; `/fleet-history` |
+| `agent_car1` / `agent_car2` + `salesSupervisor: false` | مندوب المبيعات (جملة / تجزئة) | `/dashboard/car1` or `/car2` | invoices and shipping requests for their own van only |
 | `warehouse_keeper` | أمين المخزن | `/dashboard/warehouse` | receiving, fulfilling shipping requests, transfers — no prices |
 | `accountant` | المحاسب | `/accounting/invoices` | all invoices (read-only), all stock (`/stock`), records/voids **payments** — seen by this role only |
 | `executive` | الإدارة التنفيذية | `/executive` | view-only dashboard: operations summary, customers & routes, inventory |

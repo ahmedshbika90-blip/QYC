@@ -5,7 +5,8 @@ import Icon from "../../components/Icon";
 import SuccessToast from "../../components/SuccessToast";
 import { PageLoading, SkeletonRows, Spinner } from "../../components/Loading";
 import { apiFetch } from "../../lib/apiFetch";
-import { ROLE_DEFS, ROLE_LABELS } from "../../lib/roles";
+import { ROLE_DEFS, ROLE_LABELS, SALES_ROUTES } from "../../lib/roles";
+import PasswordInput from "../../components/PasswordInput";
 import { formatDateTime } from "../../lib/labels";
 
 // The admin's only screen: every staff account, who holds which role, and
@@ -25,14 +26,38 @@ async function send(token, url, method, body) {
   return data;
 }
 
-function RoleBadge({ role }) {
+const isSales = (job) => job === "sales_supervisor" || job === "sales_agent";
+const routeLabel = (route) => SALES_ROUTES.find((r) => r.route === route)?.label || "";
+const jobLabel = (job, route) => (job ? `${ROLE_LABELS[job] || job}${isSales(job) && route ? ` — ${routeLabel(route)}` : ""}` : "بدون صلاحية");
+
+function RouteSelect({ value, onChange, disabled }) {
+  return (
+    <div role="radiogroup" aria-label="المسار" className="grid grid-cols-2 gap-2">
+      {SALES_ROUTES.map((r) => (
+        <button
+          key={r.route}
+          type="button"
+          role="radio"
+          aria-checked={value === r.route}
+          disabled={disabled}
+          onClick={() => onChange(r.route)}
+          className={`h-11 rounded-xl border text-sm font-semibold ${value === r.route ? "bg-accent text-on-accent border-accent" : "bg-white text-ink-soft border-line"}`}
+        >
+          {r.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function RoleBadge({ role, route }) {
   if (!role) return <span className="h-6 px-2.5 rounded-full text-xs font-semibold inline-flex items-center bg-amber-100 text-amber-700">بدون صلاحية</span>;
   const tone = role === "admin" ? "bg-gray-800 text-white" : "bg-accent-soft text-accent-ink";
-  return <span className={`h-6 px-2.5 rounded-full text-xs font-semibold inline-flex items-center ${tone}`}>{ROLE_LABELS[role] || role}</span>;
+  return <span className={`h-6 px-2.5 rounded-full text-xs font-semibold inline-flex items-center ${tone}`}>{jobLabel(role, route)}</span>;
 }
 
 function NewAccount({ token, onCreated, onCancel }) {
-  const [form, setForm] = useState({ displayName: "", email: "", password: "", role: "" });
+  const [form, setForm] = useState({ displayName: "", email: "", password: "", role: "", route: "" });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
@@ -42,7 +67,8 @@ function NewAccount({ token, onCreated, onCancel }) {
     setBusy(true);
     setError("");
     try {
-      const { user } = await send(token, "/api/admin/users", "POST", { ...form, role: form.role || null });
+      if (isSales(form.role) && !form.route) throw new Error("اختر المسار: جملة أو تجزئة");
+      const { user } = await send(token, "/api/admin/users", "POST", { ...form, role: form.role || null, route: form.route || null });
       onCreated(user);
     } catch (err) {
       setError(err.message);
@@ -71,7 +97,7 @@ function NewAccount({ token, onCreated, onCancel }) {
         </label>
         <label className="flex flex-col gap-1.5 text-sm font-medium text-ink-soft">
           كلمة المرور المؤقتة
-          <input type="text" required minLength={8} dir="ltr" value={form.password} onChange={set("password")} className={field} autoComplete="new-password" />
+          <PasswordInput required minLength={8} value={form.password} onChange={set("password")} inputClassName={field} autoComplete="new-password" />
           <span className="text-xs text-muted font-normal">8 أحرف على الأقل — سلّمها للموظف ليغيّرها لاحقًا.</span>
         </label>
         <label className="flex flex-col gap-1.5 text-sm font-medium text-ink-soft">
@@ -81,6 +107,12 @@ function NewAccount({ token, onCreated, onCancel }) {
             {ROLE_DEFS.map((r) => <option key={r.id} value={r.id}>{r.label}</option>)}
           </select>
         </label>
+        {isSales(form.role) && (
+          <div className="sm:col-span-2 flex flex-col gap-1.5 text-sm font-medium text-ink-soft">
+            المسار
+            <RouteSelect value={form.route} onChange={(route) => setForm((f) => ({ ...f, route }))} />
+          </div>
+        )}
       </div>
       <button disabled={busy} className="h-12 rounded-xl bg-accent text-on-accent font-semibold flex items-center justify-center gap-2 disabled:opacity-60">
         {busy && <Spinner className="w-4 h-4" />}
@@ -91,12 +123,16 @@ function NewAccount({ token, onCreated, onCancel }) {
 }
 
 function AccountRow({ u, me, token, onSaved, onError }) {
-  const [role, setRole] = useState(u.role || "");
+  const [role, setRole] = useState(u.job || "");
+  const [route, setRoute] = useState(u.route || "");
   const [busy, setBusy] = useState("");
   const [pwOpen, setPwOpen] = useState(false);
   const [pw, setPw] = useState("");
   const isMe = u.uid === me;
-  useEffect(() => setRole(u.role || ""), [u.role]);
+  useEffect(() => {
+    setRole(u.job || "");
+    setRoute(u.route || "");
+  }, [u.job, u.route]);
 
   async function patch(kind, body, confirmText) {
     if (confirmText && !window.confirm(confirmText)) return;
@@ -110,13 +146,15 @@ function AccountRow({ u, me, token, onSaved, onError }) {
       }
     } catch (err) {
       onError(err.message);
-      setRole(u.role || "");
+      setRole(u.job || "");
+      setRoute(u.route || "");
     } finally {
       setBusy("");
     }
   }
 
-  const roleChanged = (role || null) !== (u.role || null) || Boolean(u.legacyRole);
+  const roleChanged = (role || null) !== (u.job || null) || (isSales(role) && route !== (u.route || "")) || Boolean(u.legacyRole);
+  const sameAsBefore = (role || null) === (u.job || null) && (!isSales(role) || route === u.route);
   const def = ROLE_DEFS.find((r) => r.id === role);
 
   return (
@@ -131,7 +169,7 @@ function AccountRow({ u, me, token, onSaved, onError }) {
           {u.displayName && <p className="text-sm text-muted mt-0.5" dir="ltr" style={{ textAlign: "start" }}>{u.email}</p>}
           <p className="text-xs text-muted mt-1">آخر دخول: {u.lastSignIn ? formatDateTime(u.lastSignIn) : "لم يدخل بعد"}</p>
         </div>
-        <RoleBadge role={u.role} />
+        <RoleBadge role={u.job} route={u.route} />
       </div>
 
       <div className="flex flex-wrap items-end gap-2">
@@ -146,7 +184,10 @@ function AccountRow({ u, me, token, onSaved, onError }) {
           <button
             type="button"
             disabled={!!busy}
-            onClick={() => patch("role", { role: role || null }, u.legacyRole && role === u.role ? null : `تغيير صلاحية ${u.displayName || u.email} إلى «${role ? ROLE_LABELS[role] : "بدون صلاحية"}»؟ سيُسجَّل خروجه من كل أجهزته.`)}
+            onClick={() => {
+              if (isSales(role) && !route) return onError("اختر المسار: جملة أو تجزئة");
+              patch("role", { role: role || null, route: isSales(role) ? route : null }, sameAsBefore ? null : `تغيير صلاحية ${u.displayName || u.email} إلى «${jobLabel(role, route)}»؟ سيُسجَّل خروجه من كل أجهزته.`);
+            }}
             className="h-11 px-4 rounded-xl bg-accent text-on-accent font-semibold text-sm flex items-center gap-2 disabled:opacity-60"
           >
             {busy === "role" && <Spinner className="w-4 h-4" />}
@@ -154,8 +195,9 @@ function AccountRow({ u, me, token, onSaved, onError }) {
           </button>
         )}
       </div>
+      {isSales(role) && !isMe && <RouteSelect value={route} onChange={setRoute} disabled={!!busy} />}
       {def && <p className="text-xs text-muted -mt-1">{def.hint}</p>}
-      {u.legacyRole && <p className="text-xs text-amber-700">مسجّل بالاسم القديم «المشرف» — اضغط «حفظ الصلاحية» لتحديثه إلى «المدير».</p>}
+      {u.legacyRole && <p className="text-xs text-amber-700">مسجّل بالصيغة القديمة — راجع الصلاحية والمسار ثم اضغط «حفظ الصلاحية».</p>}
 
       {!isMe && (
         <div className="flex flex-wrap gap-2">
@@ -183,7 +225,7 @@ function AccountRow({ u, me, token, onSaved, onError }) {
             patch("password", { password: pw }, `تعيين كلمة مرور جديدة لـ ${u.displayName || u.email}؟ سيُسجَّل خروجه من كل أجهزته.`);
           }}
         >
-          <input type="text" dir="ltr" minLength={8} required value={pw} onChange={(e) => setPw(e.target.value)} placeholder="8 أحرف على الأقل" className={`${field} flex-1 min-w-[200px]`} autoComplete="new-password" />
+          <PasswordInput minLength={8} required value={pw} onChange={(e) => setPw(e.target.value)} placeholder="8 أحرف على الأقل" className="flex-1 min-w-[200px]" inputClassName={field} autoComplete="new-password" />
           <button disabled={!!busy} className="h-11 px-4 rounded-xl bg-gray-800 text-white text-sm font-semibold flex items-center gap-2 disabled:opacity-60">
             {busy === "password" && <Spinner className="w-4 h-4" />}
             تعيين
@@ -211,9 +253,10 @@ function AuditList({ token }) {
   if (!entries.length) return <p className="text-sm text-muted">لا توجد تغييرات مسجلة بعد.</p>;
   const describe = (e) => {
     const d = e.details || {};
-    if (e.action === "create") return `إنشاء حساب ${d.email || ""}${d.role ? ` بصلاحية «${ROLE_LABELS[d.role] || d.role}»` : ""}`;
+    const label = (x) => (!x ? "بدون" : typeof x === "string" ? ROLE_LABELS[x] || x : jobLabel(x.job, x.route));
+    if (e.action === "create") return `إنشاء حساب ${d.email || ""}${d.role ? ` بصلاحية «${jobLabel(d.role, d.route)}»` : ""}`;
     const parts = [];
-    if (d.role) parts.push(`الصلاحية: ${d.role.from ? ROLE_LABELS[d.role.from] || d.role.from : "بدون"} ← ${d.role.to ? ROLE_LABELS[d.role.to] || d.role.to : "بدون"}`);
+    if (d.role) parts.push(`الصلاحية: ${label(d.role.from)} ← ${label(d.role.to)}`);
     if (d.disabled === true) parts.push("إيقاف الحساب");
     if (d.disabled === false) parts.push("إعادة التفعيل");
     if (d.password) parts.push("كلمة مرور جديدة");
@@ -262,7 +305,7 @@ export default function AdminUsers() {
     const c = { all: 0, none: 0 };
     (users || []).forEach((u) => {
       c.all += 1;
-      const k = u.role || "none";
+      const k = u.job || "none";
       c[k] = (c[k] || 0) + 1;
     });
     return c;
@@ -271,7 +314,7 @@ export default function AdminUsers() {
   const shown = useMemo(() => {
     const s = q.trim().toLowerCase();
     return (users || []).filter((u) => {
-      if (roleFilter !== "all" && (u.role || "none") !== roleFilter) return false;
+      if (roleFilter !== "all" && (u.job || "none") !== roleFilter) return false;
       return !s || u.email.toLowerCase().includes(s) || u.displayName.toLowerCase().includes(s);
     });
   }, [users, q, roleFilter]);

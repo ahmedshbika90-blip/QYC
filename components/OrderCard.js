@@ -99,6 +99,11 @@ export default function OrderCard({ order, name, location, badge, subtitle, edit
           <span className="num text-[15px] font-semibold text-ink tabular-ltr">
             {order.total != null ? formatNumber(order.total) : "—"}
           </span>
+          {!isCancelled && order.payment && (
+            <span className={`num text-xs font-semibold tabular-ltr ${order.payment.status === "paid" ? "text-green-700" : order.payment.paid > 0 ? "text-blue-700" : "text-muted"}`}>
+              مدفوع {formatNumber(order.payment.paid)}
+            </span>
+          )}
           {isCancelled ? (
             <span className="text-xs font-semibold text-red-600 bg-red-50 rounded-lg px-2.5 h-8 flex items-center">ملغاة</span>
           ) : !canCancel || order.pendingRequest ? (

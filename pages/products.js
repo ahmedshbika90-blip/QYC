@@ -1,3 +1,5 @@
+import { getAuthFlags } from "../lib/authFlags";
+import { ROUTES } from "../lib/roles";
 import { useEffect, useState } from "react";
 import { useAuth } from "../lib/useAuth";
 import Nav from "../components/Nav";
@@ -5,7 +7,7 @@ import { PageLoading, SkeletonRows, Spinner } from "../components/Loading";
 import { apiFetch } from "../lib/apiFetch";
 import { useRequestId } from "../lib/useRequestId";
 import { formatNumber, formatQty } from "../lib/labels";
-import { cleanMoneyInput, cleanQtyInput } from "../lib/qty";
+import { cleanMoneyInput, money2, cleanQtyInput } from "../lib/qty";
 import { PRODUCT_CATEGORIES, PRODUCT_UNITS } from "../lib/constants";
 
 const emptyForm = { name: "", category: "", unit: "", priceCar1: "", priceCar2: "", depotStock: "", avgCost: "" };
@@ -23,7 +25,8 @@ function MoneyInput({ value, onChange, placeholder, required, className = "" }) 
       dir="ltr"
       value={value}
       onChange={(e) => onChange(cleanMoneyInput(e.target.value))}
-      placeholder={placeholder}
+      onBlur={(e) => onChange(money2(e.target.value))}
+      placeholder={placeholder || "0.00"}
       required={required}
       className={`${fieldClass} text-end placeholder:text-right ${className}`}
     />
@@ -408,10 +411,10 @@ export default function Products() {
 // The retail agent sees his van and the main depot — the server never
 // sends him the wholesale van's stock (pages/api/products/list.js).
 function StockSections({ products, role }) {
-  const places =
-    role === "agent_car1"
-      ? [["car1", "سيارتي"], ["car2", "سيارة التجزئة"], ["depot", "المخزن الرئيسي"]]
-      : [["car2", "سيارتي"], ["depot", "المخزن الرئيسي"]];
+  // Own van first; a sales supervisor also sees the other vans.
+  const mine = role === "agent_car1" ? "car1" : "car2";
+  const others = getAuthFlags().salesSupervisor ? ROUTES.filter((r) => r !== mine) : [];
+  const places = [[mine, "سيارتي"], ...others.map((r) => [r, r === "car1" ? "سيارة الجملة" : "سيارة التجزئة"]), ["depot", "المخزن الرئيسي"]];
   return (
     <div className="space-y-3 mb-6">
       {places.map(([field, label]) => {

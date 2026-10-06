@@ -191,21 +191,18 @@ export default async function handler(req, res) {
         });
       });
 
-      if (role === "agent_car1") {
-        const toDecide = await adminDb
-          .collection("shipmentRequests")
-          .where("route", "==", "car2")
-          .where("status", "==", "pending_car1")
-          .get();
+      if (decoded.salesSupervisor) {
+        const toDecide = await adminDb.collection("shipmentRequests").where("status", "==", "pending_car1").get();
         toDecide.docs.forEach((d) => {
           const r = d.data();
+          if (r.requestedBy === decoded.uid) return;
           items.push({
             id: d.id,
             bucket: "shipping",
             needsAction: true,
             requestType: "أمر شحن",
-            from: "مبيعات تجزئة",
-            route: "car2",
+            from: r.route === "car1" ? "مبيعات جملة" : "مبيعات تجزئة",
+            route: r.route,
             state: "بانتظار موافقتك",
             href: `/shipping/${d.id}`,
             at: r.requestedAt,

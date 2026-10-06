@@ -23,10 +23,12 @@ export default async function handler(req, res) {
     let query;
 
     if (scope === "todecide") {
-      if (decoded.role !== "agent_car1") {
+      if (!decoded.salesSupervisor) {
         return res.status(403).json({ error: "غير مصرح" });
       }
-      query = coll.where("route", "==", "car2").where("status", "==", "pending_car1");
+      // Every sales agent's request awaiting a supervisor — any route,
+      // never the supervisor's own (filtered below).
+      query = coll.where("status", "==", "pending_car1");
     } else if (scope === "own") {
       const myRoute = ROLE_TO_ROUTE[decoded.role];
       if (!myRoute) return res.status(403).json({ error: "غير مصرح" });
@@ -48,6 +50,7 @@ export default async function handler(req, res) {
 
     const snap = await query.get();
     let requests = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+    if (scope === "todecide") requests = requests.filter((r) => r.requestedBy !== decoded.uid);
     requests.sort((a, b) => b.requestedAt.localeCompare(a.requestedAt));
 
     return res.status(200).json({ requests });

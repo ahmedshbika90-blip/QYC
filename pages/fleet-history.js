@@ -13,9 +13,17 @@ import Icon from "../components/Icon";
 // documents that were CONFIRMED (the server drops everything else; see
 // /api/inventory/list?scope=fleet). Filter by van, type and dates.
 export default function FleetHistory() {
-  const { role, token, loading, logout } = useAuth(["agent_car1"]);
+  const { role, token, loading, logout, salesSupervisor } = useAuth(["agent_car1", "agent_car2"]);
   const [car, setCar] = useState("");
   if (loading) return <PageLoading />;
+  if (!salesSupervisor) {
+    return (
+      <div className="min-h-screen bg-canvas">
+        <Nav role={role} logout={logout} />
+        <p className="p-8 text-muted">هذه الصفحة لمشرف المبيعات فقط.</p>
+      </div>
+    );
+  }
   return (
     <div className="min-h-screen bg-canvas">
       <Nav role={role} logout={logout} />

@@ -5,6 +5,7 @@ import { useAuth } from "../../lib/useAuth";
 import Nav from "../../components/Nav";
 import Icon from "../../components/Icon";
 import StockBoard from "../../components/StockBoard";
+import WelcomeHeader from "../../components/WelcomeHeader";
 import { DateRange, Section, TrendChart } from "../../components/SupervisorDashboard";
 import { DonutChart, PieChart, BarList, Split, pctText } from "../../components/ExecCharts";
 import { PageLoading, SkeletonRows, Spinner } from "../../components/Loading";
@@ -29,6 +30,8 @@ const TABS = [
 const UNIT = "وحدة";
 const GROUP_COLOR = { alwafi: V("p1"), snacks: V("p3"), other: V("p5") };
 const PRODUCT_COLORS = ["p1", "p3", "p2", "p4", "p5", "p6"];
+// SDG amounts always carry two decimals.
+const money = (n) => (Number(n) || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const Card = ({ className = "", children }) => <div className={`bg-white rounded-2xl shadow min-w-0 ${className}`}>{children}</div>;
 
 function useGet(token, url, liveKeys) {
@@ -149,13 +152,13 @@ function OverviewTab({ token, range }) {
               <Card className="p-6 flex flex-col gap-5">
                 <h3 className="text-[15px] font-bold text-ink">قيمة المبيعات (بالتكلفة)</h3>
                 <div className="flex items-baseline gap-2">
-                  <span className="dn font-display text-[44px] font-bold leading-none text-ink">{fmt(d.totals.costValue)}</span>
+                  <span className="dn font-display text-[44px] font-bold leading-none text-ink">{money(d.totals.costValue)}</span>
                   <span className="text-sm text-muted">SDG</span>
                 </div>
                 <Split a={d.wholesale.costValue} b={d.retail.costValue} />
                 <div className="grid gap-3 sm:grid-cols-2">
-                  <Stat label="جملة" value={fmt(d.wholesale.costValue)} unit="SDG" color="w" sub={pctText(d.totals.costValue ? (d.wholesale.costValue / d.totals.costValue) * 100 : 0)} />
-                  <Stat label="تجزئة" value={fmt(d.retail.costValue)} unit="SDG" color="r" sub={pctText(d.totals.costValue ? (d.retail.costValue / d.totals.costValue) * 100 : 0)} />
+                  <Stat label="جملة" value={money(d.wholesale.costValue)} unit="SDG" color="w" sub={pctText(d.totals.costValue ? (d.wholesale.costValue / d.totals.costValue) * 100 : 0)} />
+                  <Stat label="تجزئة" value={money(d.retail.costValue)} unit="SDG" color="r" sub={pctText(d.totals.costValue ? (d.retail.costValue / d.totals.costValue) * 100 : 0)} />
                 </div>
                 {d.totals.uncostedUnits > 0 && (
                   <p className="flex items-start gap-2 text-xs text-muted m-0">
@@ -438,10 +441,7 @@ export default function ExecutiveDashboard() {
       <Nav role={role} logout={logout} />
       <main className="dash max-w-[1320px] mx-auto px-4 md:px-8 pt-6 md:pt-8 pb-12 md:pb-16 flex flex-col gap-8">
         <header className="flex flex-wrap items-end justify-between gap-x-6 gap-y-4">
-          <div className="min-w-0">
-            <p className="text-sm text-muted m-0">{dated ? rangeText(period) : "لوحة المتابعة — للعرض فقط"}</p>
-            <h1 className="font-display text-[28px] md:text-[32px] leading-tight font-bold text-ink mt-1">{TABS.find((t) => t.id === tab).label}</h1>
-          </div>
+          <WelcomeHeader token={token} subtitle={dated ? rangeText(period) : "لوحة المتابعة — للعرض فقط"} />
           {dated && <DateRange from={range.from} to={range.to} onChange={(from, to) => setRange({ from, to: to > today ? today : to })} />}
         </header>
 

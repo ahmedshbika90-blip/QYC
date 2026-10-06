@@ -1,3 +1,4 @@
+import { getAuthFlags } from "../lib/authFlags";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import ProductCartPicker from "./ProductCartPicker";
@@ -99,7 +100,7 @@ export default function ShipmentRequestsPanel({ role, token }) {
       if (!ownRes.ok) throw new Error(ownData.error);
       setOwn(ownData.requests);
 
-      if (role === "agent_car1") {
+      if (getAuthFlags().salesSupervisor) {
         const tdRes = await apiFetch("/api/shipment-requests/list?scope=todecide", {
           headers: { Authorization: `Bearer ${token}` },
         });
@@ -200,8 +201,8 @@ export default function ShipmentRequestsPanel({ role, token }) {
   const doneHint =
     done?.type === "offloading"
       ? "بانتظار استلام أمين المخزن. ستصلك رسالة عند التنفيذ أو الإلغاء."
-      : role === "agent_car2"
-      ? "بانتظار موافقة مبيعات الجملة ثم تنفيذ أمين المخزن."
+      : !getAuthFlags().salesSupervisor
+      ? "بانتظار موافقة مشرف المبيعات ثم تنفيذ أمين المخزن."
       : "بانتظار تنفيذ أمين المخزن. ستحتاج لتأكيد الاستلام على السيارة بعدها.";
 
   return (
@@ -326,12 +327,12 @@ export default function ShipmentRequestsPanel({ role, token }) {
           </form>
         ))}
 
-      {tab === "own" && role === "agent_car1" && toDecide.length > 0 && (
+      {tab === "own" && getAuthFlags().salesSupervisor && toDecide.length > 0 && (
           <div className="space-y-2 mb-5">
-            <h2 className="text-sm font-bold text-amber-700">بانتظار موافقتي — من التجزئة</h2>
+            <h2 className="text-sm font-bold text-amber-700">بانتظار موافقتي — من المندوبين</h2>
             {toDecide.map((r) => (
               <div key={r.id} className="bg-white rounded-2xl shadow p-4">
-                <p className="font-semibold text-ink">أمر شحن — مبيعات تجزئة</p>
+                <p className="font-semibold text-ink">أمر شحن — {r.route === "car1" ? "مبيعات جملة" : "مبيعات تجزئة"}</p>
                 <p className="text-sm text-muted mt-0.5">
                   {r.items.map((it) => `${it.name} ×${formatQty(it.qty)}`).join("، ")}
                 </p>

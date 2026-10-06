@@ -152,7 +152,11 @@ export default async function handler(req, res) {
         type,
         items: resolvedItems,
         note: note || "",
-        status: route === "car2" && type === "loading" ? "pending_car1" : "pending_warehouse",
+        // A sales agent's delivery request waits for a sales supervisor's
+        // approval ("pending_car1" — the key predates the role split); a
+        // supervisor's own requests, and every return, go straight to the
+        // warehouse keeper.
+        status: !decoded.salesSupervisor && type === "loading" ? "pending_car1" : "pending_warehouse",
         requestedBy: decoded.uid,
         requestedAt: now,
         car1Decision: null,

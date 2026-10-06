@@ -1,7 +1,7 @@
 import { useState } from "react";
 import Icon from "./Icon";
 import { formatNumber } from "../lib/labels";
-import { cleanMoneyInput, parseDecimal } from "../lib/qty";
+import { cleanMoneyInput, money2, parseDecimal } from "../lib/qty";
 
 // The money block at the bottom of an invoice — the same on the new-invoice
 // form, the edit form and the invoice page:
@@ -66,7 +66,8 @@ export default function InvoiceTotals({ subtotal, discount, onDiscountChange, cl
                   dir="ltr"
                   value={discount ?? ""}
                   onChange={(e) => onDiscountChange(cleanMoneyInput(e.target.value))}
-                  placeholder="0"
+                  onBlur={(e) => onDiscountChange(money2(e.target.value))}
+                  placeholder="0.00"
                   autoFocus={discountOn && d === 0}
                   aria-invalid={over}
                   className={`w-36 h-11 border rounded-xl px-3 text-base tabular-ltr text-end bg-white ${

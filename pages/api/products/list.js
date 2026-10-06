@@ -45,13 +45,13 @@ export default async function handler(req, res) {
       products = products.map(({ avgCost, ...rest }) => rest);
     }
 
-    // The retail agent must not see what is on the wholesale car. Removed
-    // here on the server, not just hidden in the app, so it can't be read
-    // from the network response either.
-    if (decoded.role === "agent_car2") {
+    // A sales agent sees only his own van and the depot; a sales supervisor
+    // sees every van. Removed here on the server, not just hidden in the
+    // app, so it can't be read from the network response either.
+    if (decoded.route && !decoded.salesSupervisor) {
       products = products.map((p) => {
         if (!p.stock) return p;
-        const { car1, ...stock } = p.stock;
+        const stock = { depot: p.stock.depot ?? 0, [decoded.route]: p.stock[decoded.route] ?? 0 };
         return { ...p, stock };
       });
     }

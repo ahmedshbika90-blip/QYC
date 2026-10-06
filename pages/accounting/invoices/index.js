@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/router";
 import { useAuth } from "../../../lib/useAuth";
 import Nav from "../../../components/Nav";
 import Icon from "../../../components/Icon";
@@ -11,13 +12,92 @@ import { PageLoading, SkeletonRows, Spinner } from "../../../components/Loading"
 import { apiFetch } from "../../../lib/apiFetch";
 import { cachedGet } from "../../../lib/apiCache";
 import { useLiveRefresh } from "../../../lib/useLiveRefresh";
-import { formatDateTime, formatNumber, shortCode, ROUTE_LABELS_SHORT } from "../../../lib/labels";
+import { formatDate, formatDateTime, formatNumber, shortCode, ROUTE_LABELS_SHORT } from "../../../lib/labels";
 import { ROUTES } from "../../../lib/roles";
+
+const toDigits = (v) =>
+  String(v)
+    .replace(/[٠-٩]/g, (d) => String(d.charCodeAt(0) - 0x0660))
+    .replace(/[۰-۹]/g, (d) => String(d.charCodeAt(0) - 0x06f0))
+    .replace(/\D/g, "")
+    .slice(0, 11);
+
+// Search by transaction reference (رقم العملية): asks the server, which
+// checks the reference against every bank in one go.
+function RefSearch({ token, autoFocus }) {
+  const [ref, setRef] = useState("");
+  const [matches, setMatches] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  useEffect(() => {
+    setMatches(null);
+    setError("");
+    if (!ref) return;
+    const t = setTimeout(async () => {
+      setBusy(true);
+      try {
+        const res = await apiFetch(`/api/accounting/find-ref?ref=${ref}`, { headers: { Authorization: `Bearer ${token}` } });
+        const d = await res.json();
+        if (!res.ok) throw new Error(d.error);
+        setMatches(d.matches);
+      } catch (err) {
+        setError(err.message);
+      } finally {
+        setBusy(false);
+      }
+    }, 400);
+    return () => clearTimeout(t);
+  }, [ref, token]);
+
+  return (
+    <div className="flex flex-col gap-3 mb-4">
+      <div className="relative">
+        <Icon name="search" size={18} className="absolute top-1/2 -translate-y-1/2 start-3 text-muted" />
+        <input
+          inputMode="numeric"
+          dir="ltr"
+          autoFocus={autoFocus}
+          value={ref}
+          onChange={(e) => setRef(toDigits(e.target.value))}
+          placeholder="اكتب رقم العملية (حتى 11 رقمًا)"
+          className="h-12 w-full rounded-xl border border-line bg-white ps-10 pe-10 text-base num text-end placeholder:text-right"
+        />
+        {busy && <Spinner className="w-4 h-4 absolute top-1/2 -translate-y-1/2 end-3" />}
+      </div>
+      {error && <p role="alert" className="text-sm text-red-600">{error}</p>}
+      {matches && matches.length === 0 && <p className="text-sm text-muted">لا توجد دفعة مسجلة بهذا الرقم.</p>}
+      {matches && matches.length > 0 && (
+        <ul className="bg-white rounded-2xl shadow divide-y divide-line">
+          {matches.map((m) => (
+            <li key={`${m.bank}-${m.orderId}`}>
+              <Link href={`/accounting/invoices/${encodeURIComponent(m.orderId)}`} className="flex items-start justify-between gap-3 px-4 py-3.5 active:bg-surface-2">
+                <div className="min-w-0">
+                  <p className="font-semibold text-ink truncate">{m.clientName || `عميل ${m.clientId}`}</p>
+                  <p className="text-xs text-muted mt-0.5">
+                    {m.bankLabel} · <span className="num" dir="ltr">{m.ref}</span> · فاتورة <span className="num">{shortCode(m.orderId)}</span>
+                  </p>
+                  <div className="mt-1.5"><PaymentBadge status={m.payment.status} /></div>
+                </div>
+                <div className="text-end shrink-0">
+                  {m.amount != null && <p className="num font-bold text-ink">{formatNumber(m.amount)}</p>}
+                  {m.date && <p className="text-xs text-muted mt-0.5">{formatDate(`${m.date}T12:00:00Z`)}</p>}
+                </div>
+              </Link>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
 
 // The accountant's home: invoices of every route with what has been paid on
 // each. Tap one to record or review its payments.
 export default function AccountingInvoices() {
   const { role, token, loading, logout } = useAuth(["accountant"]);
+  const router = useRouter();
+  const [mode, setMode] = useState("invoice"); // "invoice" | "ref"
+  const focus = router.query.focus === "1";
   const [period, setPeriod] = useState(30);
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
@@ -107,10 +187,21 @@ export default function AccountingInvoices() {
           ))}
         </div>
 
-        <div className="relative mb-3">
-          <Icon name="search" size={18} className="absolute top-1/2 -translate-y-1/2 start-3 text-muted" />
-          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="ابحث باسم العميل أو رقم الفاتورة..." className="h-11 w-full rounded-xl border border-line bg-white ps-10 pe-3 text-base" />
+        <div role="tablist" aria-label="نوع البحث" className="grid grid-cols-2 gap-1 p-1 rounded-xl bg-surface-2 mb-3">
+          {[["invoice", "العميل أو الفاتورة"], ["ref", "رقم العملية"]].map(([id, label]) => (
+            <button key={id} type="button" role="tab" aria-selected={mode === id} onClick={() => setMode(id)} className={`h-10 rounded-lg text-sm ${mode === id ? "bg-white font-bold shadow-sm text-ink" : "text-muted font-medium"}`}>
+              {label}
+            </button>
+          ))}
         </div>
+        {mode === "ref" ? (
+          <RefSearch token={token} autoFocus />
+        ) : (
+          <div className="relative mb-3">
+            <Icon name="search" size={18} className="absolute top-1/2 -translate-y-1/2 start-3 text-muted" />
+            <input autoFocus={focus} value={q} onChange={(e) => setQ(e.target.value)} placeholder="ابحث باسم العميل أو رقم الفاتورة..." className="h-11 w-full rounded-xl border border-line bg-white ps-10 pe-3 text-base" />
+          </div>
+        )}
 
         <FilterPanel dateFrom={dateFrom} onDateFromChange={setDateFrom} dateTo={dateTo} onDateToChange={setDateTo} extraActiveCount={[route, pay].filter(Boolean).length}>
           <FilterChips label="حالة الدفع" value={pay} onChange={setPay} options={PAYMENT_FILTERS} />

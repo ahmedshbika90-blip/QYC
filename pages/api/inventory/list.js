@@ -39,7 +39,7 @@ export default async function handler(req, res) {
     // and only van documents (no depot receipts/transfers). Optional
     // ?route= narrows it to one van.
     const fleet = scope === "fleet";
-    if (fleet && !["agent_car1", "manager"].includes(decoded.role)) {
+    if (fleet && !(decoded.salesSupervisor || decoded.role === "manager")) {
       return res.status(403).json({ error: "غير مصرح" });
     }
     if (fleet && route && !ROUTES.includes(route)) {

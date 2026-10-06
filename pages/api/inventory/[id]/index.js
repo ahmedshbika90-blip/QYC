@@ -24,7 +24,7 @@ export default async function handler(req, res) {
 
     // The sales supervisor (car1) may also open other vans' documents once
     // they're confirmed — the same ones his fleet history lists.
-    const fleetView = decoded.role === "agent_car1" && doc.status === "confirmed" && ROUTES.includes(doc.route);
+    const fleetView = decoded.salesSupervisor && doc.status === "confirmed" && ROUTES.includes(doc.route);
     const restrictedRoute = ROLE_TO_ROUTE[decoded.role];
     if (restrictedRoute && doc.route !== restrictedRoute && !fleetView) {
       return res.status(403).json({ error: "غير مصرح: هذا خارج مسارك" });

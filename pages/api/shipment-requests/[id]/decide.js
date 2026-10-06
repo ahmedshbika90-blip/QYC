@@ -15,7 +15,10 @@ export default async function handler(req, res) {
 
   try {
     const decoded = await requireUser(req);
-    requireRole(decoded, ["agent_car1", "manager"]);
+    requireRole(decoded, ["agent_car1", "agent_car2", "manager"]);
+    if (decoded.role !== "manager" && !decoded.salesSupervisor) {
+      return res.status(403).json({ error: "غير مصرح: هذا القرار لمشرف المبيعات" });
+    }
 
     const { id } = req.query;
     const { action, note } = req.body || {};
@@ -37,13 +40,13 @@ export default async function handler(req, res) {
         throw err;
       }
       const request = snap.data();
-      if (request.route !== "car2") {
-        const err = new Error("موافقة سيارة الجملة مطلوبة لطلبات مبيعات التجزئة فقط");
-        err.statusCode = 400;
+      if (request.requestedBy === decoded.uid) {
+        const err = new Error("لا يمكنك اعتماد طلبك أنت");
+        err.statusCode = 403;
         throw err;
       }
       if (request.type !== "loading") {
-        const err = new Error("التفريغ لا يحتاج موافقة سيارة الجملة — يذهب مباشرة لأمين المخزن");
+        const err = new Error("التفريغ لا يحتاج موافقة مشرف المبيعات — يذهب مباشرة لأمين المخزن");
         err.statusCode = 400;
         throw err;
       }

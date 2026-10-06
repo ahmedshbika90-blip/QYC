@@ -14,7 +14,7 @@ import { TYPE_LABELS, previewNames } from "./InventoryDocCard";
 //               invoice edit/cancel requests waiting for the supervisor
 // "Needs you" items come first; each row is tagged so the two directions
 // can't be confused at a glance.
-const SHIP_WAIT = { pending_car1: "بانتظار موافقة الجملة", pending_warehouse: "بانتظار أمين المخزن" };
+const SHIP_WAIT = { pending_car1: "بانتظار مشرف المبيعات", pending_warehouse: "بانتظار أمين المخزن" };
 
 export default function PendingBox({ token, pendingMovements = [], toDecide = [], refreshKey }) {
   const [ownShip, setOwnShip] = useState([]);

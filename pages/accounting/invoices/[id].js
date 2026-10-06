@@ -34,15 +34,27 @@ async function call(token, url, body) {
   return data;
 }
 
-function AddPayment({ token, orderId, remaining, onAdded }) {
+// Money is shown and edited with two decimals ("1500" → "1500.00") so a
+// misplaced digit stands out before saving.
+const money2 = (v) => {
+  const n = Number(v);
+  return v === "" || !Number.isFinite(n) ? v : n.toFixed(2);
+};
+
+// Add a payment, or edit one (`editing` = the payment being changed).
+function PaymentForm({ token, orderId, remaining, onAdded, editing, onCancel }) {
   const empty = { bank: "", ref: "", amount: "", date: todayYmd(), note: "" };
-  const [form, setForm] = useState(empty);
+  const [form, setForm] = useState(() =>
+    editing ? { bank: editing.bank, ref: editing.ref, amount: money2(editing.amount), date: editing.date, note: editing.note || "" } : empty
+  );
+  // While editing, the payment's own amount is available again.
+  const room = editing ? remaining + Number(editing.amount) : remaining;
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const rid = useRequestId();
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
   const amount = Number(form.amount) || 0;
-  const over = amount > remaining + 1e-9;
+  const over = amount > room + 1e-9;
 
   async function submit(e) {
     e.preventDefault();
@@ -54,9 +66,10 @@ function AddPayment({ token, orderId, remaining, onAdded }) {
     setBusy(true);
     const payload = { ...form, amount: form.amount };
     try {
-      const data = await call(token, `/api/payments/${encodeURIComponent(orderId)}`, { ...payload, requestId: rid.idFor(payload) });
+      const body = editing ? { ...payload, action: "edit", paymentId: editing.id } : { ...payload, requestId: rid.idFor(payload) };
+      const data = await call(token, `/api/payments/${encodeURIComponent(orderId)}`, body);
       rid.reset();
-      setForm({ ...empty, date: form.date });
+      if (!editing) setForm({ ...empty, date: form.date });
       onAdded(data);
     } catch (err) {
       setError(err.message);
@@ -98,11 +111,13 @@ function AddPayment({ token, orderId, remaining, onAdded }) {
             dir="ltr"
             value={form.amount}
             onChange={(e) => set("amount", cleanMoneyInput(e.target.value))}
+            onBlur={() => set("amount", money2(form.amount))}
+            placeholder="0.00"
             className={`${field} num text-end ${over ? "border-red-400" : ""}`}
             required
           />
-          <button type="button" onClick={() => set("amount", String(remaining))} className="self-start text-xs font-semibold text-accent-ink underline">
-            المتبقي كاملًا: <span className="num">{formatNumber(remaining)}</span>
+          <button type="button" onClick={() => set("amount", money2(room))} className="self-start text-xs font-semibold text-accent-ink underline">
+            {editing ? "الحد الأقصى" : "المتبقي كاملًا"}: <span className="num">{formatNumber(room)}</span>
           </button>
         </label>
         <label className="flex flex-col gap-1.5 text-sm font-medium text-ink-soft">
@@ -114,15 +129,22 @@ function AddPayment({ token, orderId, remaining, onAdded }) {
         ملاحظة (اختياري)
         <input value={form.note} onChange={(e) => set("note", e.target.value)} maxLength={200} className={field} />
       </label>
-      <button disabled={busy} className="h-12 rounded-xl bg-accent text-on-accent font-semibold flex items-center justify-center gap-2 disabled:opacity-60">
-        {busy ? <Spinner className="w-4 h-4" /> : <Icon name="plus" size={18} />}
-        تسجيل الدفعة
-      </button>
+      <div className={editing ? "grid grid-cols-2 gap-2" : ""}>
+        {editing && (
+          <button type="button" onClick={onCancel} className="h-12 w-full rounded-xl border border-line font-semibold text-ink-soft">
+            إلغاء التعديل
+          </button>
+        )}
+        <button disabled={busy} className="h-12 w-full rounded-xl bg-accent text-on-accent font-semibold flex items-center justify-center gap-2 disabled:opacity-60">
+          {busy ? <Spinner className="w-4 h-4" /> : <Icon name={editing ? "check" : "plus"} size={18} />}
+          {editing ? "حفظ التعديل" : "تسجيل الدفعة"}
+        </button>
+      </div>
     </form>
   );
 }
 
-function PaymentRow({ p, onVoid }) {
+function PaymentRow({ p, onVoid, onEdit }) {
   return (
     <li className={`px-4 py-3.5 ${p.voided ? "opacity-60" : ""}`}>
       <div className="flex items-start justify-between gap-3">
@@ -132,15 +154,23 @@ function PaymentRow({ p, onVoid }) {
             رقم العملية <span className="num text-ink" dir="ltr">{p.ref}</span> · {formatDate(`${p.date}T12:00:00Z`)}
           </p>
           {p.note && <p className="text-xs text-muted mt-1">{p.note}</p>}
-          <p className="text-xs text-muted mt-1">سُجّلت {formatDateTime(p.createdAt)}</p>
+          <p className="text-xs text-muted mt-1">
+            سُجّلت {formatDateTime(p.createdAt)}
+            {p.editedAt && <> · عُدّلت {formatDateTime(p.editedAt)}</>}
+          </p>
           {p.voided && <p className="text-xs text-red-700 mt-1">ملغاة — {p.voidReason}</p>}
         </div>
         <div className="text-end shrink-0 flex flex-col items-end gap-2">
           <p className={`num font-bold ${p.voided ? "line-through text-muted" : "text-ink"}`}>{formatNumber(p.amount)}</p>
           {!p.voided && (
-            <button type="button" onClick={() => onVoid(p)} className="text-xs font-semibold text-red-700 underline">
-              إلغاء الدفعة
-            </button>
+            <div className="flex gap-3">
+              <button type="button" onClick={() => onEdit(p)} className="text-xs font-semibold text-accent-ink underline">
+                تعديل
+              </button>
+              <button type="button" onClick={() => onVoid(p)} className="text-xs font-semibold text-red-700 underline">
+                إلغاء الدفعة
+              </button>
+            </div>
           )}
         </div>
       </div>
@@ -159,6 +189,8 @@ export default function AccountingInvoice() {
   const [error, setError] = useState("");
   const [toast, setToast] = useState("");
   const [showVoided, setShowVoided] = useState(false);
+  const [editing, setEditing] = useState(null);
+  const [justAdded, setJustAdded] = useState(null); // after a new payment: where to next?
 
   async function load() {
     setError("");
@@ -265,7 +297,27 @@ export default function AccountingInvoice() {
                 <p className="text-sm text-muted">لم تُسجَّل أي دفعة على هذه الفاتورة بعد.</p>
               ) : (
                 <ul className="bg-white rounded-2xl shadow divide-y divide-line">
-                  {active.map((p) => <PaymentRow key={p.id} p={p} onVoid={voidOne} />)}
+                  {active.map((p) =>
+                    editing?.id === p.id ? (
+                      <li key={p.id} className="p-4">
+                        <PaymentForm
+                          token={token}
+                          orderId={order.id}
+                          remaining={summary.remaining}
+                          editing={p}
+                          onCancel={() => setEditing(null)}
+                          onAdded={(d) => {
+                            invalidate("/api/accounting");
+                            setEditing(null);
+                            setToast(d.duplicate ? "لم تتغير أي بيانات" : "تم حفظ التعديل");
+                            load();
+                          }}
+                        />
+                      </li>
+                    ) : (
+                      <PaymentRow key={p.id} p={p} onVoid={voidOne} onEdit={(x) => { setJustAdded(null); setEditing(x); }} />
+                    )
+                  )}
                 </ul>
               )}
               {voided.length > 0 && (
@@ -276,25 +328,50 @@ export default function AccountingInvoice() {
                   </button>
                   {showVoided && (
                     <ul className="bg-white rounded-2xl shadow divide-y divide-line">
-                      {voided.map((p) => <PaymentRow key={p.id} p={p} onVoid={voidOne} />)}
+                      {voided.map((p) => <PaymentRow key={p.id} p={p} onVoid={voidOne} onEdit={() => {}} />)}
                     </ul>
                   )}
                 </>
               )}
             </section>
 
-            {order.status === "cancelled" ? (
+            {justAdded && (
+              <section className="bg-white rounded-2xl shadow p-5 flex flex-col gap-3 border border-green-200">
+                <p className="font-semibold text-green-700 flex items-center gap-2">
+                  <Icon name="check" size={18} />
+                  تم تسجيل دفعة <span className="num">{formatNumber(justAdded.amount)}</span>
+                </p>
+                <div className="grid gap-2 sm:grid-cols-2">
+                  <button type="button" onClick={() => router.push("/accounting/invoices")} className="h-12 rounded-xl border border-line font-semibold text-ink-soft flex items-center justify-center gap-2">
+                    <Icon name="chevronRight" size={18} />
+                    رجوع إلى الفواتير
+                  </button>
+                  <button type="button" onClick={() => router.push("/accounting/invoices?focus=1")} className="h-12 rounded-xl bg-accent text-on-accent font-semibold flex items-center justify-center gap-2">
+                    <Icon name="plus" size={18} />
+                    دفعة لفاتورة أخرى
+                  </button>
+                </div>
+                {summary?.remaining > 0 && (
+                  <button type="button" onClick={() => setJustAdded(null)} className="text-sm font-semibold text-accent-ink underline self-center">
+                    دفعة أخرى على هذه الفاتورة
+                  </button>
+                )}
+              </section>
+            )}
+
+            {justAdded ? null : order.status === "cancelled" ? (
               <p className="text-sm text-muted bg-surface-2 rounded-xl px-4 py-3">هذه الفاتورة ملغاة — لا يمكن تسجيل دفعات عليها.</p>
             ) : summary && summary.remaining > 0 ? (
               <section className="bg-white rounded-2xl shadow p-5 flex flex-col gap-3">
                 <h2 className="font-display text-lg font-bold text-ink">دفعة جديدة</h2>
-                <AddPayment
+                <PaymentForm
                   token={token}
                   orderId={order.id}
                   remaining={summary.remaining}
                   onAdded={(d) => {
                     invalidate("/api/accounting");
                     setToast(d.duplicate ? "هذه الدفعة مسجلة بالفعل" : "تم تسجيل الدفعة");
+                    setJustAdded(d.payment);
                     load();
                   }}
                 />
