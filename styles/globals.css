@@ -251,30 +251,32 @@ html.theme-transition * {
    text/background pair passes WCAG AA in both themes.
    ────────────────────────────────────────────────────────────────────── */
 .dash {
-  /* channels — fixed across every section: wholesale = forest green, retail = navy */
-  --d-w: 46 107 88;   --d-w-i: 255 255 255; --d-ws: 227 238 233; --d-wx: 127 184 164;
-  --d-r: 38 56 94;    --d-r-i: 255 255 255; --d-rs: 226 231 240; --d-rx: 157 178 216;
+  /* Chart colours: clearly different hues that hold up on white AND on the
+     dark theme (each has a deeper day shade and a lighter night shade).
+     channels: wholesale = emerald, retail = indigo */
+  --d-w: 5 150 105;   --d-w-i: 255 255 255; --d-ws: 220 245 234; --d-wx: 110 231 183;
+  --d-r: 79 70 229;   --d-r-i: 255 255 255; --d-rs: 228 229 252; --d-rx: 165 180 252;
   --d-tot: 29 43 51;  --d-toti: 244 241 234; --d-fill: 22 33 28; --d-ln: 227 220 205;
-  --d-tl: 107 122 136; /* trend chart: total line (lighter than navy so the three lines separate) */
-  /* products — cool tones only (no yellow / red): Alwafi = teal pair, snacks = indigo pair */
-  --d-p1: 47 93 98;    --d-p1-i: 255 255 255;
-  --d-p2: 126 165 160; --d-p2-i: 16 33 32;
-  --d-p3: 74 82 128;   --d-p3-i: 255 255 255;
-  --d-p4: 150 158 199; --d-p4-i: 20 24 48;
-  --d-p5: 90 99 93;    --d-p5-i: 255 255 255;
-  --d-p6: 170 178 172; --d-p6-i: 22 33 28;
+  --d-tl: 100 116 139; /* trend chart: total line, neutral slate */
+  /* products / families: blue, orange, teal, rose, violet, gold */
+  --d-p1: 37 99 235;   --d-p1-i: 255 255 255;
+  --d-p2: 234 88 12;   --d-p2-i: 255 255 255;
+  --d-p3: 13 148 136;  --d-p3-i: 255 255 255;
+  --d-p4: 219 39 119;  --d-p4-i: 255 255 255;
+  --d-p5: 124 58 237;  --d-p5-i: 255 255 255;
+  --d-p6: 202 138 4;   --d-p6-i: 40 28 0;
 }
 html.dark .dash {
-  --d-w: 127 184 164; --d-w-i: 11 26 21;  --d-ws: 27 51 43;  --d-wx: 46 107 88;
-  --d-r: 157 178 216; --d-r-i: 12 22 38;  --d-rs: 26 39 64;  --d-rx: 38 56 94;
+  --d-w: 52 211 153;  --d-w-i: 6 32 24;   --d-ws: 16 52 41;  --d-wx: 6 120 85;
+  --d-r: 129 140 248; --d-r-i: 16 18 52;  --d-rs: 32 34 72;  --d-rx: 67 56 202;
   --d-tot: 236 231 221; --d-toti: 13 19 16; --d-fill: 236 231 221; --d-ln: 39 51 45;
-  --d-tl: 184 194 204;
-  --d-p1: 120 176 180; --d-p1-i: 8 22 23;
-  --d-p2: 168 205 200; --d-p2-i: 8 22 23;
-  --d-p3: 150 160 214; --d-p3-i: 12 14 36;
-  --d-p4: 194 200 235; --d-p4-i: 12 14 36;
-  --d-p5: 163 173 166; --d-p5-i: 13 19 16;
-  --d-p6: 110 122 115; --d-p6-i: 236 231 221;
+  --d-tl: 148 163 184;
+  --d-p1: 96 165 250;  --d-p1-i: 8 20 44;
+  --d-p2: 251 146 60;  --d-p2-i: 48 20 4;
+  --d-p3: 45 212 191;  --d-p3-i: 4 36 32;
+  --d-p4: 244 114 182; --d-p4-i: 52 8 30;
+  --d-p5: 167 139 250; --d-p5-i: 28 16 56;
+  --d-p6: 250 204 21;  --d-p6-i: 48 36 2;
 }
 /* Numbers stay left-to-right and sit on the same side as their labels. */
 .dash .dn {

@@ -30,8 +30,8 @@ const TABS = [
   { id: "inventory", label: "المخزون", icon: "box" },
 ];
 const UNIT = "وحدة";
-const GROUP_COLOR = { alwafi: V("p1"), snacks: V("p3"), other: V("p5") };
-const PRODUCT_COLORS = ["p1", "p3", "p2", "p4", "p5", "p6"];
+const GROUP_COLOR = { alwafi: V("p1"), snacks: V("p2"), other: V("p5") };
+const PRODUCT_COLORS = ["p1", "p2", "p3", "p4", "p5", "p6"];
 // SDG amounts: thousands separators, no forced decimals (100,000).
 const money = (n) => (Number(n) || 0).toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 0 });
 const Card = ({ className = "", children }) => <div className={`exec-card min-w-0 ${className}`}>{children}</div>;
@@ -592,8 +592,15 @@ function BrandRibbon({ token, range }) {
       </div>
 
       <div className="brand-in d3 relative overflow-hidden rounded-[1.25rem] p-4 md:p-5 flex flex-col gap-3 text-snow min-w-0" style={{ background: "linear-gradient(140deg, rgb(247 150 40) 0%, rgb(232 96 20) 100%)", boxShadow: "0 14px 30px -18px rgb(232 96 20 / 0.7)" }}>
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/brand/chipsiano.webp" alt="" aria-hidden="true" className="brand-logo-pop absolute -bottom-3 end-[-14px] h-[118px] md:h-[138px] w-auto opacity-95 pointer-events-none" style={{ maskImage: "linear-gradient(to top, transparent 0%, black 22%)", WebkitMaskImage: "linear-gradient(to top, transparent 0%, black 22%)" }} />
+        <span aria-hidden="true" className="brand-float absolute -bottom-2 end-[-6px] pointer-events-none">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/brand/chipsiano.webp"
+            alt=""
+            className="brand-logo-pop h-[124px] md:h-[146px] w-auto"
+            style={{ filter: "drop-shadow(0 8px 14px rgb(120 40 0 / 0.35))", maskImage: "linear-gradient(to top, transparent 0%, black 16%)", WebkitMaskImage: "linear-gradient(to top, transparent 0%, black 16%)" }}
+          />
+        </span>
         <div className="relative flex items-start justify-between gap-2 pe-[72px] md:pe-[88px]">
           <p className="font-display text-xl md:text-2xl font-extrabold tracking-wide" style={{ textShadow: "0 2px 0 rgb(150 50 0 / 0.35)" }} lang="en" data-no-translate>CHIPSIANO</p>
         </div>

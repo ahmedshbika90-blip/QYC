@@ -1,3 +1,15 @@
+# Chipsiano cut-out + new chart colours
+
+- Chipsiano card: the character is now cut out of the poster (no square
+  behind him), with a soft shadow and the slow "breathing" motion.
+- Restored `public/brand/mahgoub-mark-white.png` (day-mode watermark).
+- Chart palette redone for contrast in both themes — each colour has a
+  deeper day shade and a lighter night shade: wholesale emerald, retail
+  indigo; products blue, orange, teal, rose, violet, gold. Alwafi vs
+  Chipsiano in the pie: blue vs orange. Applies to the manager's dashboard too.
+
+---
+
 # Executive dashboard — night-mode polish
 
 - Brand cards: figures and their sub-text are pure white on the Alwafi and
