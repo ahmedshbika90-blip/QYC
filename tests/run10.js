@@ -131,6 +131,42 @@ users.adm = { uid: "adm", email: "a@x.com", customClaims: { role: "admin" } };
   assert.ok(ov.json.headline && typeof ov.json.headline.units.value === "number" && "change" in ov.json.headline.costValue);
   ok("executive headline figures with change vs the previous period");
 
+  // 8. receipts history: index path when deployed, quiet fallback when not
+  await db.collection("inventoryDocs").doc("rc1").set({ type: "received", route: null, status: "confirmed", createdAt: new Date().toISOString(), items: [{ productId: "tah", name: "طحنية", qty: 7, costPrice: 9 }] });
+  await db.collection("inventoryDocs").doc("ld1").set({ type: "loading", route: "car1", status: "confirmed", createdAt: new Date().toISOString(), items: [] });
+  const viaIndex = await call("pages/api/executive/stock.js", { ...EX, query: { view: "received" } });
+  assert.deepStrictEqual(viaIndex.json.docs.map((d) => d.id), ["rc1"]);
+  const realColl = db.collection.bind(db);
+  db.collection = (name) => {
+    const c = realColl(name);
+    if (name !== "inventoryDocs") return c;
+    const w = c.where.bind(c);
+    return { ...c, where: (f, ...rest) => { if (f === "type") { const e = new Error("9 FAILED_PRECONDITION: The query requires an index."); e.code = 9; throw e; } return w(f, ...rest); }, orderBy: c.orderBy.bind(c) };
+  };
+  const warn = console.warn; console.warn = () => {};
+  const viaFallback = await call("pages/api/executive/stock.js", { ...EX, query: { view: "received" } });
+  console.warn = warn;
+  db.collection = realColl;
+  assert.strictEqual(viaFallback.status, 200, JSON.stringify(viaFallback.json));
+  assert.deepStrictEqual(viaFallback.json.docs.map((d) => d.id), ["rc1"]);
+  ok("receipts history reads receipts only via the index; without the index it falls back instead of erroring");
+
+  // 9. partial reference search: starts with / ends with, old refs backfilled once
+  await db.collection("paymentRefs").doc("onb__55512345").set({ orderId: "o2", paymentId: "legacy", createdAt: "2026-01-01T00:00:00Z" }); // saved before ref fields existed
+  delete db._data.meta.paymentRefsSearch; // i.e. the first search after this update
+  const pre = await call("pages/api/accounting/find-ref.js", { ...ACC, query: { ref: "555" } });
+  assert.deepStrictEqual(pre.json.matches.map((m) => m.ref), ["55512345"]);
+  const suf = await call("pages/api/accounting/find-ref.js", { ...ACC, query: { ref: "345" } });
+  assert.deepStrictEqual(suf.json.matches.map((m) => m.ref), ["55512345"]);
+  const mid = await call("pages/api/accounting/find-ref.js", { ...ACC, query: { ref: "123" } });
+  assert.deepStrictEqual(mid.json.matches, []); // middle digits only: not a start/end match
+  const ex = await call("pages/api/accounting/find-ref.js", { ...ACC, query: { ref: "44" } });
+  assert.deepStrictEqual(ex.json.matches, []); // under 3 digits → exact only
+  assert.ok(db._data.meta.paymentRefsSearch && db._data.paymentRefs["onb__55512345"].refRev === "54321555");
+  const fresh = await call("pages/api/accounting/find-ref.js", { ...ACC, query: { ref: "444" } });
+  assert.deepStrictEqual(fresh.json.matches.map((m) => [m.ref, m.exact]), [["444", true]]);
+  ok("reference search finds a payment by its first or last 3+ digits; older references are upgraded once automatically");
+
   console.log("ALL SALES/PAYMENTS-ROUND SCENARIOS PASSED");
 })().catch((e) => { console.error("FAILED:", e); process.exit(1); });
 `);

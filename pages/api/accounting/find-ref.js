@@ -3,9 +3,10 @@ const { requireUser, requireRole, sendError } = require("../../../lib/apiAuth");
 const { findByRef, summarize, paymentDocsFor } = require("../../../lib/payments");
 const { BANK_LABELS } = require("../../../lib/paymentsShared");
 
-// Accountant: which invoice(s) carry a payment with this transaction
-// reference (رقم العملية). 4 document reads at most — one per bank.
-//   GET /api/accounting/find-ref?ref=12345
+// Accountant: invoices with a payment whose transaction reference (رقم
+// العملية) equals, starts with or ends with the typed digits (3+ digits for
+// partial matches). Reads ≈ one per match, capped at 20 matches.
+//   GET /api/accounting/find-ref?ref=4417
 export default async function handler(req, res) {
   if (req.method !== "GET") return res.status(405).json({ error: "طريقة الطلب غير مسموح بها" });
   try {
@@ -35,6 +36,7 @@ export default async function handler(req, res) {
           bank: h.bank,
           bankLabel: BANK_LABELS[h.bank] || h.bank,
           ref: h.ref,
+          exact: h.ref === String(req.query.ref || "").trim(),
           amount: p?.amount ?? null,
           date: p?.date ?? null,
           clientName: names[o.clientId] || null,

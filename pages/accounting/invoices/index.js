@@ -22,6 +22,19 @@ const toDigits = (v) =>
     .replace(/\D/g, "")
     .slice(0, 11);
 
+// Shows a reference with the typed digits marked (at its start or end).
+function RefHighlight({ value, part }) {
+  const i = value.startsWith(part) ? 0 : value.endsWith(part) ? value.length - part.length : -1;
+  if (i < 0 || !part) return <span className="num" dir="ltr">{value}</span>;
+  return (
+    <span className="num" dir="ltr">
+      {value.slice(0, i)}
+      <mark className="bg-amber-100 text-ink rounded px-0.5">{value.slice(i, i + part.length)}</mark>
+      {value.slice(i + part.length)}
+    </span>
+  );
+}
+
 // Matches for a transaction reference (رقم العملية). Shown automatically
 // whenever the search box holds only digits: the server checks that
 // reference against every bank in one go (exact reference).
@@ -53,11 +66,15 @@ function RefMatches({ token, digits }) {
   return (
     <section className="mb-4" aria-live="polite">
       <p className="text-xs font-bold text-muted mb-2 flex items-center gap-2">
-        بحث برقم العملية <span className="num" dir="ltr">{digits}</span>
+        {digits.length >= 3 ? "رقم العملية يبدأ أو ينتهي بـ" : "رقم العملية"} <span className="num" dir="ltr">{digits}</span>
         {busy && <Spinner className="w-3.5 h-3.5" />}
       </p>
       {error && <p role="alert" className="text-sm text-red-600">{error}</p>}
-      {matches && matches.length === 0 && <p className="text-sm text-muted bg-white rounded-xl px-4 py-3">لا توجد دفعة مسجلة بهذا الرقم.</p>}
+      {matches && matches.length === 0 && (
+        <p className="text-sm text-muted bg-white rounded-xl px-4 py-3">
+          {digits.length >= 3 ? "لا توجد دفعة يبدأ أو ينتهي رقمها بهذه الأرقام." : "لا توجد دفعة بهذا الرقم — اكتب 3 أرقام على الأقل للبحث بجزء من الرقم."}
+        </p>
+      )}
       {matches && matches.length > 0 && (
         <ul className="bg-white rounded-2xl shadow divide-y divide-line border-2 border-accent/40">
           {matches.map((m) => (
@@ -66,7 +83,7 @@ function RefMatches({ token, digits }) {
                 <div className="min-w-0">
                   <p className="font-semibold text-ink truncate">{m.clientName || `عميل ${m.clientId}`}</p>
                   <p className="text-xs text-muted mt-0.5">
-                    {m.bankLabel} · <span className="num" dir="ltr">{m.ref}</span> · فاتورة <span className="num">{shortCode(m.orderId)}</span>
+                    {m.bankLabel} · <RefHighlight value={m.ref} part={digits} /> · فاتورة <span className="num">{shortCode(m.orderId)}</span>
                   </p>
                   <div className="mt-1.5"><PaymentBadge status={m.payment.status} /></div>
                 </div>

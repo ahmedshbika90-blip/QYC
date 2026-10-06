@@ -1,3 +1,26 @@
+# Round 5c — search by part of a transaction reference
+
+- Typing 3 or more digits finds payments whose reference **starts or ends**
+  with them (e.g. "4417" → 44170023 and 90034417), across all banks; the
+  typed part is highlighted. 1–2 digits still match an exact reference.
+- Efficient: two range queries on single-field indexes (Firestore creates
+  these automatically — nothing to deploy), ~one read per match, max 20.
+- References saved before this update get the searchable fields added
+  automatically on the first partial search (one time).
+
+---
+
+# Round 5b — efficient receipts history
+
+- Receipts history (executive) and the admin change log go back to the
+  efficient queries: Firebase returns only the needed documents (one read
+  each). Their two indexes are back in `firestore.indexes.json`.
+- Until those indexes are deployed, each query falls back to the slower
+  scan automatically (and logs a warning on the server) — no error is shown.
+- **Deploy once:** `firebase deploy --only firestore:indexes`
+
+---
+
 # Round 5 — fixes from testing
 
 - **Phantom error banners** ("/executive", "Staff sign-in"): Next.js announces
