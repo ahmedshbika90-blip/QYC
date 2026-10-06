@@ -6,11 +6,12 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "test": "node tests/run.js && node tests/run2.js && node tests/run3.js && node tests/run4.js && node tests/run5.js && node tests/run6.js && node tests/run7.js && node tests/run8.js && node tests/run9.js && node tests/run10.js"
+    "demo:seed": "node scripts/demo/seed.js",
+    "test": "node tests/run.js && node tests/run2.js && node tests/run3.js && node tests/run4.js && node tests/run5.js && node tests/run6.js && node tests/run7.js && node tests/run8.js && node tests/run9.js && node tests/run10.js && node tests/run11.js"
   },
   "dependencies": {
     "dotenv": "^16.4.5",
-    "firebase": "^10.14.1",
+    "firebase": "^10.12.2",
     "firebase-admin": "^12.1.1",
     "html2canvas": "^1.4.1",
     "jspdf": "^2.5.1",

@@ -292,3 +292,19 @@ every list. Numbering is assigned inside the same transaction that creates
 the document, so two near-simultaneous submissions can never receive the
 same number, and a retried (duplicate) submission returns its original
 number rather than consuming a new one.
+
+## Demo data (presentations)
+`scripts/demo/seed.js` deletes the business data (invoices, clients,
+warehouse documents, requests, payments, logs) and creates months of
+realistic sales history **using your own products, prices and costs**.
+Products, staff accounts and roles are kept; stock is left as it is unless
+you add `--reset-stock`.
+
+```
+npm run demo:seed                                   # dry run — shows counts, changes nothing
+npm run demo:seed -- --run --confirm=<project-id>   # do it (last 4 months)
+npm run demo:seed -- --run --confirm=<project-id> --months=6 --seed=7
+```
+Same `--seed` → same data every time. Every demo document has `demo: true`.
+Prefer a separate Firebase project for demos; on the live project, take a
+backup first.

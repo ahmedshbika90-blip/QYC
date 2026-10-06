@@ -37,6 +37,7 @@ function makeDb() {
   }
   function query(c, filters = [], order = null, lim = null, after = null) {
     return {
+      _name: c,
       where: (f, op, v) => query(c, [...filters, [f, op, v]], order, lim, after),
       orderBy: (f, dir = "asc") => query(c, filters, [f, dir], lim, after),
       limit: (n) => query(c, filters, order, n, after),

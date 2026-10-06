@@ -1,3 +1,26 @@
+# Demo data — uses your real products
+
+- The demo generator now reads the products already in the system and uses
+  their exact names, wholesale/retail prices and costs. Products aren't
+  changed; stock stays as it is unless `--reset-stock` is given. Products
+  missing a wholesale or retail price are skipped (and listed in the dry run).
+
+---
+
+# Demo data generator
+
+- `scripts/demo/seed.js` (+ `generate.js`): wipe business data and create a
+  realistic history — 7 Alwafi/Chipsiano products with English names, ~65
+  wholesale/retail clients, ~900 invoices over 4 months (growth trend,
+  Friday off, weekly retail routes, big wholesale buyers, samples,
+  discounts, ~2% cancelled), payments (retail pays fast, wholesale on
+  credit), warehouse receipts, van loadings and damage — with a stock ledger
+  that adds up. Dry run by default; needs `--run --confirm=<project-id>`.
+- `tests/run11.js`: the generated data loads into every dashboard,
+  accounting and stock API without errors.
+
+---
+
 # Round 5c — search by part of a transaction reference
 
 - Typing 3 or more digits finds payments whose reference **starts or ends**
