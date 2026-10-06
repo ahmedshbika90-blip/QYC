@@ -24,7 +24,7 @@ export default function OfflineBanner() {
   if (online) return null;
 
   return (
-    <div className="bg-amber-500 text-white text-sm text-center py-2 px-4 sticky top-0 z-30">
+    <div className="bg-solid-amber text-snow text-sm text-center py-2 px-4 sticky top-0 z-30">
       لا يوجد اتصال بالإنترنت — سيتم استئناف العمل تلقائيًا عند عودة الاتصال
     </div>
   );

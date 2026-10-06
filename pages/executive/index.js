@@ -30,8 +30,7 @@ const TABS = [
   { id: "inventory", label: "المخزون", icon: "box" },
 ];
 const UNIT = "وحدة";
-// Product families in their own brand colours (from the logos).
-const GROUP_COLOR = { alwafi: "rgb(var(--brand-alwafi))", snacks: "rgb(var(--brand-chips))", other: V("p5") };
+const GROUP_COLOR = { alwafi: V("p1"), snacks: V("p3"), other: V("p5") };
 const PRODUCT_COLORS = ["p1", "p3", "p2", "p4", "p5", "p6"];
 // SDG amounts: thousands separators, no forced decimals (100,000).
 const money = (n) => (Number(n) || 0).toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 0 });
@@ -256,7 +255,7 @@ function OverviewTab({ token, range, setRange }) {
                     label: p.name,
                     value: p.units,
                     share: p.share,
-                    color: GROUP_COLOR[p.group] || V(PRODUCT_COLORS[i % PRODUCT_COLORS.length]),
+                    color: V(PRODUCT_COLORS[i % PRODUCT_COLORS.length]),
                     sub: `جملة ${fmt(p.w)} · تجزئة ${fmt(p.r)}`,
                   }))}
                 />
@@ -559,10 +558,10 @@ function BrandRibbon({ token, range }) {
   const { data } = useGet(token, `/api/executive/overview?from=${range.from}&to=${range.to}`, ["orders_car1", "orders_car2"]);
   const g = Object.fromEntries((data?.groups || []).map((x) => [x.id, x]));
   const total = data?.totals?.units;
-  const Fig = ({ value, sub }) => (
-    <p className="flex flex-wrap items-baseline gap-x-1.5 min-w-0">
+  const Fig = ({ value, sub, onBrand = false }) => (
+    <p className={`flex flex-wrap items-baseline gap-x-1.5 min-w-0 ${onBrand ? "text-snow" : ""}`}>
       <span className="dn font-display fig-sm font-bold">{value == null ? "—" : fmt(value)}</span>
-      <span className="text-xs opacity-80">{sub}</span>
+      <span className={`text-xs ${onBrand ? "text-snow/90" : "text-muted dark:text-snow/80"}`}>{sub}</span>
     </p>
   );
   const Bar = ({ share, color, track }) => (
@@ -575,24 +574,24 @@ function BrandRibbon({ token, range }) {
       <div className="brand-in d1 exec-card sm:col-span-2 lg:col-span-1 p-4 md:p-5 flex items-center gap-4 overflow-hidden">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src="/brand/mahgoub.png" alt="محجوب أولاد الغذائية" className="brand-logo-pop h-[76px] md:h-[92px] w-auto shrink-0" />
-        <div className="min-w-0 text-ink">
-          <p className="text-[13px] font-semibold text-muted">إجمالي المبيعات في الفترة</p>
+        <div className="min-w-0 text-ink dark:text-snow">
+          <p className="text-[13px] font-semibold text-muted dark:text-snow/80">إجمالي المبيعات في الفترة</p>
           <Fig value={total} sub="وحدة" />
-          <p className="text-xs text-muted mt-0.5">{data ? `${fmt(data.totals.invoices)} فاتورة` : " "}</p>
+          <p className="text-xs text-muted dark:text-snow/75 mt-0.5">{data ? `${fmt(data.totals.invoices)} فاتورة` : " "}</p>
         </div>
       </div>
 
-      <div className="brand-in d2 relative overflow-hidden rounded-[1.25rem] p-4 md:p-5 flex flex-col gap-3 text-white min-w-0" style={{ background: "linear-gradient(140deg, rgb(142 42 44) 0%, rgb(112 30 34) 100%)", boxShadow: "0 14px 30px -18px rgb(142 42 44 / 0.7)" }}>
+      <div className="brand-in d2 relative overflow-hidden rounded-[1.25rem] p-4 md:p-5 flex flex-col gap-3 text-snow min-w-0" style={{ background: "linear-gradient(140deg, rgb(142 42 44) 0%, rgb(112 30 34) 100%)", boxShadow: "0 14px 30px -18px rgb(142 42 44 / 0.7)" }}>
         <div className="flex items-start justify-between gap-2">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/brand/alwafi.png" alt="الوافي" className="brand-logo-pop h-[54px] md:h-[64px] w-auto drop-shadow" />
           {g.alwafi && <span className="dn text-sm font-bold rounded-full px-2.5 h-7 flex items-center" style={{ background: "rgb(240 176 48)", color: "rgb(90 20 22)" }}>{pctText(g.alwafi.share)}</span>}
         </div>
-        <Fig value={g.alwafi?.units} sub="وحدة — طحنية وطحينة" />
+        <Fig onBrand value={g.alwafi?.units} sub="وحدة — طحنية وطحينة" />
         <Bar share={g.alwafi?.share} color="rgb(240 176 48)" track="rgb(255 255 255 / 0.18)" />
       </div>
 
-      <div className="brand-in d3 relative overflow-hidden rounded-[1.25rem] p-4 md:p-5 flex flex-col gap-3 text-white min-w-0" style={{ background: "linear-gradient(140deg, rgb(247 150 40) 0%, rgb(232 96 20) 100%)", boxShadow: "0 14px 30px -18px rgb(232 96 20 / 0.7)" }}>
+      <div className="brand-in d3 relative overflow-hidden rounded-[1.25rem] p-4 md:p-5 flex flex-col gap-3 text-snow min-w-0" style={{ background: "linear-gradient(140deg, rgb(247 150 40) 0%, rgb(232 96 20) 100%)", boxShadow: "0 14px 30px -18px rgb(232 96 20 / 0.7)" }}>
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src="/brand/chipsiano.webp" alt="" aria-hidden="true" className="brand-logo-pop absolute -bottom-3 end-[-14px] h-[118px] md:h-[138px] w-auto opacity-95 pointer-events-none" style={{ maskImage: "linear-gradient(to top, transparent 0%, black 22%)", WebkitMaskImage: "linear-gradient(to top, transparent 0%, black 22%)" }} />
         <div className="relative flex items-start justify-between gap-2 pe-[72px] md:pe-[88px]">
@@ -600,8 +599,8 @@ function BrandRibbon({ token, range }) {
         </div>
         <div className="relative pe-[72px] md:pe-[88px] flex flex-col gap-3">
           <div className="flex flex-wrap items-baseline justify-between gap-2">
-            <Fig value={g.snacks?.units} sub="وحدة — شيبسيانو" />
-            {g.snacks && <span className="dn text-sm font-bold rounded-full px-2.5 h-7 flex items-center bg-white/90" style={{ color: "rgb(190 70 10)" }}>{pctText(g.snacks.share)}</span>}
+            <Fig onBrand value={g.snacks?.units} sub="وحدة — شيبسيانو" />
+            {g.snacks && <span className="dn text-sm font-bold rounded-full px-2.5 h-7 flex items-center bg-snow/90" style={{ color: "rgb(190 70 10)" }}>{pctText(g.snacks.share)}</span>}
           </div>
           <Bar share={g.snacks?.share} color="rgb(255 255 255)" track="rgb(255 255 255 / 0.28)" />
         </div>
@@ -618,12 +617,12 @@ function TodayCard() {
   const loc = lang === "en" ? "en-GB" : "ar-EG";
   const opts = (o) => new Intl.DateTimeFormat(loc, { timeZone: "Africa/Khartoum", numberingSystem: "latn", ...o }).format(now);
   return (
-    <div className="flex md:flex-col items-center md:items-end justify-between gap-3 rounded-2xl bg-white/10 backdrop-blur px-4 py-3 md:px-5 md:py-4 border border-white/15 md:min-w-[200px]" data-no-translate>
+    <div className="flex md:flex-col items-center md:items-end justify-between gap-3 rounded-2xl bg-snow/10 backdrop-blur px-4 py-3 md:px-5 md:py-4 border border-snow/20 md:min-w-[200px]" data-no-translate>
       <div className="md:text-end">
-        <p className="text-xs text-white/75">{opts({ weekday: "long" })}</p>
-        <p className="font-display text-lg md:text-xl font-bold text-white leading-tight">{opts({ day: "numeric", month: "long" })}</p>
+        <p className="text-xs text-snow/75">{opts({ weekday: "long" })}</p>
+        <p className="font-display text-lg md:text-xl font-bold text-snow leading-tight">{opts({ day: "numeric", month: "long" })}</p>
       </div>
-      <p className="text-sm text-white/80 num">{opts({ year: "numeric" })}</p>
+      <p className="text-sm text-snow/80 num">{opts({ year: "numeric" })}</p>
     </div>
   );
 }
@@ -645,11 +644,15 @@ export default function ExecutiveDashboard() {
       <Nav role={role} logout={logout} />
       <main className="dash relative max-w-[1320px] mx-auto px-4 md:px-8 pt-5 md:pt-8 pb-12 md:pb-16 flex flex-col gap-6">
         <div aria-hidden="true" className="exec-aurora"><span className="a1" /><span className="a2" /><span className="a3" /></div>
-        <header className="exec-hero relative z-[1] overflow-hidden rounded-3xl px-5 py-6 md:px-8 md:py-7 text-white">
+        <header className="exec-hero relative z-[1] overflow-hidden rounded-3xl px-5 py-6 md:px-8 md:py-7 text-snow">
           <span aria-hidden="true" className="exec-hero-orb exec-hero-orb-1" />
           <span aria-hidden="true" className="exec-hero-orb exec-hero-orb-2" />
+          {/* Company wheat mark as a watermark: white on the green glass by
+              day, the company's own blue with a soft glow by night. */}
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/brand/mahgoub-mark-white.png" alt="" aria-hidden="true" className="exec-watermark" />
+          <img src="/brand/mahgoub-mark-white.png" alt="" aria-hidden="true" className="exec-watermark exec-watermark-light" />
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/brand/mahgoub-mark.png" alt="" aria-hidden="true" className="exec-watermark exec-watermark-dark" />
           <div className="relative grid gap-5 md:grid-cols-[minmax(0,1fr)_auto] md:items-center">
             <WelcomeHeader token={token} dark subtitle="أهلًا بك في مباشر" />
             <TodayCard />

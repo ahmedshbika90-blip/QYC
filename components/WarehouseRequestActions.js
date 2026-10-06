@@ -107,7 +107,7 @@ export default function WarehouseRequestActions({ request: r, token, onDone }) {
             <button
               type="submit"
               disabled={acting !== null || !cancelNote.trim()}
-              className="h-12 rounded-xl bg-red-600 text-white font-bold disabled:opacity-50 flex items-center justify-center gap-2"
+              className="h-12 rounded-xl bg-solid-red text-snow font-bold disabled:opacity-50 flex items-center justify-center gap-2"
             >
               {acting === "cancel" && <Spinner className="w-4 h-4" />}
               تأكيد الإلغاء

@@ -109,7 +109,7 @@ function Badge({ count, className = "" }) {
   if (!count) return null;
   return (
     <span
-      className={`min-w-[18px] h-[18px] px-1 rounded-full bg-amber-600 text-white text-[10px] font-bold leading-none flex items-center justify-center num ${className}`}
+      className={`min-w-[18px] h-[18px] px-1 rounded-full bg-solid-amber text-snow text-[10px] font-bold leading-none flex items-center justify-center num ${className}`}
     >
       {count > 9 ? "9+" : count}
       <span className="sr-only"> بحاجة لإجراء</span>
@@ -173,7 +173,7 @@ function LogoutConfirm({ onCancel, onConfirm }) {
           <button type="button" autoFocus onClick={onCancel} className="h-12 rounded-xl border border-line font-semibold text-ink-soft">
             البقاء
           </button>
-          <button type="button" onClick={onConfirm} className="h-12 rounded-xl bg-red-600 text-white font-semibold">
+          <button type="button" onClick={onConfirm} className="h-12 rounded-xl bg-solid-red text-snow font-semibold">
             تسجيل الخروج
           </button>
         </div>

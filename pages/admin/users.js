@@ -52,7 +52,7 @@ function RouteSelect({ value, onChange, disabled }) {
 
 function RoleBadge({ role, route }) {
   if (!role) return <span className="h-6 px-2.5 rounded-full text-xs font-semibold inline-flex items-center bg-amber-100 text-amber-700">بدون صلاحية</span>;
-  const tone = role === "admin" ? "bg-gray-800 text-white" : "bg-accent-soft text-accent-ink";
+  const tone = role === "admin" ? "bg-solid-ink text-snow" : "bg-accent-soft text-accent-ink";
   return <span className={`h-6 px-2.5 rounded-full text-xs font-semibold inline-flex items-center ${tone}`}>{jobLabel(role, route)}</span>;
 }
 
@@ -265,7 +265,7 @@ function AccountRow({ u, me, token, onSaved, onError }) {
                     setPwOpen(false);
                   }
                 }}
-                className="h-11 px-4 rounded-xl bg-gray-800 text-white text-sm font-semibold flex items-center gap-2 disabled:opacity-60"
+                className="h-11 px-4 rounded-xl bg-solid-ink text-snow text-sm font-semibold flex items-center gap-2 disabled:opacity-60"
               >
                 {busy === "password" && <Spinner className="w-4 h-4" />}
                 تعيين

@@ -209,7 +209,7 @@ export default function NewOrder() {
               type="button"
               onClick={retryDraft}
               disabled={retrying}
-              className="text-sm bg-amber-600 text-white rounded-lg px-3 h-9 shrink-0 disabled:opacity-50"
+              className="text-sm bg-solid-amber text-snow rounded-lg px-3 h-9 shrink-0 disabled:opacity-50"
             >
               {retrying ? "جارٍ الإرسال..." : "إعادة الإرسال"}
             </button>

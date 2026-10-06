@@ -473,7 +473,7 @@ export default function PlaceOrder() {
                   type="button"
                   onClick={flushQueue}
                   disabled={retrying}
-                  className="text-sm bg-amber-600 text-white rounded-lg px-3 h-9 shrink-0 disabled:opacity-50 flex items-center gap-1"
+                  className="text-sm bg-solid-amber text-snow rounded-lg px-3 h-9 shrink-0 disabled:opacity-50 flex items-center gap-1"
                 >
                   {retrying && <Spinner className="w-3 h-3" />}
                   {retrying ? "جارٍ الإرسال..." : "إرسال الآن"}

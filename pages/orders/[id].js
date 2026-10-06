@@ -409,7 +409,7 @@ export default function OrderDetail() {
                   type="button"
                   onClick={() => sendChangeRequest("cancel")}
                   disabled={sendingRequest}
-                  className="flex-1 bg-red-600 text-white rounded-lg h-11 text-base disabled:opacity-50 flex items-center justify-center gap-2"
+                  className="flex-1 bg-solid-red text-snow rounded-lg h-11 text-base disabled:opacity-50 flex items-center justify-center gap-2"
                 >
                   {sendingRequest && <Spinner className="w-4 h-4" />}
                   إرسال طلب الإلغاء

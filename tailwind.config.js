@@ -18,6 +18,13 @@ module.exports = {
     extend: {
       colors: {
         white: v("white"),
+        // True white in BOTH themes — for text on brand / photo / accent
+        // backgrounds ("white" above is the surface colour and turns dark
+        // in night mode, which made such text unreadable).
+        snow: "#ffffff",
+        // Deep colours that stay the same in night mode, for solid
+        // buttons / badges that carry white text (text-snow).
+        solid: { red: "#b9281e", amber: "#b45309", green: "#0b6e57", ink: "#26322c" },
         gray: scale("gray", STEPS),
         green: scale("green", STEPS),
         emerald: scale("green", STEPS),

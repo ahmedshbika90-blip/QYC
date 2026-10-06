@@ -355,9 +355,15 @@ html.dark .exec-aurora { opacity: 0; animation-name: aurora-in-dark; }
 @keyframes aurora-in { to { opacity: 1; } }
 @keyframes aurora-in-dark { to { opacity: 0.55; } }
 
-/* Company wheat mark — a large, faint watermark that drifts into the hero. */
+/* Company wheat mark — a large, faint watermark that drifts into the hero.
+   Day: white mark on the green glass. Night: white looked like a grey stain
+   on the dark panel, so it switches to the company's own blue with a soft
+   glow, lit "from within" (screen blend). */
 .exec-watermark { position: absolute; inset-inline-end: -28px; bottom: -46px; width: 230px; opacity: 0; transform: rotate(-8deg) translateY(16px); animation: watermark-in 1.8s cubic-bezier(.2,.7,.2,1) 0.35s forwards; pointer-events: none; }
-@keyframes watermark-in { to { opacity: 0.13; transform: rotate(0) translateY(0); } }
+@keyframes watermark-in { to { opacity: var(--wm-opacity, 0.13); transform: rotate(0) translateY(0); } }
+.exec-watermark-dark { display: none; }
+html.dark .exec-watermark-light { display: none; }
+html.dark .exec-watermark-dark { display: block; --wm-opacity: 0.32; mix-blend-mode: screen; filter: drop-shadow(0 0 22px rgb(120 186 232 / 0.45)); }
 
 /* Brand cards: rise in one after another, logo settles with a soft pop. */
 .brand-in { opacity: 0; transform: translateY(14px) scale(0.98); animation: brand-in 0.8s cubic-bezier(.2,.7,.2,1) forwards; }
@@ -376,7 +382,7 @@ html.dark .exec-aurora { opacity: 0; animation-name: aurora-in-dark; }
 
 @media (prefers-reduced-motion: reduce) {
   .exec-aurora, .exec-watermark, .brand-in, .brand-logo-pop, .brand-bar > span { animation: none !important; opacity: 1; transform: none; }
-  .exec-watermark { opacity: 0.13; }
+  .exec-watermark { opacity: var(--wm-opacity, 0.13); }
   html.dark .exec-aurora { opacity: 0.55; }
   .brand-float { animation: none; }
 }

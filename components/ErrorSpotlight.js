@@ -92,7 +92,7 @@ export default function ErrorSpotlight() {
           setShown(null);
         }}
         style={{ animation: "toast-in 200ms ease-out both" }}
-        className="pointer-events-auto max-w-lg w-full flex items-start gap-2.5 text-start rounded-2xl bg-red-600 text-white shadow-lg px-4 py-3"
+        className="pointer-events-auto max-w-lg w-full flex items-start gap-2.5 text-start rounded-2xl bg-[rgb(185_40_30)] text-snow shadow-lg px-4 py-3"
       >
         <Icon name="alert" size={20} className="mt-0.5" />
         <span className="flex-1 text-sm font-semibold leading-relaxed">{shown.text}</span>

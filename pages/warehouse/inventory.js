@@ -270,7 +270,7 @@ export default function WarehouseInventory() {
             <button
               type="submit"
               disabled={damageSubmitting}
-              className="w-full bg-red-600 text-white rounded-lg h-12 text-base font-medium active:bg-red-700 disabled:opacity-50 flex items-center justify-center gap-2"
+              className="w-full bg-solid-red text-snow rounded-lg h-12 text-base font-medium active:brightness-90 disabled:opacity-50 flex items-center justify-center gap-2"
             >
               {damageSubmitting && <Spinner className="w-4 h-4" />}
               {damageSubmitting ? "جارٍ التسجيل..." : "تسجيل التالف"}

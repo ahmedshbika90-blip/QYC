@@ -1,3 +1,26 @@
+# Executive dashboard — night-mode polish
+
+- Brand cards: figures and their sub-text are pure white on the Alwafi and
+  Chipsiano cards in both modes; the company card's text turns white in
+  night mode.
+- Wheat-mark watermark in the greeting panel: white by day; by night the
+  company's own blue with a soft glow instead of a grey-looking white.
+- Charts back to their original colours (brand colours only on the cards).
+
+---
+
+# Night-mode text colours; no watermark
+
+- Removed the wheat watermark from the greeting panel.
+- "white" in this app is the surface colour, so it turns dark at night —
+  white text on coloured areas became dark/unreadable. Added `snow` (always
+  #fff) and `solid.*` (deep red/amber/green/ink that don't change at night):
+  greeting panel, today card, brand cards, error banner, red/amber/green
+  buttons and badges, admin badge, success toast now keep clear white text
+  on a deep colour in both themes.
+
+---
+
 # Executive dashboard — brands and polish
 
 - Brand ribbon under the greeting: Mahgoub Sons Food Division (total units

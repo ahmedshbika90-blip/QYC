@@ -108,7 +108,7 @@ export default function WelcomeHeader({ token, subtitle, dark = false }) {
       <button
         type="button"
         onClick={() => input.current?.click()}
-        className={`relative w-16 h-16 md:w-[76px] md:h-[76px] rounded-full shrink-0 overflow-hidden flex items-center justify-center shadow group ${dark ? "bg-white/15 text-white ring-4 ring-white/30" : "bg-accent-soft text-accent-ink ring-4 ring-white"}`}
+        className={`relative w-16 h-16 md:w-[76px] md:h-[76px] rounded-full shrink-0 overflow-hidden flex items-center justify-center shadow group ${dark ? "bg-snow/15 text-snow ring-4 ring-snow/30" : "bg-accent-soft text-accent-ink ring-4 ring-white"}`}
         aria-label={photo ? "تغيير الصورة الشخصية" : "إضافة صورة شخصية"}
         title={photo ? "تغيير الصورة الشخصية" : "إضافة صورة شخصية"}
       >
@@ -118,22 +118,22 @@ export default function WelcomeHeader({ token, subtitle, dark = false }) {
         ) : (
           <span className="font-display text-2xl font-bold">{first ? first[0] : <Icon name="camera" />}</span>
         )}
-        <span className="absolute inset-0 bg-black/35 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100 transition-opacity">
+        <span className="absolute inset-0 bg-black/40 text-snow flex items-center justify-center opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100 transition-opacity">
           {busy ? <Spinner className="w-5 h-5" /> : <Icon name="camera" size={20} />}
         </span>
         {!photo && !busy && (
-          <span className="absolute bottom-0 end-0 w-6 h-6 rounded-full bg-accent text-on-accent flex items-center justify-center ring-2 ring-white">
+          <span className={`absolute bottom-0 end-0 w-6 h-6 rounded-full bg-accent text-on-accent flex items-center justify-center ring-2 ${dark ? "ring-snow/60" : "ring-white"}`}>
             <Icon name="plus" size={14} />
           </span>
         )}
       </button>
       <input ref={input} type="file" accept="image/*" className="hidden" onChange={pick} />
       <div className="min-w-0">
-        <p className={`text-sm m-0 ${dark ? "text-white/80" : "text-muted"}`}>{subtitle || formatDate(new Date().toISOString())}</p>
-        <h1 className={`font-display text-[24px] md:text-[32px] leading-tight font-bold mt-0.5 ${dark ? "text-white" : "text-ink"}`}>
+        <p className={`text-sm m-0 ${dark ? "text-snow/85" : "text-muted"}`}>{subtitle || formatDate(new Date().toISOString())}</p>
+        <h1 className={`font-display text-[24px] md:text-[32px] leading-tight font-bold mt-0.5 ${dark ? "text-snow" : "text-ink"}`}>
           {greeting()}{first ? <>، <span data-no-translate>{first}</span></> : ""}
         </h1>
-        {error && <p role="alert" className={`text-xs mt-1 ${dark ? "text-white bg-red-600/80 rounded px-2 py-1" : "text-red-600"}`}>{error}</p>}
+        {error && <p role="alert" className={`text-xs mt-1 ${dark ? "text-snow bg-[rgb(185_40_30)]/90 rounded px-2 py-1" : "text-red-600"}`}>{error}</p>}
       </div>
     </div>
   );

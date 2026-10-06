@@ -37,7 +37,7 @@ export default function PriceAdjust({ line, onChange }) {
         <span
           aria-hidden="true"
           className={`w-6 h-6 rounded-md border-2 flex items-center justify-center shrink-0 ${
-            on ? "bg-amber-500 border-amber-500 text-white" : "bg-white border-gray-300"
+            on ? "bg-solid-amber border-solid-amber text-snow" : "bg-white border-gray-300"
           }`}
         >
           {on && <Icon name="check" size={16} strokeWidth={3.2} />}
