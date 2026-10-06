@@ -30,10 +30,10 @@ function RequestRow({ r }) {
           </p>
           <p className="text-xs text-muted mt-1">{formatDateTime(r.requestedAt)}</p>
           {r.status === "cancelled" && r.cancelNote && (
-            <p className="text-sm text-red-600 mt-1.5">سبب الإلغاء: {r.cancelNote}</p>
+            <p data-no-spotlight className="text-sm text-red-600 mt-1.5">سبب الإلغاء: {r.cancelNote}</p>
           )}
           {r.status === "rejected" && r.car1Decision?.note && (
-            <p className="text-sm text-red-600 mt-1.5">سبب الرفض: {r.car1Decision.note}</p>
+            <p data-no-spotlight className="text-sm text-red-600 mt-1.5">سبب الرفض: {r.car1Decision.note}</p>
           )}
         </div>
         <span className={`text-xs font-semibold px-2.5 py-1 rounded-lg shrink-0 ${SHIPMENT_STATUS_TONE[r.status] || ""}`}>

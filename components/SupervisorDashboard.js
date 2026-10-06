@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import Icon from "./Icon";
+import DateFields from "./DateFields";
 import { useLang } from "../lib/i18n";
 import { UNIT, TREND_KINDS, buildView, niceScale, todayYmd, V, fmt } from "../lib/dashboardView";
 
@@ -88,18 +89,10 @@ export function DateRange({ from, to, onChange }) {
   };
   const isToday = from === today && to === today;
   return (
-    <div role="group" aria-label="فترة الملخص" className="flex flex-wrap items-center gap-2 rounded-2xl border border-line bg-white px-3 py-2">
-      <Icon name="calendar" size={18} className="text-muted" />
-      <label className="flex items-center gap-2 text-sm text-muted">
-        من
-        <input type="date" value={from} max={today} onChange={(e) => set(e.target.value, to)} className="h-9 rounded-lg border border-line bg-white px-2 text-sm text-ink" />
-      </label>
-      <label className="flex items-center gap-2 text-sm text-muted">
-        إلى
-        <input type="date" value={to} max={today} onChange={(e) => set(from, e.target.value)} className="h-9 rounded-lg border border-line bg-white px-2 text-sm text-ink" />
-      </label>
+    <div role="group" aria-label="فترة الملخص" className="w-full sm:w-auto flex items-end gap-2 rounded-2xl border border-line bg-white px-3 py-2.5 min-w-0">
+      <DateFields compact className="flex-1 sm:w-[300px]" from={from} to={to} max={today} onFrom={(v) => set(v, to)} onTo={(v) => set(from, v)} />
       {!isToday && (
-        <button type="button" onClick={() => onChange(today, today)} className="h-9 px-3 rounded-lg text-sm font-semibold text-ink-soft hover:bg-surface-2">
+        <button type="button" onClick={() => onChange(today, today)} className="h-10 px-3 rounded-xl text-sm font-semibold text-ink-soft bg-surface-2 hover:bg-line shrink-0">
           اليوم
         </button>
       )}
@@ -324,7 +317,7 @@ function Money({ money }) {
             {m.pill && <span className="h-7 px-3 rounded-full text-[13px] font-bold inline-flex items-center" style={{ background: V("ws"), color: V("w") }}>{m.pill}</span>}
           </div>
           <div className="flex flex-wrap items-baseline gap-x-2.5 gap-y-2">
-            <span className={`${num} font-display text-[40px] font-bold leading-[1.1] text-ink`}>{m.total}</span>
+            <span className={`${num} font-display fig font-bold text-ink min-w-0`}>{m.total}</span>
             <span className="text-[15px] font-semibold text-muted">SDG</span>
             <Delta d={m.delta} />
           </div>
@@ -439,7 +432,7 @@ function Customers({ invoices, charts }) {
       <Card className="p-6 flex flex-col gap-5 md:col-span-2 xl:col-span-1">
         <h3 className="text-[15px] font-bold text-ink">الفواتير الصادرة</h3>
         <div className="flex items-baseline gap-2">
-          <span className={`${num} font-display text-[48px] font-bold leading-none text-ink`}>{invoices.total}</span>
+          <span className={`${num} font-display fig font-bold text-ink min-w-0`}>{invoices.total}</span>
           <span className="text-sm text-muted">فاتورة</span>
         </div>
         <SplitBar a={invoices.wf} b={invoices.rf} h={10} />

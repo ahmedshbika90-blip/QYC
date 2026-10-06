@@ -2,6 +2,7 @@ import Head from "next/head";
 import "../styles/globals.css";
 import { useEffect } from "react";
 import ConnectionBanner from "../components/ConnectionBanner";
+import ErrorSpotlight from "../components/ErrorSpotlight";
 import { initLang } from "../lib/i18n";
 
 export default function App({ Component, pageProps }) {
@@ -29,6 +30,7 @@ export default function App({ Component, pageProps }) {
         <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5" />
       </Head>
       <ConnectionBanner />
+      <ErrorSpotlight />
       <Component {...pageProps} />
     </>
   );

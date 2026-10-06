@@ -293,3 +293,40 @@ html.dark .dash {
 @media (prefers-reduced-motion: reduce) {
   .welcome-in { animation: none; }
 }
+
+/* Date inputs: iOS gives them a large built-in minimum width, which pushed
+   "to" under "from" on phones. Let them shrink to their column. */
+.date-field { -webkit-appearance: none; appearance: none; min-width: 0; }
+.date-field::-webkit-date-and-time-value { text-align: start; }
+
+/* Big figures: scale with the screen and wrap instead of spilling out of
+   their card when the number is long (e.g. 12,345,678.00). */
+.fig { font-size: clamp(1.5rem, 6.2vw, 2.75rem); line-height: 1.1; overflow-wrap: anywhere; }
+.fig-sm { font-size: clamp(1.15rem, 4.6vw, 1.5rem); line-height: 1.15; overflow-wrap: anywhere; }
+.num, .dn { overflow-wrap: anywhere; }
+
+/* Direction-aware arrows (e.g. "back"): mirrored in English (LTR). */
+[dir="ltr"] .rtl-flip { transform: scaleX(-1); }
+
+/* ── Executive dashboard ─────────────────────────────────────────────── */
+.exec-card {
+  background: rgb(var(--white));
+  border-radius: 1.25rem;
+  border: 1px solid rgb(var(--gray-200) / 0.7);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.04), 0 8px 24px -12px rgb(0 0 0 / 0.08);
+}
+.exec-lift { transition: transform 0.18s ease, box-shadow 0.18s ease; }
+@media (hover: hover) {
+  .exec-lift:hover { transform: translateY(-2px); box-shadow: 0 2px 4px rgb(0 0 0 / 0.05), 0 14px 32px -14px rgb(0 0 0 / 0.16); }
+}
+.exec-hero {
+  background:
+    radial-gradient(120% 140% at 100% 0%, rgb(255 255 255 / 0.14) 0%, transparent 55%),
+    linear-gradient(135deg, rgb(var(--accent)) 0%, rgb(var(--accent-strong)) 100%);
+  box-shadow: 0 18px 40px -22px rgb(var(--accent-strong) / 0.65);
+}
+.exec-hero-orb { position: absolute; border-radius: 9999px; background: rgb(255 255 255 / 0.08); pointer-events: none; }
+.exec-hero-orb-1 { width: 260px; height: 260px; inset-inline-start: -80px; bottom: -150px; }
+.exec-hero-orb-2 { width: 140px; height: 140px; inset-inline-end: 18%; top: -70px; }
+.exec-tabs { background: rgb(var(--white) / 0.92); backdrop-filter: blur(10px); border: 1px solid rgb(var(--gray-200) / 0.7); box-shadow: 0 6px 20px -14px rgb(0 0 0 / 0.25); }
+@media (prefers-reduced-motion: reduce) { .exec-lift, .exec-lift:hover { transition: none; transform: none; } }

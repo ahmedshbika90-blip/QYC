@@ -10,7 +10,7 @@ import { formatNumber, formatQty } from "../lib/labels";
 import { cleanMoneyInput, money2, cleanQtyInput } from "../lib/qty";
 import { PRODUCT_CATEGORIES, PRODUCT_UNITS } from "../lib/constants";
 
-const emptyForm = { name: "", category: "", unit: "", priceCar1: "", priceCar2: "", depotStock: "", avgCost: "" };
+const emptyForm = { name: "", nameEn: "", category: "", unit: "", priceCar1: "", priceCar2: "", depotStock: "", avgCost: "" };
 
 const fieldClass = "border rounded-lg px-3 h-12 text-base w-full bg-white";
 
@@ -145,6 +145,7 @@ export default function Products() {
     setEditingId(product.id);
     setEditForm({
       name: product.name,
+      nameEn: product.nameEn || "",
       // Old free-text values aren't in the lists: start empty so the
       // supervisor has to choose (the old value is shown as a hint).
       category: PRODUCT_CATEGORIES.includes(product.category) ? product.category : "",
@@ -231,8 +232,18 @@ export default function Products() {
               placeholder="اسم المنتج"
               value={addForm.name}
               onChange={(e) => setAddForm({ ...addForm, name: e.target.value })}
-              className={`${fieldClass} sm:col-span-2`}
+              className={fieldClass}
               required
+            />
+            <input
+              type="text"
+              dir="ltr"
+              placeholder="Product name in English (optional)"
+              value={addForm.nameEn}
+              onChange={(e) => setAddForm({ ...addForm, nameEn: e.target.value })}
+              className={`${fieldClass} text-start`}
+              maxLength={80}
+              data-no-translate
             />
             <ListSelect
               value={addForm.category}
@@ -293,8 +304,18 @@ export default function Products() {
                     type="text"
                     value={editForm.name}
                     onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
-                    className={`${fieldClass} sm:col-span-2`}
+                    className={fieldClass}
                     placeholder="الاسم"
+                  />
+                  <input
+                    type="text"
+                    dir="ltr"
+                    value={editForm.nameEn}
+                    onChange={(e) => setEditForm({ ...editForm, nameEn: e.target.value })}
+                    className={`${fieldClass} text-start`}
+                    placeholder="Product name in English (optional)"
+                    maxLength={80}
+                    data-no-translate
                   />
                   <ListSelect
                     value={editForm.category}
@@ -357,6 +378,7 @@ export default function Products() {
                   <div>
                     <p className={`font-medium ${p.active ? "text-gray-800" : "text-gray-400 line-through"}`}>
                       {p.name}
+                      {isSupervisor && p.nameEn && <span className="ms-2 text-xs text-muted font-normal" dir="ltr" data-no-translate>{p.nameEn}</span>}
                     </p>
                     <p className="text-sm text-gray-500">
                       {p.category ? `${p.category} — ` : ""}

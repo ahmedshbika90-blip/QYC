@@ -1,3 +1,50 @@
+# Round 4 — admin edit mode, English names, usability, executive redesign
+
+## Admin
+- Accounts are read-only until **تعديل** is pressed; then the Arabic name,
+  English name, job and route are edited together and saved with **حفظ**
+  (or **إلغاء**). Disable / new password live inside the edit panel.
+- Every account can have an **English name** (`profiles/{uid}.nameEn`), used
+  when the interface is in English (greeting, names anywhere on screen).
+
+## English names for products
+- The manager can enter an English name for each product (products page,
+  add and edit). `/api/i18n/terms` serves product + staff English names;
+  the English interface swaps them in automatically. Product search on the
+  invoice screen matches either name.
+
+## Easier everyday use
+- **Back button** sticks under the top bar while scrolling — reachable from
+  any point of a long page.
+- **Errors are always seen**: if an error appears off-screen, it's mirrored in
+  a red banner under the top bar (tap to jump to it). Works on every page.
+- **Invoice screen**: out-of-stock products show "غير متوفر في السيارة" and
+  can't be added; in-stock products are listed first; the newest added line
+  goes to the top; one-tap **recent clients**; client search also matches
+  phone and location.
+- **Register client**: location suggestions from existing clients; a gentle
+  warning if the phone number already belongs to a client.
+- **Dates** (from/to) always side by side on phones; long numbers scale and
+  wrap inside their card instead of breaking the layout.
+- Password eye sits on the right in both languages (no overlap).
+- Only one menu item is highlighted (e.g. «قاعدة العملاء» no longer lights
+  «لوحة المتابعة» too).
+
+## Executive dashboard
+- New hero with greeting, picture and name; sticky tab bar.
+- **ملخص العمليات**: sales trend first, then the period picker (اليوم، أمس،
+  آخر 7 أيام، آخر 30 يومًا، هذا الشهر، مخصص), then five headline cards
+  (units, invoices, sales value at cost, customers who bought, average
+  invoice at cost) each with ▲/▼ vs the previous period of the same length.
+- **العملاء والمسارات**: registered customers (all time) first, then the
+  period picker introducing the period-based part (routes, top 10).
+- Opens on the last 7 days.
+
+## Tests
+- `tests/run10.js` now 7 scenarios. All 10 suites pass.
+
+---
+
 # Round 3 — sales jobs by route, payment edit/search, paid on invoices, polish
 
 ## Sales staff: job and route chosen separately

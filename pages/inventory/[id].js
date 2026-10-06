@@ -280,7 +280,7 @@ export default function InventoryDocDetail() {
 
           {doc.status === "disputed" && doc.disputeReason && (
             <div className="mt-4 bg-red-50 rounded-lg p-3">
-              <p className="text-sm text-red-600 mb-1">سبب النزاع</p>
+              <p data-no-spotlight className="text-sm text-red-600 mb-1">سبب النزاع</p>
               <p className="text-base text-red-700">{doc.disputeReason}</p>
             </div>
           )}

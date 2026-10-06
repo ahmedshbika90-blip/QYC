@@ -13,7 +13,9 @@ export default function PasswordInput({ className = "", inputClassName = "", ...
   const hide = () => setShown(false);
   return (
     <div className={`relative ${className}`}>
-      <input {...props} type={shown ? "text" : "password"} dir="ltr" className={`${inputClassName} pe-12`} />
+      {/* The password is typed left-to-right in both languages, so the eye
+          sits on the physical right — never on top of the first characters. */}
+      <input {...props} type={shown ? "text" : "password"} dir="ltr" className={`${inputClassName} !pr-12`} />
       <button
         type="button"
         aria-label="اضغط مطولًا لإظهار كلمة المرور"
@@ -27,7 +29,7 @@ export default function PasswordInput({ className = "", inputClassName = "", ...
         onKeyDown={(e) => (e.key === " " || e.key === "Enter") && show(e)}
         onKeyUp={hide}
         onBlur={hide}
-        className="absolute inset-y-0 end-0 w-12 flex items-center justify-center text-muted hover:text-ink select-none touch-none"
+        className="absolute inset-y-0 right-0 w-12 flex items-center justify-center text-muted hover:text-ink select-none touch-none"
         style={{ WebkitTouchCallout: "none" }}
       >
         <Icon name={shown ? "eyeOff" : "eye"} size={20} />

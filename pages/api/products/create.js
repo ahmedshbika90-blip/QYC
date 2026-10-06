@@ -4,6 +4,7 @@ const { isValidRequestId } = require("../../../lib/requestId");
 const { createOnce } = require("../../../lib/idempotentCreate");
 const { parseDecimal, parseQty } = require("../../../lib/qty");
 const { PRODUCT_CATEGORIES, PRODUCT_UNITS } = require("../../../lib/constants");
+const { cleanEnglishName } = require("../../../lib/englishName");
 
 function fail(message) {
   const err = new Error(message);
@@ -39,7 +40,8 @@ export default async function handler(req, res) {
     const decoded = await requireUser(req);
     requireRole(decoded, ["manager"]);
 
-    const { name, unit, category, priceCar1, priceCar2, avgCost, openingStock, minStock, requestId } = req.body || {};
+    const { name, nameEn, unit, category, priceCar1, priceCar2, avgCost, openingStock, minStock, requestId } = req.body || {};
+    const cleanEn = cleanEnglishName(nameEn) || "";
     if (!isValidRequestId(requestId)) {
       return res.status(400).json({ error: "طلب غير صالح، يرجى تحديث الصفحة والمحاولة مرة أخرى" });
     }
@@ -52,6 +54,7 @@ export default async function handler(req, res) {
 
     const productDoc = {
       name: cleanName,
+      nameEn: cleanEn,
       unit,
       category,
       prices: {

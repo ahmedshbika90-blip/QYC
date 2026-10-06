@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { STORE_CLASSES } from "../lib/labels";
 import Icon from "./Icon";
+import DateFields from "./DateFields";
 import FilterChips from "./FilterChips";
 
 // Collapsible filter panel shared by invoices and clients. Every field is
@@ -90,23 +91,8 @@ export default function FilterPanel({
               ]}
             />
           )}
-          {onDateFromChange && (
-            <input
-              type="date"
-              value={dateFrom}
-              onChange={(e) => onDateFromChange(e.target.value)}
-              className={inputClass}
-              aria-label="من تاريخ"
-            />
-          )}
-          {onDateToChange && (
-            <input
-              type="date"
-              value={dateTo}
-              onChange={(e) => onDateToChange(e.target.value)}
-              className={inputClass}
-              aria-label="إلى تاريخ"
-            />
+          {onDateFromChange && onDateToChange && (
+            <DateFields className="sm:col-span-2" from={dateFrom} to={dateTo} onFrom={onDateFromChange} onTo={onDateToChange} />
           )}
           {onSampleFilterChange && (
             <select

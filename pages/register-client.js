@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "../lib/useAuth";
 import Nav from "../components/Nav";
 import Icon from "../components/Icon";
@@ -7,12 +7,19 @@ import SuccessScreen from "../components/SuccessScreen";
 import { PageLoading, Spinner } from "../components/Loading";
 import { normalizePhone } from "../lib/validation";
 import { apiFetch } from "../lib/apiFetch";
-import { invalidateClients } from "../lib/clientsStore";
+import { invalidateClients, getClients } from "../lib/clientsStore";
 import { useRequestId } from "../lib/useRequestId";
 import { STORE_CLASSES } from "../lib/labels";
 
 export default function RegisterClient() {
-  const { role, token, loading, logout } = useAuth();
+  const { user, role, token, loading, logout } = useAuth();
+  // Known clients (from the device cache) — used to suggest locations
+  // already in use and to warn when a phone number is already registered.
+  const [known, setKnown] = useState([]);
+  useEffect(() => {
+    if (token && user) getClients(apiFetch, token, user.uid).then(setKnown).catch(() => {});
+  }, [token, user]);
+  const locations = useMemo(() => [...new Set(known.map((c) => (c.location || "").trim()).filter(Boolean))].sort(), [known]);
   const [form, setForm] = useState({
     nameFirst: "",
     nameMiddle: "",
@@ -126,6 +133,7 @@ export default function RegisterClient() {
             <div className="grid grid-cols-3 gap-2">
               <input
                 type="text"
+                enterKeyHint="next"
                 value={form.nameFirst}
                 onChange={(e) => setForm({ ...form, nameFirst: e.target.value })}
                 className="w-full border rounded-lg px-3 h-12 text-base"
@@ -134,6 +142,7 @@ export default function RegisterClient() {
               />
               <input
                 type="text"
+                enterKeyHint="next"
                 value={form.nameMiddle}
                 onChange={(e) => setForm({ ...form, nameMiddle: e.target.value })}
                 className="w-full border rounded-lg px-3 h-12 text-base"
@@ -142,6 +151,7 @@ export default function RegisterClient() {
               />
               <input
                 type="text"
+                enterKeyHint="next"
                 value={form.nameLast}
                 onChange={(e) => setForm({ ...form, nameLast: e.target.value })}
                 className="w-full border rounded-lg px-3 h-12 text-base"
@@ -155,6 +165,7 @@ export default function RegisterClient() {
             <label className="block text-sm text-gray-600 mb-1">اسم المتجر</label>
             <input
               type="text"
+                enterKeyHint="next"
               value={form.storeName}
               onChange={(e) => setForm({ ...form, storeName: e.target.value })}
               className="w-full border rounded-lg px-3 h-12 text-base"
@@ -166,12 +177,19 @@ export default function RegisterClient() {
             <label className="block text-sm text-gray-600 mb-1">الموقع</label>
             <input
               type="text"
+                enterKeyHint="next"
               value={form.location}
               onChange={(e) => setForm({ ...form, location: e.target.value })}
               className="w-full border rounded-lg px-3 h-12 text-base"
               placeholder="مثال: العمارات، شارع ١٥"
+              list="known-locations"
+              autoComplete="off"
               required
             />
+            <datalist id="known-locations">
+              {locations.map((l) => <option key={l} value={l} />)}
+            </datalist>
+            {locations.length > 0 && <p className="text-xs text-muted mt-1">اكتب أول حرفين لتظهر المواقع المسجلة من قبل.</p>}
           </div>
 
           <div>
@@ -188,6 +206,11 @@ export default function RegisterClient() {
               placeholder="0912345678"
               required
             />
+            {form.phone.length === 10 && known.find((c) => c.phone === form.phone) && (
+              <p className="text-xs text-amber-700 bg-amber-50 rounded-lg px-2.5 py-1.5 mt-1.5">
+                هذا الرقم مسجّل للعميل «{known.find((c) => c.phone === form.phone).name}» — تأكد أنه ليس نفس العميل.
+              </p>
+            )}
           </div>
 
           <div>

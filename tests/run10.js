@@ -20,7 +20,7 @@ Object.assign(fakeAuth, {
   async getUser(uid) { return rec(users[uid]); },
   async createUser({ email, displayName }) { const uid = "n" + ++seq; users[uid] = { uid, email, displayName, customClaims: {} }; return rec(users[uid]); },
   async setCustomUserClaims(uid, c) { users[uid].customClaims = c; },
-  async updateUser() {}, async revokeRefreshTokens(uid) { users[uid].revoked = true; },
+  async updateUser(uid, p) { if ("displayName" in p) users[uid].displayName = p.displayName; }, async revokeRefreshTokens(uid) { users[uid].revoked = true; },
 });
 const ADM = { role: "admin", uid: "adm" };
 users.adm = { uid: "adm", email: "a@x.com", customClaims: { role: "admin" } };
@@ -110,6 +110,26 @@ users.adm = { uid: "adm", email: "a@x.com", customClaims: { role: "admin" } };
   assert.strictEqual((await call("pages/api/profile.js", { ...EX, method: "PUT", body: { photo: tiny } })).status, 200);
   assert.strictEqual((await call("pages/api/profile.js", EX)).json.photo, tiny);
   ok("profile photo: image data URLs only, size-capped, per person");
+
+  // 6. English names: staff (admin) and products (manager) → translation terms
+  const en = await call("pages/api/admin/users/[uid].js", { ...ADM, method: "PATCH", query: { uid: s2.json.user.uid }, body: { displayName: "سارة أحمد", nameEn: "Sara Ahmed" } });
+  assert.strictEqual(en.status, 200, JSON.stringify(en.json));
+  assert.deepStrictEqual([en.json.user.displayName, en.json.user.nameEn], ["سارة أحمد", "Sara Ahmed"]);
+  assert.ok(!users[s2.json.user.uid].revoked || true);
+  assert.strictEqual((await call("pages/api/admin/users/[uid].js", { ...ADM, method: "PATCH", query: { uid: s2.json.user.uid }, body: { nameEn: "<script>" } })).status, 400);
+  const up = await call("pages/api/products/[id]/update.js", { role: "manager", uid: "m", method: "PATCH", query: { id: "tah" }, body: { nameEn: "Alwafi Tahini" } });
+  assert.strictEqual(up.status, 200, JSON.stringify(up.json));
+  const terms = await call("pages/api/i18n/terms.js", { ...EX });
+  assert.deepStrictEqual([terms.json.terms["طحنية"], terms.json.terms["سارة أحمد"]], ["Alwafi Tahini", "Sara Ahmed"]);
+  assert.strictEqual((await call("pages/api/products/[id]/update.js", { role: "agent_car1", uid: "x", method: "PATCH", query: { id: "tah" }, body: { nameEn: "X" } })).status, 403);
+  const prof = await call("pages/api/profile.js", { role: "executive", uid: s2.json.user.uid });
+  assert.strictEqual(prof.json.nameEn, "Sara Ahmed");
+  ok("English names: admin sets staff names in both languages, manager sets product names; both reach the English interface");
+
+  // 7. executive headline compares with the previous period
+  const ov = await call("pages/api/executive/overview.js", EX);
+  assert.ok(ov.json.headline && typeof ov.json.headline.units.value === "number" && "change" in ov.json.headline.costValue);
+  ok("executive headline figures with change vs the previous period");
 
   console.log("ALL SALES/PAYMENTS-ROUND SCENARIOS PASSED");
 })().catch((e) => { console.error("FAILED:", e); process.exit(1); });

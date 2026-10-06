@@ -57,7 +57,7 @@ function RoleBadge({ role, route }) {
 }
 
 function NewAccount({ token, onCreated, onCancel }) {
-  const [form, setForm] = useState({ displayName: "", email: "", password: "", role: "", route: "" });
+  const [form, setForm] = useState({ displayName: "", nameEn: "", email: "", password: "", role: "", route: "" });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
@@ -88,8 +88,12 @@ function NewAccount({ token, onCreated, onCancel }) {
       {error && <p role="alert" className="text-sm text-red-600 bg-red-50 rounded-xl px-3 py-2">{error}</p>}
       <div className="grid gap-3 sm:grid-cols-2">
         <label className="flex flex-col gap-1.5 text-sm font-medium text-ink-soft">
-          الاسم
+          الاسم بالعربية
           <input value={form.displayName} onChange={set("displayName")} maxLength={60} className={field} placeholder="مثال: يونس أحمد" />
+        </label>
+        <label className="flex flex-col gap-1.5 text-sm font-medium text-ink-soft">
+          الاسم بالإنجليزية (اختياري)
+          <input dir="ltr" value={form.nameEn} onChange={set("nameEn")} maxLength={80} className={`${field} text-start`} placeholder="e.g. Younis Ahmed" data-no-translate />
         </label>
         <label className="flex flex-col gap-1.5 text-sm font-medium text-ink-soft">
           البريد الإلكتروني
@@ -122,40 +126,56 @@ function NewAccount({ token, onCreated, onCancel }) {
   );
 }
 
+// One account. Read-only until "تعديل" is pressed: then name (Arabic and
+// English), job and route can be changed and saved together — so nothing
+// changes by an accidental tap on a select box.
 function AccountRow({ u, me, token, onSaved, onError }) {
-  const [role, setRole] = useState(u.job || "");
-  const [route, setRoute] = useState(u.route || "");
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(null);
   const [busy, setBusy] = useState("");
   const [pwOpen, setPwOpen] = useState(false);
   const [pw, setPw] = useState("");
   const isMe = u.uid === me;
-  useEffect(() => {
-    setRole(u.job || "");
-    setRoute(u.route || "");
-  }, [u.job, u.route]);
+  const who = u.displayName || u.email;
+
+  function startEdit() {
+    setDraft({ displayName: u.displayName || "", nameEn: u.nameEn || "", role: u.job || "", route: u.route || "" });
+    setEditing(true);
+    setPwOpen(false);
+  }
 
   async function patch(kind, body, confirmText) {
-    if (confirmText && !window.confirm(confirmText)) return;
+    if (confirmText && !window.confirm(confirmText)) return false;
     setBusy(kind);
     try {
       const { user } = await send(token, `/api/admin/users/${encodeURIComponent(u.uid)}`, "PATCH", body);
       onSaved(user, kind);
-      if (kind === "password") {
-        setPw("");
-        setPwOpen(false);
-      }
+      return true;
     } catch (err) {
       onError(err.message);
-      setRole(u.job || "");
-      setRoute(u.route || "");
+      return false;
     } finally {
       setBusy("");
     }
   }
 
-  const roleChanged = (role || null) !== (u.job || null) || (isSales(role) && route !== (u.route || "")) || Boolean(u.legacyRole);
-  const sameAsBefore = (role || null) === (u.job || null) && (!isSales(role) || route === u.route);
-  const def = ROLE_DEFS.find((r) => r.id === role);
+  async function save(e) {
+    e.preventDefault();
+    const body = {};
+    if (draft.displayName.trim() !== (u.displayName || "")) body.displayName = draft.displayName;
+    if (draft.nameEn.trim() !== (u.nameEn || "")) body.nameEn = draft.nameEn;
+    const roleChanged = (draft.role || null) !== (u.job || null) || (isSales(draft.role) && draft.route !== (u.route || ""));
+    if (!isMe && (roleChanged || u.legacyRole)) {
+      if (isSales(draft.role) && !draft.route) return onError("اختر المسار: جملة أو تجزئة");
+      body.role = draft.role || null;
+      body.route = isSales(draft.role) ? draft.route : null;
+    }
+    if (!Object.keys(body).length) return setEditing(false);
+    const confirmText = roleChanged && !isMe ? `تغيير صلاحية ${who} إلى «${jobLabel(draft.role, draft.route)}»؟ سيُسجَّل خروجه من كل أجهزته.` : null;
+    if (await patch("save", body, confirmText)) setEditing(false);
+  }
+
+  const def = ROLE_DEFS.find((r) => r.id === (editing ? draft.role : u.job));
 
   return (
     <li className={`p-4 sm:p-5 flex flex-col gap-3 ${u.disabled ? "opacity-70" : ""}`}>
@@ -166,70 +186,92 @@ function AccountRow({ u, me, token, onSaved, onError }) {
             {isMe && <span className="text-xs text-muted font-normal">(أنت)</span>}
             {u.disabled && <span className="h-6 px-2.5 rounded-full text-xs font-semibold inline-flex items-center bg-red-100 text-red-700">موقوف</span>}
           </p>
+          {u.nameEn && <p className="text-sm text-ink-soft mt-0.5" dir="ltr" style={{ textAlign: "start" }} data-no-translate>{u.nameEn}</p>}
           {u.displayName && <p className="text-sm text-muted mt-0.5" dir="ltr" style={{ textAlign: "start" }}>{u.email}</p>}
           <p className="text-xs text-muted mt-1">آخر دخول: {u.lastSignIn ? formatDateTime(u.lastSignIn) : "لم يدخل بعد"}</p>
         </div>
-        <RoleBadge role={u.job} route={u.route} />
-      </div>
-
-      <div className="flex flex-wrap items-end gap-2">
-        <label className="flex-1 min-w-[220px] flex flex-col gap-1 text-xs font-semibold text-muted">
-          الصلاحية
-          <select value={role} disabled={isMe || !!busy} onChange={(e) => setRole(e.target.value)} className={field}>
-            <option value="">بدون صلاحية</option>
-            {ROLE_DEFS.map((r) => <option key={r.id} value={r.id}>{r.label}</option>)}
-          </select>
-        </label>
-        {roleChanged && !isMe && (
-          <button
-            type="button"
-            disabled={!!busy}
-            onClick={() => {
-              if (isSales(role) && !route) return onError("اختر المسار: جملة أو تجزئة");
-              patch("role", { role: role || null, route: isSales(role) ? route : null }, sameAsBefore ? null : `تغيير صلاحية ${u.displayName || u.email} إلى «${jobLabel(role, route)}»؟ سيُسجَّل خروجه من كل أجهزته.`);
-            }}
-            className="h-11 px-4 rounded-xl bg-accent text-on-accent font-semibold text-sm flex items-center gap-2 disabled:opacity-60"
-          >
-            {busy === "role" && <Spinner className="w-4 h-4" />}
-            حفظ الصلاحية
-          </button>
-        )}
-      </div>
-      {isSales(role) && !isMe && <RouteSelect value={route} onChange={setRoute} disabled={!!busy} />}
-      {def && <p className="text-xs text-muted -mt-1">{def.hint}</p>}
-      {u.legacyRole && <p className="text-xs text-amber-700">مسجّل بالصيغة القديمة — راجع الصلاحية والمسار ثم اضغط «حفظ الصلاحية».</p>}
-
-      {!isMe && (
-        <div className="flex flex-wrap gap-2">
-          <button
-            type="button"
-            disabled={!!busy}
-            onClick={() => patch("disabled", { disabled: !u.disabled }, u.disabled ? null : `إيقاف حساب ${u.displayName || u.email}؟ لن يستطيع الدخول حتى تعيد تفعيله.`)}
-            className={`h-10 px-3.5 rounded-xl text-sm font-semibold border flex items-center gap-2 ${u.disabled ? "border-accent text-accent-ink" : "border-red-200 text-red-700"}`}
-          >
-            {busy === "disabled" && <Spinner className="w-4 h-4" />}
-            <Icon name={u.disabled ? "check" : "lock"} size={16} />
-            {u.disabled ? "إعادة التفعيل" : "إيقاف الحساب"}
-          </button>
-          <button type="button" onClick={() => setPwOpen((v) => !v)} className="h-10 px-3.5 rounded-xl text-sm font-semibold border border-line text-ink-soft flex items-center gap-2">
-            <Icon name="pencil" size={16} />
-            كلمة مرور جديدة
-          </button>
+        <div className="flex items-center gap-2">
+          <RoleBadge role={u.job} route={u.route} />
+          {!editing && (
+            <button type="button" onClick={startEdit} className="h-9 px-3.5 rounded-xl border border-line text-sm font-semibold text-ink-soft flex items-center gap-1.5 hover:border-accent hover:text-accent-ink">
+              <Icon name="pencil" size={15} />
+              تعديل
+            </button>
+          )}
         </div>
-      )}
-      {pwOpen && (
-        <form
-          className="flex flex-wrap gap-2"
-          onSubmit={(e) => {
-            e.preventDefault();
-            patch("password", { password: pw }, `تعيين كلمة مرور جديدة لـ ${u.displayName || u.email}؟ سيُسجَّل خروجه من كل أجهزته.`);
-          }}
-        >
-          <PasswordInput minLength={8} required value={pw} onChange={(e) => setPw(e.target.value)} placeholder="8 أحرف على الأقل" className="flex-1 min-w-[200px]" inputClassName={field} autoComplete="new-password" />
-          <button disabled={!!busy} className="h-11 px-4 rounded-xl bg-gray-800 text-white text-sm font-semibold flex items-center gap-2 disabled:opacity-60">
-            {busy === "password" && <Spinner className="w-4 h-4" />}
-            تعيين
-          </button>
+      </div>
+      {!editing && def && <p className="text-xs text-muted -mt-1">{def.hint}</p>}
+      {!editing && u.legacyRole && <p className="text-xs text-amber-700">مسجّل بالصيغة القديمة — اضغط «تعديل» ثم «حفظ» لتحديثه.</p>}
+
+      {editing && (
+        <form onSubmit={save} className="rounded-2xl bg-surface-2 p-4 flex flex-col gap-3">
+          <div className="grid gap-3 sm:grid-cols-2">
+            <label className="flex flex-col gap-1 text-xs font-semibold text-muted">
+              الاسم بالعربية
+              <input value={draft.displayName} onChange={(e) => setDraft({ ...draft, displayName: e.target.value })} maxLength={60} className={field} />
+            </label>
+            <label className="flex flex-col gap-1 text-xs font-semibold text-muted">
+              الاسم بالإنجليزية
+              <input dir="ltr" value={draft.nameEn} onChange={(e) => setDraft({ ...draft, nameEn: e.target.value })} maxLength={80} placeholder="e.g. Ahmed Ali" className={`${field} text-start`} data-no-translate />
+            </label>
+          </div>
+          {!isMe && (
+            <label className="flex flex-col gap-1 text-xs font-semibold text-muted">
+              الصلاحية
+              <select value={draft.role} onChange={(e) => setDraft({ ...draft, role: e.target.value })} className={field}>
+                <option value="">بدون صلاحية</option>
+                {ROLE_DEFS.map((r) => <option key={r.id} value={r.id}>{r.label}</option>)}
+              </select>
+            </label>
+          )}
+          {!isMe && isSales(draft.role) && <RouteSelect value={draft.route} onChange={(route) => setDraft({ ...draft, route })} disabled={!!busy} />}
+          {def && <p className="text-xs text-muted">{def.hint}</p>}
+          {isMe && <p className="text-xs text-muted">لا يمكنك تغيير صلاحية حسابك أنت.</p>}
+          <div className="grid grid-cols-2 gap-2">
+            <button type="button" onClick={() => setEditing(false)} className="h-11 rounded-xl border border-line bg-white font-semibold text-ink-soft">إلغاء</button>
+            <button disabled={!!busy} className="h-11 rounded-xl bg-accent text-on-accent font-semibold flex items-center justify-center gap-2 disabled:opacity-60">
+              {busy === "save" && <Spinner className="w-4 h-4" />}
+              حفظ
+            </button>
+          </div>
+
+          {!isMe && (
+            <div className="border-t border-line pt-3 flex flex-wrap gap-2">
+              <button
+                type="button"
+                disabled={!!busy}
+                onClick={() => patch("disabled", { disabled: !u.disabled }, u.disabled ? null : `إيقاف حساب ${who}؟ لن يستطيع الدخول حتى تعيد تفعيله.`)}
+                className={`h-10 px-3.5 rounded-xl text-sm font-semibold border bg-white flex items-center gap-2 ${u.disabled ? "border-accent text-accent-ink" : "border-red-200 text-red-700"}`}
+              >
+                {busy === "disabled" && <Spinner className="w-4 h-4" />}
+                <Icon name={u.disabled ? "check" : "lock"} size={16} />
+                {u.disabled ? "إعادة التفعيل" : "إيقاف الحساب"}
+              </button>
+              <button type="button" onClick={() => setPwOpen((v) => !v)} className="h-10 px-3.5 rounded-xl text-sm font-semibold border border-line bg-white text-ink-soft flex items-center gap-2">
+                <Icon name="lock" size={16} />
+                كلمة مرور جديدة
+              </button>
+            </div>
+          )}
+          {pwOpen && (
+            <div className="flex flex-wrap gap-2">
+              <PasswordInput minLength={8} value={pw} onChange={(e) => setPw(e.target.value)} placeholder="8 أحرف على الأقل" className="flex-1 min-w-[200px]" inputClassName={field} autoComplete="new-password" />
+              <button
+                type="button"
+                disabled={!!busy || pw.length < 8}
+                onClick={async () => {
+                  if (await patch("password", { password: pw }, `تعيين كلمة مرور جديدة لـ ${who}؟ سيُسجَّل خروجه من كل أجهزته.`)) {
+                    setPw("");
+                    setPwOpen(false);
+                  }
+                }}
+                className="h-11 px-4 rounded-xl bg-gray-800 text-white text-sm font-semibold flex items-center gap-2 disabled:opacity-60"
+              >
+                {busy === "password" && <Spinner className="w-4 h-4" />}
+                تعيين
+              </button>
+            </div>
+          )}
         </form>
       )}
     </li>
@@ -260,7 +302,7 @@ function AuditList({ token }) {
     if (d.disabled === true) parts.push("إيقاف الحساب");
     if (d.disabled === false) parts.push("إعادة التفعيل");
     if (d.password) parts.push("كلمة مرور جديدة");
-    if (d.displayName !== undefined) parts.push("تعديل الاسم");
+    if (d.displayName !== undefined || d.nameEn !== undefined) parts.push("تعديل الاسم");
     return parts.join(" · ");
   };
   return (
@@ -315,13 +357,13 @@ export default function AdminUsers() {
     const s = q.trim().toLowerCase();
     return (users || []).filter((u) => {
       if (roleFilter !== "all" && (u.job || "none") !== roleFilter) return false;
-      return !s || u.email.toLowerCase().includes(s) || u.displayName.toLowerCase().includes(s);
+      return !s || u.email.toLowerCase().includes(s) || u.displayName.toLowerCase().includes(s) || (u.nameEn || "").toLowerCase().includes(s);
     });
   }, [users, q, roleFilter]);
 
   function saved(u, kind) {
     setUsers((list) => list.map((x) => (x.uid === u.uid ? u : x)));
-    setToast(kind === "password" ? "تم تعيين كلمة المرور" : kind === "disabled" ? (u.disabled ? "تم إيقاف الحساب" : "تم تفعيل الحساب") : "تم حفظ الصلاحية");
+    setToast(kind === "password" ? "تم تعيين كلمة المرور" : kind === "disabled" ? (u.disabled ? "تم إيقاف الحساب" : "تم تفعيل الحساب") : "تم حفظ التعديلات");
   }
 
   if (loading) return <PageLoading />;

@@ -2,6 +2,7 @@ const { adminDb } = require("../../../../lib/firebaseAdmin");
 const { requireUser, requireRole } = require("../../../../lib/apiAuth");
 const { parseDecimal, parseQty } = require("../../../../lib/qty");
 const { PRODUCT_CATEGORIES, PRODUCT_UNITS } = require("../../../../lib/constants");
+const { cleanEnglishName } = require("../../../../lib/englishName");
 
 function fail(message) {
   const err = new Error(message);
@@ -33,7 +34,7 @@ export default async function handler(req, res) {
     requireRole(decoded, ["manager"]);
 
     const { id } = req.query;
-    const { name, unit, category, active, priceCar1, priceCar2, depotStock, avgCost, minStock } = req.body || {};
+    const { name, nameEn, unit, category, active, priceCar1, priceCar2, depotStock, avgCost, minStock } = req.body || {};
 
     const ref = adminDb.collection("products").doc(id);
     const snap = await ref.get();
@@ -43,6 +44,7 @@ export default async function handler(req, res) {
     const product = snap.data();
 
     const updates = { updatedAt: new Date().toISOString(), updatedBy: decoded.uid };
+    if (nameEn !== undefined) updates.nameEn = cleanEnglishName(nameEn);
     if (name !== undefined) {
       const clean = String(name).trim();
       if (!clean) throw fail("اسم المنتج مطلوب");

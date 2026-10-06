@@ -220,7 +220,17 @@ export default function Nav({ role, logout }) {
   const hasTabbar = layout.tabs.length > 0;
   const countFor = (link) => (link.badge ? counts[link.badge] || 0 : 0);
   const moreCount = layout.more.reduce((n, l) => n + countFor(l), 0);
-  const moreActive = layout.more.some((l) => isActive(router.pathname, l.href, l.also));
+  // Only ONE item is lit: when several match (e.g. /executive and
+  // /executive/customers), the most specific link wins.
+  const allLinks = [...layout.tabs, ...layout.more, ...layout.desktop, ...(layout.center ? [layout.center] : [])];
+  const matchLen = (l) => {
+    if ((l.also || []).some((p) => router.pathname === p || router.pathname.startsWith(p + "/"))) return 1000;
+    return isActive(router.pathname, l.href) ? (l.href || "").length : -1;
+  };
+  const best = allLinks.reduce((b, l) => (matchLen(l) > matchLen(b || {}) ? l : b), null);
+  const activeHref = best && matchLen(best) >= 0 ? best.href : null;
+  const linkActive = (l) => l.href === activeHref;
+  const moreActive = layout.more.some(linkActive);
 
   // Tell the page to leave room for the fixed tab bar on phones.
   useEffect(() => {
@@ -267,7 +277,7 @@ export default function Nav({ role, logout }) {
           {/* Desktop links */}
           <nav aria-label="التنقل الرئيسي" className="hidden md:flex items-center gap-0.5 min-w-0 overflow-x-auto no-scrollbar">
             {layout.desktop.map((link) => {
-              const active = isActive(router.pathname, link.href, link.also);
+              const active = linkActive(link);
               const n = countFor(link);
               return (
                 <Link
@@ -348,7 +358,7 @@ export default function Nav({ role, logout }) {
                   </button>
                 );
               }
-              const active = isActive(router.pathname, link.href, link.also);
+              const active = linkActive(link);
               const n = countFor(link);
               return (
                 <Link
@@ -383,7 +393,7 @@ export default function Nav({ role, logout }) {
             <div className="flex flex-col">
               {layout.more.map((link) => {
                 const n = countFor(link);
-                const active = isActive(router.pathname, link.href, link.also);
+                const active = linkActive(link);
                 return (
                   <Link
                     key={link.href}

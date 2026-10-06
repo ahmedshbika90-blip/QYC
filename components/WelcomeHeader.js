@@ -4,6 +4,7 @@ import { Spinner } from "./Loading";
 import { apiFetch } from "../lib/apiFetch";
 import { getAuthFlags } from "../lib/authFlags";
 import { formatDate } from "../lib/labels";
+import { useLang } from "../lib/i18n";
 
 // A quiet greeting at the top of the executive's dashboard: profile picture
 // (tap to change), "good morning / evening" and the person's first name.
@@ -38,9 +39,13 @@ function resize(file) {
   });
 }
 
-export default function WelcomeHeader({ token, subtitle }) {
+export default function WelcomeHeader({ token, subtitle, dark = false }) {
   const { name, email, uid } = getAuthFlags();
-  const first = (name || email.split("@")[0] || "").trim().split(/\s+/)[0];
+  const lang = useLang();
+  const [nameEn, setNameEn] = useState("");
+  // English interface → the English name the admin entered (if any).
+  const shown = lang === "en" && nameEn ? nameEn : name;
+  const first = (shown || email.split("@")[0] || "").trim().split(/\s+/)[0];
   const [photo, setPhoto] = useState(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -58,6 +63,7 @@ export default function WelcomeHeader({ token, subtitle }) {
       .then((r) => r.json())
       .then((d) => {
         setPhoto(d.photo || null);
+        setNameEn(d.nameEn || "");
         try {
           if (d.photo) localStorage.setItem(PHOTO_KEY(uid), d.photo);
           else localStorage.removeItem(PHOTO_KEY(uid));
@@ -102,7 +108,7 @@ export default function WelcomeHeader({ token, subtitle }) {
       <button
         type="button"
         onClick={() => input.current?.click()}
-        className="relative w-16 h-16 md:w-[72px] md:h-[72px] rounded-full shrink-0 overflow-hidden bg-accent-soft text-accent-ink flex items-center justify-center ring-4 ring-white shadow group"
+        className={`relative w-16 h-16 md:w-[76px] md:h-[76px] rounded-full shrink-0 overflow-hidden flex items-center justify-center shadow group ${dark ? "bg-white/15 text-white ring-4 ring-white/30" : "bg-accent-soft text-accent-ink ring-4 ring-white"}`}
         aria-label={photo ? "تغيير الصورة الشخصية" : "إضافة صورة شخصية"}
         title={photo ? "تغيير الصورة الشخصية" : "إضافة صورة شخصية"}
       >
@@ -123,11 +129,11 @@ export default function WelcomeHeader({ token, subtitle }) {
       </button>
       <input ref={input} type="file" accept="image/*" className="hidden" onChange={pick} />
       <div className="min-w-0">
-        <p className="text-sm text-muted m-0">{subtitle || formatDate(new Date().toISOString())}</p>
-        <h1 className="font-display text-[26px] md:text-[30px] leading-tight font-bold text-ink mt-0.5">
+        <p className={`text-sm m-0 ${dark ? "text-white/80" : "text-muted"}`}>{subtitle || formatDate(new Date().toISOString())}</p>
+        <h1 className={`font-display text-[24px] md:text-[32px] leading-tight font-bold mt-0.5 ${dark ? "text-white" : "text-ink"}`}>
           {greeting()}{first ? <>، <span data-no-translate>{first}</span></> : ""}
         </h1>
-        {error && <p role="alert" className="text-xs text-red-600 mt-1">{error}</p>}
+        {error && <p role="alert" className={`text-xs mt-1 ${dark ? "text-white bg-red-600/80 rounded px-2 py-1" : "text-red-600"}`}>{error}</p>}
       </div>
     </div>
   );

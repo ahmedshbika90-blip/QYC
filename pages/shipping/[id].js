@@ -172,13 +172,13 @@ export default function ShippingDetail() {
 
           {r.status === "cancelled" && (
             <div className="bg-red-50 rounded-xl p-3">
-              <p className="text-xs text-red-600 font-semibold mb-1">ألغاه أمين المخزن — {formatDateTime(r.cancelledAt)}</p>
+              <p data-no-spotlight className="text-xs text-red-600 font-semibold mb-1">ألغاه أمين المخزن — {formatDateTime(r.cancelledAt)}</p>
               <p className="text-base text-ink">{r.cancelNote}</p>
             </div>
           )}
           {r.status === "rejected" && r.car1Decision?.note && (
             <div className="bg-red-50 rounded-xl p-3">
-              <p className="text-xs text-red-600 font-semibold mb-1">سبب الرفض</p>
+              <p data-no-spotlight className="text-xs text-red-600 font-semibold mb-1">سبب الرفض</p>
               <p className="text-base text-ink">{r.car1Decision.note}</p>
             </div>
           )}

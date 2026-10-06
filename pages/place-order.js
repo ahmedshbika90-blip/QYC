@@ -235,12 +235,22 @@ export default function PlaceOrder() {
       return (
         c.id.includes(needle) ||
         c.name.toLowerCase().includes(needle) ||
-        c.storeName.toLowerCase().includes(needle)
+        c.storeName.toLowerCase().includes(needle) ||
+        (c.phone || "").includes(needle) ||
+        (c.location || "").toLowerCase().includes(needle)
       );
     })
     .slice(0, 8);
 
+  // The last few clients invoiced on this device, as one-tap shortcuts.
+  const recentKey = user ? `recentClients:${user.uid}` : null;
+  const recentClients = (recentKey ? readJSON(recentKey, []) : [])
+    .map((id) => clients.find((c) => c.id === id))
+    .filter(Boolean)
+    .slice(0, 5);
+
   function pickClient(c) {
+    if (recentKey) writeJSON(recentKey, [c.id, ...readJSON(recentKey, []).filter((id) => id !== c.id)].slice(0, 8));
     setSelectedClient(c);
     setClientQuery("");
     setClientDropdownOpen(false);
@@ -254,13 +264,16 @@ export default function PlaceOrder() {
   }
 
   const cartProductIds = new Set(cart.map((it) => it.productId));
+  // In stock first; Arabic or English name both match.
   const filteredProducts = products
     .filter((p) => !cartProductIds.has(p.id))
     .filter((p) => {
       if (!productQuery) return true;
-      return p.name.toLowerCase().includes(productQuery.toLowerCase());
+      const q = productQuery.toLowerCase().trim();
+      return p.name.toLowerCase().includes(q) || (p.nameEn || "").toLowerCase().includes(q);
     })
-    .slice(0, 8);
+    .sort((a, b) => (stockFor(b) > 0) - (stockFor(a) > 0))
+    .slice(0, 10);
 
   function priceFor(product) {
     return selectedClient ? product.prices?.[selectedClient.route] : undefined;
@@ -270,9 +283,11 @@ export default function PlaceOrder() {
     return selectedClient ? product.stock?.[selectedClient.route] ?? 0 : 0;
   }
 
+  // Newest line goes on TOP, so what was just added is right under the
+  // search box. Out-of-stock products can't be added (button disabled).
   function addProduct(p) {
+    if (stockFor(p) <= 0) return;
     setCart((prev) => [
-      ...prev,
       {
         productId: p.id,
         name: p.name,
@@ -283,6 +298,7 @@ export default function PlaceOrder() {
         freeSample: false,
         available: stockFor(p),
       },
+      ...prev,
     ]);
     setProductQuery("");
     setProductDropdownOpen(false);
@@ -471,7 +487,7 @@ export default function PlaceOrder() {
                       <p className="text-sm text-gray-800 truncate">{q.clientLabel}</p>
                       <p className="text-xs text-gray-500">الإجمالي: {formatNumber(q.total || 0)}</p>
                       {q.rejected && (
-                        <p className="text-xs text-red-600 mt-0.5">رُفضت: {q.rejected}</p>
+                        <p data-no-spotlight className="text-xs text-red-600 mt-0.5">رُفضت: {q.rejected}</p>
                       )}
                     </div>
                     {q.rejected && (
@@ -557,9 +573,24 @@ export default function PlaceOrder() {
                         setClientDropdownOpen(true);
                       }}
                       onFocus={() => setClientDropdownOpen(true)}
-                      placeholder="ابحث بالاسم أو المتجر أو الرقم..."
+                      placeholder="ابحث بالاسم أو المتجر أو الرقم أو الهاتف..."
                       className="w-full border rounded-lg px-3 h-12 text-base"
                     />
+                    {!clientQuery && recentClients.length > 0 && (
+                      <div className="flex gap-2 overflow-x-auto no-scrollbar mt-2 pb-1" aria-label="آخر العملاء">
+                        <span className="text-xs text-muted shrink-0 self-center">آخر العملاء:</span>
+                        {recentClients.map((c) => (
+                          <button
+                            key={c.id}
+                            type="button"
+                            onClick={() => pickClient(c)}
+                            className="shrink-0 h-9 px-3 rounded-full border border-line bg-white text-sm text-ink-soft active:bg-surface-2"
+                          >
+                            {c.name} <span className="num text-xs text-muted">#{c.id}</span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
                     {clientDropdownOpen && (
                       <div className="absolute z-10 mt-1 w-full bg-white border rounded-lg shadow-lg max-h-64 overflow-y-auto">
                         {filteredClients.length === 0 ? (
@@ -607,19 +638,32 @@ export default function PlaceOrder() {
                         {filteredProducts.length === 0 ? (
                           <p className="px-3 py-3 text-sm text-gray-400">لا توجد منتجات مطابقة</p>
                         ) : (
-                          filteredProducts.map((p) => (
-                            <button
-                              type="button"
-                              key={p.id}
-                              onClick={() => addProduct(p)}
-                              className="w-full text-start px-3 py-3 text-base active:bg-gray-100 border-b last:border-0 flex justify-between min-h-[44px]"
-                            >
-                              <span>{p.name}</span>
-                              <span className="text-gray-400 text-sm">
-                                {priceFor(p) != null ? formatNumber(priceFor(p)) : "—"} / {p.unit} · المتاح: {formatQty(stockFor(p))}
-                              </span>
-                            </button>
-                          ))
+                          filteredProducts.map((p) => {
+                            const none = stockFor(p) <= 0;
+                            return (
+                              <button
+                                type="button"
+                                key={p.id}
+                                disabled={none}
+                                aria-disabled={none}
+                                onClick={() => addProduct(p)}
+                                className={`w-full text-start px-3 py-3 text-base border-b last:border-0 flex justify-between items-center gap-3 min-h-[44px] ${
+                                  none ? "cursor-not-allowed bg-surface-2/60" : "active:bg-gray-100"
+                                }`}
+                              >
+                                <span className={`min-w-0 truncate ${none ? "text-muted" : ""}`}>{p.name}</span>
+                                {none ? (
+                                  <span className="shrink-0 text-xs font-semibold text-amber-700 bg-amber-50 rounded-full px-2.5 h-6 flex items-center">
+                                    غير متوفر في السيارة
+                                  </span>
+                                ) : (
+                                  <span className="text-gray-400 text-sm shrink-0">
+                                    {priceFor(p) != null ? formatNumber(priceFor(p)) : "—"} / {p.unit} · المتاح: {formatQty(stockFor(p))}
+                                  </span>
+                                )}
+                              </button>
+                            );
+                          })
                         )}
                       </div>
                     )}

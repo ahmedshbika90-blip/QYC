@@ -5,6 +5,7 @@ import { useAuth } from "../../lib/useAuth";
 import Nav from "../../components/Nav";
 import Icon from "../../components/Icon";
 import StockBoard from "../../components/StockBoard";
+import DateFields from "../../components/DateFields";
 import WelcomeHeader from "../../components/WelcomeHeader";
 import { DateRange, Section, TrendChart } from "../../components/SupervisorDashboard";
 import { DonutChart, PieChart, BarList, Split, pctText } from "../../components/ExecCharts";
@@ -32,7 +33,7 @@ const GROUP_COLOR = { alwafi: V("p1"), snacks: V("p3"), other: V("p5") };
 const PRODUCT_COLORS = ["p1", "p3", "p2", "p4", "p5", "p6"];
 // SDG amounts always carry two decimals.
 const money = (n) => (Number(n) || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-const Card = ({ className = "", children }) => <div className={`bg-white rounded-2xl shadow min-w-0 ${className}`}>{children}</div>;
+const Card = ({ className = "", children }) => <div className={`exec-card min-w-0 ${className}`}>{children}</div>;
 
 function useGet(token, url, liveKeys) {
   const [data, setData] = useState(null);
@@ -68,11 +69,121 @@ function ErrorBox({ error, onRetry }) {
   );
 }
 
+/* ── period picker: quick choices + custom dates ─────────────────────── */
+
+const addDaysYmd = (ymd, n) => {
+  const d = new Date(`${ymd}T12:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + n);
+  return d.toISOString().slice(0, 10);
+};
+function presets() {
+  const t = todayYmd();
+  return [
+    { id: "today", label: "اليوم", from: t, to: t },
+    { id: "yesterday", label: "أمس", from: addDaysYmd(t, -1), to: addDaysYmd(t, -1) },
+    { id: "7", label: "آخر 7 أيام", from: addDaysYmd(t, -6), to: t },
+    { id: "30", label: "آخر 30 يومًا", from: addDaysYmd(t, -29), to: t },
+    { id: "month", label: "هذا الشهر", from: `${t.slice(0, 8)}01`, to: t },
+  ];
+}
+
+function PeriodPicker({ range, onChange, title = "الفترة" }) {
+  const list = presets();
+  const match = list.find((p) => p.from === range.from && p.to === range.to);
+  const [custom, setCustom] = useState(!match);
+  const today = todayYmd();
+  const period = { fromYmd: range.from, toYmd: range.to, from: `${range.from}T12:00:00+02:00`, ...(range.from === range.to ? {} : { to: `${range.to}T12:00:00+02:00` }) };
+  return (
+    <div className="exec-card p-4 md:p-5 flex flex-col gap-3">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="text-sm font-bold text-ink flex items-center gap-2">
+          <Icon name="calendar" size={18} className="text-accent-ink" />
+          {title}
+        </p>
+        <p className="text-sm text-muted">{rangeText(period)}</p>
+      </div>
+      <div className="flex gap-2 overflow-x-auto no-scrollbar pb-0.5" role="group" aria-label="اختيار الفترة">
+        {list.map((p) => {
+          const on = !custom && match?.id === p.id;
+          return (
+            <button
+              key={p.id}
+              type="button"
+              aria-pressed={on}
+              onClick={() => {
+                setCustom(false);
+                onChange(p.from, p.to);
+              }}
+              className={`shrink-0 h-10 px-4 rounded-full text-sm border transition-colors ${on ? "bg-accent text-on-accent border-accent font-bold shadow-sm" : "bg-white text-ink-soft border-line hover:border-accent"}`}
+            >
+              {p.label}
+            </button>
+          );
+        })}
+        <button
+          type="button"
+          aria-pressed={custom}
+          onClick={() => setCustom(true)}
+          className={`shrink-0 h-10 px-4 rounded-full text-sm border flex items-center gap-1.5 ${custom ? "bg-accent text-on-accent border-accent font-bold shadow-sm" : "bg-white text-ink-soft border-line hover:border-accent"}`}
+        >
+          <Icon name="calendar" size={15} />
+          مخصص
+        </button>
+      </div>
+      {custom && (
+        <DateFields
+          className="sm:max-w-md"
+          from={range.from}
+          to={range.to}
+          max={today}
+          onFrom={(v) => v && onChange(v > range.to ? range.to : v, range.to)}
+          onTo={(v) => v && onChange(range.from, v < range.from ? range.from : v)}
+        />
+      )}
+    </div>
+  );
+}
+
+/* ── headline KPI ───────────────────────────────────────────────────── */
+
+function Delta({ change }) {
+  if (change === null) return <span className="text-xs font-semibold text-accent-ink bg-accent-soft rounded-full px-2 h-6 inline-flex items-center">جديد</span>;
+  if (!change) return <span className="text-xs text-muted">بدون تغيير</span>;
+  const up = change > 0;
+  return (
+    <span className={`text-xs font-bold rounded-full px-2 h-6 inline-flex items-center gap-1 ${up ? "text-green-700 bg-green-50" : "text-red-700 bg-red-50"}`}>
+      <span aria-hidden="true">{up ? "▲" : "▼"}</span>
+      <span className="dn">{pctText(Math.abs(change))}</span>
+    </span>
+  );
+}
+
+function Kpi({ icon, label, value, unit, change, tone = "accent" }) {
+  const tones = { accent: "bg-accent-soft text-accent-ink", w: "", r: "" };
+  return (
+    <div className="exec-card exec-lift p-4 md:p-5 flex flex-col gap-3 min-w-0">
+      <div className="flex items-center justify-between gap-2">
+        <span className={`w-10 h-10 rounded-2xl flex items-center justify-center ${tones[tone] || tones.accent}`} style={tone !== "accent" ? { background: V(tone + "s"), color: V(tone) } : undefined}>
+          <Icon name={icon} size={20} />
+        </span>
+        <Delta change={change} />
+      </div>
+      <div className="min-w-0">
+        <p className="text-[13px] font-semibold text-muted">{label}</p>
+        <p className="mt-1 flex flex-wrap items-baseline gap-x-1.5 min-w-0">
+          <span className="dn font-display fig-sm font-bold text-ink">{value}</span>
+          {unit && <span className="text-xs text-muted">{unit}</span>}
+        </p>
+      </div>
+    </div>
+  );
+}
+
 function Stat({ label, value, unit, color, sub }) {
   return (
-    <div className="rounded-xl px-4 py-3.5" style={{ background: color ? V(color + "s") : "rgb(var(--gray-100))" }}>
+    <div className="rounded-xl px-4 py-3.5 min-w-0" style={{ background: color ? V(color + "s") : "rgb(var(--gray-100))" }}>
       <div className="text-[13px] font-semibold" style={{ color: color ? V(color) : "rgb(var(--gray-600))" }}>{label}</div>
-      <div className="mt-1"><span className="dn text-2xl font-bold text-ink">{value}</span>{unit && <span className="text-xs text-muted ms-1.5">{unit}</span>}</div>
+      <div className="mt-1 min-w-0"><span className="dn fig-sm font-bold text-ink">{value}</span>{unit && <span className="text-xs text-muted ms-1.5">{unit}</span>}</div>
       {sub && <div className="text-xs text-muted mt-1">{sub}</div>}
     </div>
   );
@@ -80,17 +191,33 @@ function Stat({ label, value, unit, color, sub }) {
 
 /* ── Tab 1: ملخص العمليات ──────────────────────────────────────────────── */
 
-function OverviewTab({ token, range }) {
+function OverviewTab({ token, range, setRange }) {
   const [kind, setKind] = useState("day");
   const trend = useGet(token, `/api/dashboard/trend?bucket=${kind}`, ["orders_car1", "orders_car2"]);
   const sum = useGet(token, `/api/executive/overview?from=${range.from}&to=${range.to}`, ["orders_car1", "orders_car2"]);
   const d = sum.data;
+  const h = d?.headline;
 
   return (
-    <div className="flex flex-col gap-12">
+    <div className="flex flex-col gap-10">
       <Section id="x0" title="تطور المبيعات" hint="عدد الوحدات المباعة عبر الزمن، جملة وتجزئة. مرّر المؤشر على المنحنى لرؤية أي نقطة.">
         <TrendChart trend={trend.data ? buildTrend(trend.data) : null} kind={kind} onKind={setKind} loading={trend.busy} />
       </Section>
+
+      <PeriodPicker range={range} onChange={(from, to) => setRange({ from, to })} title="فترة الأرقام أدناه" />
+
+      {h ? (
+        <div className={`grid gap-3 grid-cols-2 lg:grid-cols-5 ${sum.busy ? "opacity-60" : ""}`}>
+          <Kpi icon="box" label="الوحدات المباعة" value={fmt(h.units.value)} unit={UNIT} change={h.units.change} />
+          <Kpi icon="file" label="الفواتير" value={fmt(h.invoices.value)} change={h.invoices.change} tone="r" />
+          <Kpi icon="chart" label="قيمة المبيعات (بالتكلفة)" value={money(h.costValue.value)} unit="SDG" change={h.costValue.change} tone="w" />
+          <Kpi icon="users" label="عملاء اشتروا" value={fmt(h.customers.value)} change={h.customers.change} />
+          <Kpi icon="file" label="متوسط الفاتورة (بالتكلفة)" value={money(h.avgInvoice.value)} unit="SDG" change={h.avgInvoice.change} tone="r" />
+        </div>
+      ) : (
+        !sum.error && <div className="grid gap-3 grid-cols-2 lg:grid-cols-5">{[0, 1, 2, 3, 4].map((i) => <div key={i} className="exec-card h-[138px] animate-pulse" />)}</div>
+      )}
+      {h && <p className="text-xs text-muted -mt-6">الأسهم تقارن بالفترة السابقة بنفس الطول.</p>}
 
       <ErrorBox error={sum.error} onRetry={sum.reload} />
       {!d ? (
@@ -139,8 +266,8 @@ function OverviewTab({ token, range }) {
             <div className="grid gap-5 md:grid-cols-2">
               <Card className="p-6 flex flex-col gap-5">
                 <h3 className="text-[15px] font-bold text-ink">الفواتير الصادرة</h3>
-                <div className="flex items-baseline gap-2">
-                  <span className="dn font-display text-[44px] font-bold leading-none text-ink">{fmt(d.totals.invoices)}</span>
+                <div className="flex flex-wrap items-baseline gap-2 min-w-0">
+                  <span className="dn font-display fig font-bold text-ink">{fmt(d.totals.invoices)}</span>
                   <span className="text-sm text-muted">فاتورة</span>
                 </div>
                 <Split a={d.wholesale.invoices} b={d.retail.invoices} />
@@ -151,8 +278,8 @@ function OverviewTab({ token, range }) {
               </Card>
               <Card className="p-6 flex flex-col gap-5">
                 <h3 className="text-[15px] font-bold text-ink">قيمة المبيعات (بالتكلفة)</h3>
-                <div className="flex items-baseline gap-2">
-                  <span className="dn font-display text-[44px] font-bold leading-none text-ink">{money(d.totals.costValue)}</span>
+                <div className="flex flex-wrap items-baseline gap-2 min-w-0">
+                  <span className="dn font-display fig font-bold text-ink">{money(d.totals.costValue)}</span>
                   <span className="text-sm text-muted">SDG</span>
                 </div>
                 <Split a={d.wholesale.costValue} b={d.retail.costValue} />
@@ -179,7 +306,7 @@ function OverviewTab({ token, range }) {
 
 const ROUTE_COLOR = { car1: "w", car2: "r" };
 
-function CustomersTab({ token, range }) {
+function CustomersTab({ token, range, setRange }) {
   const { data: d, error, busy, reload } = useGet(token, `/api/executive/customers?from=${range.from}&to=${range.to}`, ["orders_car1", "orders_car2", "clients"]);
   if (error) return <ErrorBox error={error} onRetry={reload} />;
   if (!d) return <SkeletonRows count={6} />;
@@ -199,8 +326,8 @@ function CustomersTab({ token, range }) {
         }
       >
         <Card className="p-6 flex flex-col gap-5">
-          <div className="flex items-baseline gap-2">
-            <span className="dn font-display text-[44px] font-bold leading-none text-ink">{fmt(reg.total)}</span>
+          <div className="flex flex-wrap items-baseline gap-2 min-w-0">
+            <span className="dn font-display fig font-bold text-ink">{fmt(reg.total)}</span>
             <span className="text-sm text-muted">عميل</span>
           </div>
           <Split a={reg.routes[0]?.total || 0} b={reg.routes[1]?.total || 0} />
@@ -217,6 +344,8 @@ function CustomersTab({ token, range }) {
           </div>
         </Card>
       </Section>
+
+      <PeriodPicker range={range} onChange={(from, to) => setRange({ from, to })} title="فترة الأداء — تنطبق على المسارات وأكبر العملاء أدناه" />
 
       <Section id="c2" title="المسارات" hint="أداء كل مسار في الفترة المختارة. «الوصول» = نسبة العملاء النشطين الذين اشتروا في الفترة.">
         <div className="grid gap-5 md:grid-cols-2">
@@ -338,11 +467,9 @@ function ReceivedHistory({ token }) {
 
   return (
     <div className="flex flex-col gap-5">
-      <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-line bg-white px-3 py-2 self-start">
-        <Icon name="calendar" size={18} className="text-muted" />
-        <label className="flex items-center gap-2 text-sm text-muted">من<input type="date" value={from} max={to || todayYmd()} onChange={(e) => setFrom(e.target.value)} className="h-9 rounded-lg border border-line bg-white px-2 text-sm text-ink" /></label>
-        <label className="flex items-center gap-2 text-sm text-muted">إلى<input type="date" value={to} min={from || undefined} max={todayYmd()} onChange={(e) => setTo(e.target.value)} className="h-9 rounded-lg border border-line bg-white px-2 text-sm text-ink" /></label>
-        {(from || to) && <button type="button" onClick={() => { setFrom(""); setTo(""); }} className="h-9 px-3 rounded-lg text-sm font-semibold text-ink-soft hover:bg-surface-2">آخر 90 يومًا</button>}
+      <div className="flex items-end gap-2 rounded-2xl border border-line bg-white px-3 py-2.5 w-full sm:w-auto sm:self-start min-w-0">
+        <DateFields compact className="flex-1 sm:w-[300px]" from={from} to={to} max={todayYmd()} onFrom={setFrom} onTo={setTo} />
+        {(from || to) && <button type="button" onClick={() => { setFrom(""); setTo(""); }} className="h-10 px-3 rounded-xl text-sm font-semibold text-ink-soft bg-surface-2 shrink-0">آخر 90 يومًا</button>}
       </div>
       <ErrorBox error={error} onRetry={load} />
       {!docs ? (
@@ -354,7 +481,7 @@ function ReceivedHistory({ token }) {
           <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.6fr)]">
             <Card className="p-6 flex flex-col gap-4 self-start">
               <h3 className="text-[15px] font-bold text-ink">إجمالي المستلم {from || to ? "في الفترة" : "(آخر 90 يومًا)"}</h3>
-              <div className="flex items-baseline gap-2"><span className="dn font-display text-[36px] font-bold leading-none text-ink">{fmt(totalUnits)}</span><span className="text-sm text-muted">{UNIT} · {fmt(docs.length)} مستند</span></div>
+              <div className="flex flex-wrap items-baseline gap-2 min-w-0"><span className="dn font-display fig font-bold text-ink">{fmt(totalUnits)}</span><span className="text-sm text-muted">{UNIT} · {fmt(docs.length)} مستند</span></div>
               <BarList unit="" rows={totalRows.map(([id, t], i) => ({ id, label: t.name, value: t.qty, share: totalUnits ? (t.qty / totalUnits) * 100 : 0, color: V(PRODUCT_COLORS[i % PRODUCT_COLORS.length]) }))} />
             </Card>
             <Card className="self-start">
@@ -428,24 +555,29 @@ export default function ExecutiveDashboard() {
   const router = useRouter();
   const { role, token, loading, logout } = useAuth(["executive"]);
   const tab = TABS.some((t) => t.id === router.query.tab) ? router.query.tab : "overview";
-  const [range, setRange] = useState(() => ({ from: todayYmd(), to: todayYmd() }));
+  // Opens on the last 7 days — a fuller picture than "today" at first glance.
+  const [range, setRange] = useState(() => ({ from: addDaysYmd(todayYmd(), -6), to: todayYmd() }));
   const setTab = (id) => router.replace({ pathname: "/executive", query: id === "overview" ? {} : { tab: id } }, undefined, { shallow: true });
 
   if (loading) return <PageLoading />;
-  const dated = tab !== "inventory";
-  const today = todayYmd();
-  const period = range.from === range.to ? { fromYmd: range.from, toYmd: range.to, from: `${range.from}T12:00:00+02:00` } : { fromYmd: range.from, toYmd: range.to, from: `${range.from}T12:00:00+02:00`, to: `${range.to}T12:00:00+02:00` };
 
   return (
     <div className="min-h-screen bg-canvas">
       <Nav role={role} logout={logout} />
-      <main className="dash max-w-[1320px] mx-auto px-4 md:px-8 pt-6 md:pt-8 pb-12 md:pb-16 flex flex-col gap-8">
-        <header className="flex flex-wrap items-end justify-between gap-x-6 gap-y-4">
-          <WelcomeHeader token={token} subtitle={dated ? rangeText(period) : "لوحة المتابعة — للعرض فقط"} />
-          {dated && <DateRange from={range.from} to={range.to} onChange={(from, to) => setRange({ from, to: to > today ? today : to })} />}
+      <main className="dash max-w-[1320px] mx-auto px-4 md:px-8 pt-5 md:pt-8 pb-12 md:pb-16 flex flex-col gap-7">
+        <header className="exec-hero relative overflow-hidden rounded-3xl px-5 py-6 md:px-8 md:py-8 text-white">
+          <span aria-hidden="true" className="exec-hero-orb exec-hero-orb-1" />
+          <span aria-hidden="true" className="exec-hero-orb exec-hero-orb-2" />
+          <div className="relative flex flex-wrap items-center justify-between gap-5">
+            <WelcomeHeader token={token} dark />
+            <div className="flex items-center gap-2 text-sm text-white/90 bg-white/10 rounded-full px-3.5 h-9 backdrop-blur">
+              <Icon name="eye" size={16} />
+              لوحة متابعة — للعرض فقط
+            </div>
+          </div>
         </header>
 
-        <nav role="tablist" aria-label="أقسام اللوحة" className="flex gap-1 p-1 rounded-2xl bg-white shadow-sm overflow-x-auto no-scrollbar sticky top-[4.25rem] z-10">
+        <nav role="tablist" aria-label="أقسام اللوحة" className="exec-tabs grid grid-cols-3 gap-1 p-1.5 rounded-2xl sticky top-[4.5rem] z-10">
           {TABS.map((t) => (
             <button
               key={t.id}
@@ -453,17 +585,19 @@ export default function ExecutiveDashboard() {
               role="tab"
               aria-selected={tab === t.id}
               onClick={() => setTab(t.id)}
-              className={`flex-1 min-w-max h-11 px-4 rounded-xl text-sm flex items-center justify-center gap-2 ${tab === t.id ? "bg-accent text-on-accent font-bold" : "text-ink-soft font-medium hover:bg-surface-2"}`}
+              className={`min-w-0 h-12 px-2 rounded-xl text-[13px] sm:text-sm flex items-center justify-center gap-2 transition-all ${tab === t.id ? "bg-accent text-on-accent font-bold shadow" : "text-ink-soft font-medium hover:bg-surface-2"}`}
             >
-              <Icon name={t.icon} size={18} />
-              {t.label}
+              <Icon name={t.icon} size={18} className="hidden sm:block" />
+              <span className="truncate">{t.label}</span>
             </button>
           ))}
         </nav>
 
-        {tab === "overview" && <OverviewTab token={token} range={range} />}
-        {tab === "customers" && <CustomersTab token={token} range={range} />}
-        {tab === "inventory" && <InventoryTab token={token} />}
+        <div key={tab} className="welcome-in">
+          {tab === "overview" && <OverviewTab token={token} range={range} setRange={setRange} />}
+          {tab === "customers" && <CustomersTab token={token} range={range} setRange={setRange} />}
+          {tab === "inventory" && <InventoryTab token={token} />}
+        </div>
       </main>
     </div>
   );
