@@ -30,8 +30,21 @@ const TABS = [
   { id: "inventory", label: "المخزون", icon: "box" },
 ];
 const UNIT = "وحدة";
-const GROUP_COLOR = { alwafi: V("p1"), snacks: V("p2"), other: V("p5") };
-const PRODUCT_COLORS = ["p1", "p2", "p3", "p4", "p5", "p6"];
+// Day: Alwafi maroon / Chipsiano orange. Night: the original palette (the
+// brand variables are unset in night mode, so the fallback colour applies).
+const GROUP_COLOR = {
+  alwafi: "rgb(var(--d-brand-alwafi, var(--d-p1)))",
+  snacks: "rgb(var(--d-brand-snacks, var(--d-p3)))",
+  other: V("p5"),
+};
+const PRODUCT_COLORS = ["p1", "p3", "p2", "p4", "p5", "p6"];
+// Per-item bars: by family in day mode, the original rotating palette at night.
+const productColor = (group, i) => {
+  const fallback = `var(--d-${PRODUCT_COLORS[i % PRODUCT_COLORS.length]})`;
+  if (group === "alwafi") return `rgb(var(--d-brand-alwafi, ${fallback}))`;
+  if (group === "snacks") return `rgb(var(--d-brand-snacks, ${fallback}))`;
+  return `rgb(${fallback})`;
+};
 // SDG amounts: thousands separators, no forced decimals (100,000).
 const money = (n) => (Number(n) || 0).toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 0 });
 const Card = ({ className = "", children }) => <div className={`exec-card min-w-0 ${className}`}>{children}</div>;
@@ -255,7 +268,7 @@ function OverviewTab({ token, range, setRange }) {
                     label: p.name,
                     value: p.units,
                     share: p.share,
-                    color: V(PRODUCT_COLORS[i % PRODUCT_COLORS.length]),
+                    color: productColor(p.group, i),
                     sub: `جملة ${fmt(p.w)} · تجزئة ${fmt(p.r)}`,
                   }))}
                 />

@@ -55,7 +55,7 @@ export function DonutChart({ segments, centerValue, centerLabel, ariaLabel }) {
                 cy="70"
                 r={R}
                 fill="none"
-                stroke={s.color}
+                style={{ stroke: s.color }}
                 strokeWidth="18"
                 strokeDasharray={`${Math.max(0, len - (segments.length > 1 && len > 2 ? 1.5 : 0))} ${C}`}
                 strokeDashoffset={-acc}
@@ -84,12 +84,12 @@ export function PieChart({ segments, ariaLabel }) {
         {total === 0 ? (
           <circle cx="70" cy="70" r="62" fill={V("ln")} />
         ) : live.length === 1 ? (
-          <circle cx="70" cy="70" r="62" fill={live[0].color} />
+          <circle cx="70" cy="70" r="62" style={{ fill: live[0].color }} />
         ) : (
           live.map((s) => {
             const start = acc;
             acc += s.value / total;
-            return <path key={s.key} d={arcPath(70, 70, 62, start, acc)} fill={s.color} stroke="rgb(var(--white))" strokeWidth="2" />;
+            return <path key={s.key} d={arcPath(70, 70, 62, start, acc)} style={{ fill: s.color }} stroke="rgb(var(--white))" strokeWidth="2" />;
           })
         )}
       </svg>

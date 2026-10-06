@@ -1,3 +1,16 @@
+# Chart colours — final
+
+- Night mode: the original chart palette (forest green / navy channels,
+  cool-tone products), unchanged.
+- Day mode: the original palette, with the two product families in brand
+  colours — Alwafi maroon and Chipsiano orange — on the family pie and the
+  per-item bars. Done with CSS variables that are unset in night mode, so
+  each theme picks its own colours without any page logic.
+- Pie / donut colours applied via style (works with CSS variables
+  everywhere).
+
+---
+
 # Chipsiano cut-out + new chart colours
 
 - Chipsiano card: the character is now cut out of the poster (no square
