@@ -1,3 +1,20 @@
+# Executive dashboard — brands and polish
+
+- Brand ribbon under the greeting: Mahgoub Sons Food Division (total units
+  and invoices in the period), الوافي and شيبسيانو (units and share, with a
+  share bar). Cards rise in one after another, logos settle with a soft pop,
+  the Chipsiano character breathes slowly; share bars grow from zero.
+- A faint glow of the three brand colours fades in behind the top area, and
+  the company's wheat mark drifts into the greeting panel as a watermark.
+- Greeting panel is now frosted, translucent glass — calmer in night mode.
+- Alwafi / Chipsiano use their brand colours in the charts (pie, item bars).
+- Daily sales trend skips Fridays (no sales) — 30 working days.
+- English name: "Mubashir".
+- Logos in `public/brand/` (backgrounds removed, resized). All animation
+  respects the phone's "reduce motion" setting.
+
+---
+
 # Demo data — uses your real products
 
 - The demo generator now reads the products already in the system and uses

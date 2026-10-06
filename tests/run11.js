@@ -49,6 +49,10 @@ const { generate } = require("../scripts/demo/generate");
   assert.ok(cu.json.top[0].share > cu.json.top[9].share);
   const tr = await call("pages/api/dashboard/trend.js", { role: "manager", uid: "m", query: { bucket: "week" } });
   assert.strictEqual(tr.status, 200);
+  const td = await call("pages/api/dashboard/trend.js", { role: "executive", uid: "e", query: { bucket: "day" } });
+  assert.strictEqual(td.json.buckets.length, 30);
+  const fridays = td.json.buckets.filter((b) => new Date(new Date(b.from).getTime() + 2 * 3600e3).getUTCDay() === 5);
+  assert.strictEqual(fridays.length, 0); // daily chart skips Fridays
   const sm = await call("pages/api/dashboard/summary.js", { role: "manager", uid: "m", query: { from, to } });
   assert.strictEqual(sm.status, 200, JSON.stringify(sm.json));
   const rc = await call("pages/api/executive/stock.js", { role: "executive", uid: "e", query: { view: "received", from } });

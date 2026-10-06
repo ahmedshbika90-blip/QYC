@@ -23,11 +23,12 @@ eval(header + `
   assert.throws(() => R("2026-10-04", "2026-10-01"), /بعد/); // from after to
   assert.throws(() => R("2026-13-01"), /غير صالح/);
   const days = DS.trendBuckets("day", sun), weeks = DS.trendBuckets("week", sun), months = DS.trendBuckets("month", sun);
-  assert.deepStrictEqual([days.length, iso(days[29].from), iso(days[0].from)], [30, "2026-10-03T22:00:00.000Z", "2026-09-04T22:00:00.000Z"]);
+  assert.deepStrictEqual([days.length, iso(days[29].from), iso(days[0].from)], [30, "2026-10-03T22:00:00.000Z", "2026-08-30T22:00:00.000Z"]); // 30 working days — Fridays skipped
+  assert.ok(days.every((d) => new Date(d.from.getTime() + 2 * 3600e3).getUTCDay() !== 5));
   assert.deepStrictEqual([weeks.length, iso(weeks[11].from)], [12, "2026-10-02T22:00:00.000Z"]); // this week began Saturday 3 Oct
   assert.ok(weeks.every((w) => new Date(w.from.getTime() + 2 * 3600e3).getUTCDay() === 6)); // every bucket starts on a Saturday
   assert.deepStrictEqual([months.length, iso(months[11].from), iso(months[0].from)], [12, "2026-09-30T22:00:00.000Z", "2025-10-31T22:00:00.000Z"]); // Nov 2025 … Oct 2026
-  ok("date ranges follow Sudan's calendar (inclusive, capped at now, like-for-like comparison); trend buckets: 30 days / 12 Saturday-weeks / 12 months");
+  ok("date ranges follow Sudan's calendar (inclusive, capped at now, like-for-like comparison); trend buckets: 30 working days (no Fridays) / 12 Saturday-weeks / 12 months");
 
   // 2. Seed.
   const y0 = new Date(DS.rangeFromDates().from.getTime() - 24 * 3600e3);
