@@ -7,7 +7,7 @@ import { PageLoading, SkeletonRows, Spinner } from "../components/Loading";
 import { apiFetch } from "../lib/apiFetch";
 import { useRequestId } from "../lib/useRequestId";
 import { formatNumber, formatQty } from "../lib/labels";
-import { cleanMoneyInput, money2, cleanQtyInput } from "../lib/qty";
+import NumericInput from "../components/NumericInput";
 import { PRODUCT_CATEGORIES, PRODUCT_UNITS } from "../lib/constants";
 
 const emptyForm = { name: "", nameEn: "", category: "", unit: "", priceCar1: "", priceCar2: "", depotStock: "", avgCost: "" };
@@ -19,14 +19,11 @@ const fieldClass = "border rounded-lg px-3 h-12 text-base w-full bg-white";
 // converted to English as they are typed.
 function MoneyInput({ value, onChange, placeholder, required, className = "" }) {
   return (
-    <input
-      type="text"
-      inputMode="decimal"
-      dir="ltr"
+    <NumericInput
+      decimal
       value={value}
-      onChange={(e) => onChange(cleanMoneyInput(e.target.value))}
-      onBlur={(e) => onChange(money2(e.target.value))}
-      placeholder={placeholder || "0.00"}
+      onChange={onChange}
+      placeholder={placeholder}
       required={required}
       className={`${fieldClass} text-end placeholder:text-right ${className}`}
     />
@@ -36,16 +33,7 @@ function MoneyInput({ value, onChange, placeholder, required, className = "" }) 
 // Quantity box: whole numbers only — no decimal point can be typed.
 function WholeInput({ value, onChange, placeholder, className = "" }) {
   return (
-    <input
-      type="text"
-      inputMode="numeric"
-      pattern="[0-9]*"
-      dir="ltr"
-      value={value}
-      onChange={(e) => onChange(cleanQtyInput(e.target.value))}
-      placeholder={placeholder}
-      className={`${fieldClass} text-end placeholder:text-right ${className}`}
-    />
+    <NumericInput value={value} onChange={onChange} placeholder={placeholder} className={`${fieldClass} text-end placeholder:text-right ${className}`} />
   );
 }
 

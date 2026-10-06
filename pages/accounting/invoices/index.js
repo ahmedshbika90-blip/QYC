@@ -22,21 +22,21 @@ const toDigits = (v) =>
     .replace(/\D/g, "")
     .slice(0, 11);
 
-// Search by transaction reference (رقم العملية): asks the server, which
-// checks the reference against every bank in one go.
-function RefSearch({ token, autoFocus }) {
-  const [ref, setRef] = useState("");
+// Matches for a transaction reference (رقم العملية). Shown automatically
+// whenever the search box holds only digits: the server checks that
+// reference against every bank in one go (exact reference).
+function RefMatches({ token, digits }) {
   const [matches, setMatches] = useState(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   useEffect(() => {
     setMatches(null);
     setError("");
-    if (!ref) return;
+    if (!digits) return;
     const t = setTimeout(async () => {
       setBusy(true);
       try {
-        const res = await apiFetch(`/api/accounting/find-ref?ref=${ref}`, { headers: { Authorization: `Bearer ${token}` } });
+        const res = await apiFetch(`/api/accounting/find-ref?ref=${digits}`, { headers: { Authorization: `Bearer ${token}` } });
         const d = await res.json();
         if (!res.ok) throw new Error(d.error);
         setMatches(d.matches);
@@ -45,29 +45,21 @@ function RefSearch({ token, autoFocus }) {
       } finally {
         setBusy(false);
       }
-    }, 400);
+    }, 350);
     return () => clearTimeout(t);
-  }, [ref, token]);
+  }, [digits, token]);
 
+  if (!digits) return null;
   return (
-    <div className="flex flex-col gap-3 mb-4">
-      <div className="relative">
-        <Icon name="search" size={18} className="absolute top-1/2 -translate-y-1/2 start-3 text-muted" />
-        <input
-          inputMode="numeric"
-          dir="ltr"
-          autoFocus={autoFocus}
-          value={ref}
-          onChange={(e) => setRef(toDigits(e.target.value))}
-          placeholder="اكتب رقم العملية (حتى 11 رقمًا)"
-          className="h-12 w-full rounded-xl border border-line bg-white ps-10 pe-10 text-base num text-end placeholder:text-right"
-        />
-        {busy && <Spinner className="w-4 h-4 absolute top-1/2 -translate-y-1/2 end-3" />}
-      </div>
+    <section className="mb-4" aria-live="polite">
+      <p className="text-xs font-bold text-muted mb-2 flex items-center gap-2">
+        بحث برقم العملية <span className="num" dir="ltr">{digits}</span>
+        {busy && <Spinner className="w-3.5 h-3.5" />}
+      </p>
       {error && <p role="alert" className="text-sm text-red-600">{error}</p>}
-      {matches && matches.length === 0 && <p className="text-sm text-muted">لا توجد دفعة مسجلة بهذا الرقم.</p>}
+      {matches && matches.length === 0 && <p className="text-sm text-muted bg-white rounded-xl px-4 py-3">لا توجد دفعة مسجلة بهذا الرقم.</p>}
       {matches && matches.length > 0 && (
-        <ul className="bg-white rounded-2xl shadow divide-y divide-line">
+        <ul className="bg-white rounded-2xl shadow divide-y divide-line border-2 border-accent/40">
           {matches.map((m) => (
             <li key={`${m.bank}-${m.orderId}`}>
               <Link href={`/accounting/invoices/${encodeURIComponent(m.orderId)}`} className="flex items-start justify-between gap-3 px-4 py-3.5 active:bg-surface-2">
@@ -87,16 +79,13 @@ function RefSearch({ token, autoFocus }) {
           ))}
         </ul>
       )}
-    </div>
+    </section>
   );
 }
 
-// The accountant's home: invoices of every route with what has been paid on
-// each. Tap one to record or review its payments.
 export default function AccountingInvoices() {
   const { role, token, loading, logout } = useAuth(["accountant"]);
   const router = useRouter();
-  const [mode, setMode] = useState("invoice"); // "invoice" | "ref"
   const focus = router.query.focus === "1";
   const [period, setPeriod] = useState(30);
   const [dateFrom, setDateFrom] = useState("");
@@ -152,6 +141,9 @@ export default function AccountingInvoices() {
   }, [token, period, dateFrom, dateTo, route, pay]);
   useLiveRefresh(token, ["orders_car1", "orders_car2", "payments"], load);
 
+  // Only digits typed → it may be a transaction reference: ask the server too.
+  const refDigits = /^[\d٠-٩۰-۹]{1,11}$/.test(q.trim()) ? toDigits(q.trim()) : "";
+
   const shown = useMemo(() => {
     const s = q.trim().toLowerCase();
     if (!s) return invoices;
@@ -187,21 +179,18 @@ export default function AccountingInvoices() {
           ))}
         </div>
 
-        <div role="tablist" aria-label="نوع البحث" className="grid grid-cols-2 gap-1 p-1 rounded-xl bg-surface-2 mb-3">
-          {[["invoice", "العميل أو الفاتورة"], ["ref", "رقم العملية"]].map(([id, label]) => (
-            <button key={id} type="button" role="tab" aria-selected={mode === id} onClick={() => setMode(id)} className={`h-10 rounded-lg text-sm ${mode === id ? "bg-white font-bold shadow-sm text-ink" : "text-muted font-medium"}`}>
-              {label}
-            </button>
-          ))}
+        <div className="relative mb-3">
+          <Icon name="search" size={18} className="absolute top-1/2 -translate-y-1/2 start-3 text-muted" />
+          <input
+            autoFocus={focus}
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            placeholder="ابحث باسم العميل أو رقم الفاتورة أو رقم العملية..."
+            className="h-12 w-full rounded-xl border border-line bg-white ps-10 pe-3 text-base"
+            enterKeyHint="search"
+          />
         </div>
-        {mode === "ref" ? (
-          <RefSearch token={token} autoFocus />
-        ) : (
-          <div className="relative mb-3">
-            <Icon name="search" size={18} className="absolute top-1/2 -translate-y-1/2 start-3 text-muted" />
-            <input autoFocus={focus} value={q} onChange={(e) => setQ(e.target.value)} placeholder="ابحث باسم العميل أو رقم الفاتورة..." className="h-11 w-full rounded-xl border border-line bg-white ps-10 pe-3 text-base" />
-          </div>
-        )}
+        <RefMatches token={token} digits={refDigits} />
 
         <FilterPanel dateFrom={dateFrom} onDateFromChange={setDateFrom} dateTo={dateTo} onDateToChange={setDateTo} extraActiveCount={[route, pay].filter(Boolean).length}>
           <FilterChips label="حالة الدفع" value={pay} onChange={setPay} options={PAYMENT_FILTERS} />

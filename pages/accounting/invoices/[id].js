@@ -11,7 +11,7 @@ import { apiFetch } from "../../../lib/apiFetch";
 import { invalidate } from "../../../lib/apiCache";
 import { useRequestId } from "../../../lib/useRequestId";
 import { formatDate, formatDateTime, formatNumber, formatQty, shortCode, ROUTE_LABELS_SHORT } from "../../../lib/labels";
-import { cleanMoneyInput } from "../../../lib/qty";
+import NumericInput from "../../../components/NumericInput";
 import { BANKS, BANK_LABELS } from "../../../lib/paymentsShared";
 
 const field = "h-12 w-full rounded-xl border border-line bg-white px-3 text-base text-ink";
@@ -34,18 +34,11 @@ async function call(token, url, body) {
   return data;
 }
 
-// Money is shown and edited with two decimals ("1500" → "1500.00") so a
-// misplaced digit stands out before saving.
-const money2 = (v) => {
-  const n = Number(v);
-  return v === "" || !Number.isFinite(n) ? v : n.toFixed(2);
-};
-
 // Add a payment, or edit one (`editing` = the payment being changed).
 function PaymentForm({ token, orderId, remaining, onAdded, editing, onCancel }) {
   const empty = { bank: "", ref: "", amount: "", date: todayYmd(), note: "" };
   const [form, setForm] = useState(() =>
-    editing ? { bank: editing.bank, ref: editing.ref, amount: money2(editing.amount), date: editing.date, note: editing.note || "" } : empty
+    editing ? { bank: editing.bank, ref: editing.ref, amount: String(editing.amount), date: editing.date, note: editing.note || "" } : empty
   );
   // While editing, the payment's own amount is available again.
   const room = editing ? remaining + Number(editing.amount) : remaining;
@@ -106,17 +99,15 @@ function PaymentForm({ token, orderId, remaining, onAdded, editing, onCancel }) 
         </label>
         <label className="flex flex-col gap-1.5 text-sm font-medium text-ink-soft">
           المبلغ (SDG)
-          <input
-            inputMode="decimal"
-            dir="ltr"
+          <NumericInput
+            decimal
             value={form.amount}
-            onChange={(e) => set("amount", cleanMoneyInput(e.target.value))}
-            onBlur={() => set("amount", money2(form.amount))}
-            placeholder="0.00"
-            className={`${field} num text-end ${over ? "border-red-400" : ""}`}
+            onChange={(v) => set("amount", v)}
+            placeholder="0"
+            className={`${field} text-end ${over ? "border-red-400" : ""}`}
             required
           />
-          <button type="button" onClick={() => set("amount", money2(room))} className="self-start text-xs font-semibold text-accent-ink underline">
+          <button type="button" onClick={() => set("amount", String(room))} className="self-start text-xs font-semibold text-accent-ink underline">
             {editing ? "الحد الأقصى" : "المتبقي كاملًا"}: <span className="num">{formatNumber(room)}</span>
           </button>
         </label>

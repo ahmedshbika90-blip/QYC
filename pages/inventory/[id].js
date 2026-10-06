@@ -9,7 +9,7 @@ import { invalidate } from "../../lib/apiCache";
 import { useLiveRefresh } from "../../lib/useLiveRefresh";
 import { shareElementAsPdf } from "../../lib/sharePdf";
 import { formatDateTime } from "../../lib/labels";
-import { cleanMoneyInput, money2 } from "../../lib/qty";
+import NumericInput from "../../components/NumericInput";
 
 const TYPE_LABELS = {
   received: "استلام بضاعة",
@@ -301,15 +301,10 @@ export default function InventoryDocDetail() {
                 {doc.items.map((it) => (
                   <div key={it.productId} className="flex items-center justify-between gap-3">
                     <p className="text-sm text-gray-700">{it.name}</p>
-                    <input
-                      type="text"
-                      inputMode="decimal"
-                      dir="ltr"
+                    <NumericInput
+                      decimal
                       value={costPrices[it.productId] ?? ""}
-                      onChange={(e) =>
-                        setCostPrices((prev) => ({ ...prev, [it.productId]: cleanMoneyInput(e.target.value) }))
-                      }
-                      onBlur={(e) => setCostPrices((prev) => ({ ...prev, [it.productId]: money2(e.target.value) }))}
+                      onChange={(v) => setCostPrices((prev) => ({ ...prev, [it.productId]: v }))}
                       placeholder="سعر المورد للوحدة"
                       className="w-40 border rounded-lg px-3 h-10 text-sm text-end placeholder:text-right"
                     />

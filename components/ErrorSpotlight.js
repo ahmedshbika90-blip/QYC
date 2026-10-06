@@ -12,9 +12,23 @@ import Icon from "./Icon";
 const SELECTOR = '[role="alert"], p.text-red-600';
 const HIDE_AFTER_MS = 7000;
 
+// Next.js announces every page change to screen readers through a hidden
+// element with role="alert" (#__next-route-announcer__) — that's a page
+// title, not an error, and is invisible: skip it and anything else that's
+// visually hidden (1px boxes, clipped, sr-only).
+function visuallyHidden(el) {
+  if (el.id === "__next-route-announcer__" || el.closest("#__next-route-announcer__, next-route-announcer, .sr-only")) return true;
+  const r = el.getBoundingClientRect();
+  return r.width <= 2 || r.height <= 2;
+}
+
 function candidates() {
   return [...document.querySelectorAll(SELECTOR)].filter(
-    (el) => !el.closest("button, nav, [data-error-spotlight], [data-no-spotlight]") && el.offsetParent !== null && el.textContent.trim()
+    (el) =>
+      !el.closest("button, nav, [data-error-spotlight], [data-no-spotlight]") &&
+      el.offsetParent !== null &&
+      el.textContent.trim() &&
+      !visuallyHidden(el)
   );
 }
 

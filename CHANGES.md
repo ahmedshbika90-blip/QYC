@@ -1,3 +1,30 @@
+# Round 5 — fixes from testing
+
+- **Phantom error banners** ("/executive", "Staff sign-in"): Next.js announces
+  each page change to screen readers through a hidden role="alert" element;
+  the error banner mistook it for an error. Hidden elements are now ignored.
+- **Executive receipts history server error**: its query needed a Firestore
+  composite index that wasn't deployed. Rewritten to need none (same for the
+  admin change log); those two index entries were removed.
+- **Executive page**: full tab names on phones (icon above a two-line label,
+  never "…"); "view only" pill removed; hero balanced with the greeting on
+  one side and a today card (day, date, year) on the other.
+- **Margin % in English**: the margin lines are now translated as whole
+  phrases ("12.3% margin on wholesale sales") instead of word by word.
+- **Invoice — adding a product**: its quantity box takes focus with the "1"
+  selected, so the keyboard opens and typing replaces it; "Done"/Enter
+  closes the keyboard.
+- **Invoice totals**: one clean block — just الإجمالي and "+ إضافة خصم";
+  with a discount: المجموع, الخصم (with ✕ to remove), then الإجمالي.
+- **Accountant search**: one search box; typing only digits also looks the
+  number up as a transaction reference (exact, all banks) and shows the
+  matching invoice(s) on top.
+- **Numbers**: thousands separators everywhere, **while typing** too
+  (100,000) — prices, costs, discount, payments, quantities, stock. No
+  forced ".00" anymore.
+
+---
+
 # Round 4 — admin edit mode, English names, usability, executive redesign
 
 ## Admin

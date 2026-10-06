@@ -1,5 +1,6 @@
-import { useEffect, useState } from "react";
-import { cleanQtyInput, parseQty } from "../lib/qty";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { parseQty } from "../lib/qty";
+import NumericInput from "./NumericInput";
 
 // The quantity box on every cart line (invoices, loading requests,
 // receiving, damaged goods). Typed only — no +/− buttons — and large
@@ -8,9 +9,21 @@ import { cleanQtyInput, parseQty } from "../lib/qty";
 // Whole numbers only: Arabic digits are turned into English ones as they
 // are typed, and anything that isn't a digit (".", "٫", ",") is dropped,
 // so a fraction can't be entered at all. Kept capped at [min, max].
-export default function QtyStepper({ value, onChange, min = 0, max }) {
+// autoFocus: focus (and select) the box as soon as it appears — used for the
+// line just added to an invoice, so the phone keyboard opens straight away
+// and typing replaces the "1". Enter / "Done" closes the keyboard.
+export default function QtyStepper({ value, onChange, min = 0, max, autoFocus = false }) {
   const qty = Number(value) || 0;
   const [draft, setDraft] = useState(String(qty));
+  const ref = useRef(null);
+  useLayoutEffect(() => {
+    if (autoFocus && ref.current) {
+      ref.current.focus({ preventScroll: false });
+      ref.current.select();
+      ref.current.scrollIntoView({ block: "center", behavior: "smooth" });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Follow outside changes (a cap applied by the parent) without
   // clobbering what is being typed when it already means the same.
@@ -30,8 +43,7 @@ export default function QtyStepper({ value, onChange, min = 0, max }) {
   // the cart the moment its quantity hits 0, which would remove it while
   // the box is being cleared to type a new number. Zero/empty is only
   // committed when the field is left.
-  function onType(e) {
-    const text = cleanQtyInput(e.target.value);
+  function onType(text) {
     setDraft(text);
     const n = parseQty(text);
     if (Number.isInteger(n) && n > 0) {
@@ -49,11 +61,8 @@ export default function QtyStepper({ value, onChange, min = 0, max }) {
   }
 
   return (
-    <input
-      type="text"
-      inputMode="numeric"
-      pattern="[0-9]*"
-      dir="ltr"
+    <NumericInput
+      inputRef={ref}
       value={draft}
       onChange={onType}
       onBlur={onBlur}

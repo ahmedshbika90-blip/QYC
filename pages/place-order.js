@@ -53,6 +53,7 @@ export default function PlaceOrder() {
   const [submitting, setSubmitting] = useState(false);
   const [queue, setQueue] = useState([]); // unsent invoices saved on this device
   const [productsStale, setProductsStale] = useState(false);
+  const [justAdded, setJustAdded] = useState(null);
   const [retrying, setRetrying] = useState(false);
 
   // Client picker
@@ -287,6 +288,7 @@ export default function PlaceOrder() {
   // search box. Out-of-stock products can't be added (button disabled).
   function addProduct(p) {
     if (stockFor(p) <= 0) return;
+    setJustAdded(p.id); // its quantity box takes focus → keyboard opens
     setCart((prev) => [
       {
         productId: p.id,
@@ -692,6 +694,7 @@ export default function PlaceOrder() {
                           onChange={(v) => setCartQty(it.productId, v)}
                           min={0}
                           max={it.available}
+                          autoFocus={it.productId === justAdded}
                         />
                         <button
                           type="button"

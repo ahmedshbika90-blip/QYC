@@ -15,6 +15,7 @@ import { cachedGet } from "../../lib/apiCache";
 import { useLiveRefresh } from "../../lib/useLiveRefresh";
 import { buildTrend, rangeText, todayYmd, V, fmt } from "../../lib/dashboardView";
 import { formatDate, formatDateTime, formatQty, ROUTE_LABELS_SHORT } from "../../lib/labels";
+import { useLang } from "../../lib/i18n";
 
 // The executive's dashboard — view only, three tabs:
 //   ملخص العمليات   sales trend, mix charts, invoices and sales value at cost
@@ -31,8 +32,8 @@ const TABS = [
 const UNIT = "وحدة";
 const GROUP_COLOR = { alwafi: V("p1"), snacks: V("p3"), other: V("p5") };
 const PRODUCT_COLORS = ["p1", "p3", "p2", "p4", "p5", "p6"];
-// SDG amounts always carry two decimals.
-const money = (n) => (Number(n) || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+// SDG amounts: thousands separators, no forced decimals (100,000).
+const money = (n) => (Number(n) || 0).toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 0 });
 const Card = ({ className = "", children }) => <div className={`exec-card min-w-0 ${className}`}>{children}</div>;
 
 function useGet(token, url, liveKeys) {
@@ -549,6 +550,24 @@ function InventoryTab({ token }) {
   );
 }
 
+// The hero's other side: today's day and date in a soft glass card, so the
+// greeting has a counterweight on wide screens and a tidy row on phones.
+function TodayCard() {
+  const lang = useLang();
+  const now = new Date();
+  const loc = lang === "en" ? "en-GB" : "ar-EG";
+  const opts = (o) => new Intl.DateTimeFormat(loc, { timeZone: "Africa/Khartoum", numberingSystem: "latn", ...o }).format(now);
+  return (
+    <div className="flex md:flex-col items-center md:items-end justify-between gap-3 rounded-2xl bg-white/10 backdrop-blur px-4 py-3 md:px-5 md:py-4 border border-white/15 md:min-w-[200px]" data-no-translate>
+      <div className="md:text-end">
+        <p className="text-xs text-white/75">{opts({ weekday: "long" })}</p>
+        <p className="font-display text-lg md:text-xl font-bold text-white leading-tight">{opts({ day: "numeric", month: "long" })}</p>
+      </div>
+      <p className="text-sm text-white/80 num">{opts({ year: "numeric" })}</p>
+    </div>
+  );
+}
+
 /* ── Page ─────────────────────────────────────────────────────────────── */
 
 export default function ExecutiveDashboard() {
@@ -565,15 +584,12 @@ export default function ExecutiveDashboard() {
     <div className="min-h-screen bg-canvas">
       <Nav role={role} logout={logout} />
       <main className="dash max-w-[1320px] mx-auto px-4 md:px-8 pt-5 md:pt-8 pb-12 md:pb-16 flex flex-col gap-7">
-        <header className="exec-hero relative overflow-hidden rounded-3xl px-5 py-6 md:px-8 md:py-8 text-white">
+        <header className="exec-hero relative overflow-hidden rounded-3xl px-5 py-6 md:px-8 md:py-7 text-white">
           <span aria-hidden="true" className="exec-hero-orb exec-hero-orb-1" />
           <span aria-hidden="true" className="exec-hero-orb exec-hero-orb-2" />
-          <div className="relative flex flex-wrap items-center justify-between gap-5">
-            <WelcomeHeader token={token} dark />
-            <div className="flex items-center gap-2 text-sm text-white/90 bg-white/10 rounded-full px-3.5 h-9 backdrop-blur">
-              <Icon name="eye" size={16} />
-              لوحة متابعة — للعرض فقط
-            </div>
+          <div className="relative grid gap-5 md:grid-cols-[minmax(0,1fr)_auto] md:items-center">
+            <WelcomeHeader token={token} dark subtitle="أهلًا بك في مباشر" />
+            <TodayCard />
           </div>
         </header>
 
@@ -585,10 +601,13 @@ export default function ExecutiveDashboard() {
               role="tab"
               aria-selected={tab === t.id}
               onClick={() => setTab(t.id)}
-              className={`min-w-0 h-12 px-2 rounded-xl text-[13px] sm:text-sm flex items-center justify-center gap-2 transition-all ${tab === t.id ? "bg-accent text-on-accent font-bold shadow" : "text-ink-soft font-medium hover:bg-surface-2"}`}
+              className={`min-w-0 min-h-[56px] sm:min-h-[48px] px-1.5 py-1.5 rounded-xl flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 transition-all ${
+                tab === t.id ? "bg-accent text-on-accent font-bold shadow" : "text-ink-soft font-medium hover:bg-surface-2"
+              }`}
             >
-              <Icon name={t.icon} size={18} className="hidden sm:block" />
-              <span className="truncate">{t.label}</span>
+              <Icon name={t.icon} size={18} />
+              {/* Full label, wrapping onto two short lines on narrow phones — never cut with "…" */}
+              <span className="text-[12px] sm:text-sm leading-tight text-center whitespace-normal">{t.label}</span>
             </button>
           ))}
         </nav>

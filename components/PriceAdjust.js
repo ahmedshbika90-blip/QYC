@@ -1,6 +1,6 @@
 import Icon from "./Icon";
 import { formatNumber } from "../lib/labels";
-import { cleanMoneyInput, money2 } from "../lib/qty";
+import NumericInput from "./NumericInput";
 import { cartLineTotal, priceProblem, REASON_MAX } from "../lib/linePrice";
 
 // "تعديل السعر" on one invoice line: sell this product ABOVE its list
@@ -52,13 +52,10 @@ export default function PriceAdjust({ line, onChange }) {
             <span className="text-ink-soft">
               سعر القائمة <span className="num tabular-ltr">{formatNumber(line.listPrice)}</span> ← السعر الجديد
             </span>
-            <input
-              type="text"
-              inputMode="decimal"
-              dir="ltr"
+            <NumericInput
+              decimal
               value={line.customPrice}
-              onChange={(e) => onChange({ customPrice: cleanMoneyInput(e.target.value) })}
-              onBlur={(e) => onChange({ customPrice: money2(e.target.value) })}
+              onChange={(v) => onChange({ customPrice: v })}
               placeholder={String(line.listPrice)}
               aria-label="السعر الجديد للوحدة"
               autoFocus={!line.customPrice}

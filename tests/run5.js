@@ -20,10 +20,10 @@ eval(header + `
   assert.deepStrictEqual(spread.map((l) => l.netSubtotal), [95, 47.5, 47.5]);
   const odd = netLines({ discount: 10, items: [{ subtotal: 1 }, { subtotal: 1 }, { subtotal: 1 }] });
   assert.strictEqual(Math.round(odd.reduce((s, l) => s + l.discountShare, 0) * 100) / 100, 10);
-  assert.strictEqual(formatNumber(12500), "\\u206612,500.00 SDG\\u2069");
+  assert.strictEqual(formatNumber(12500), "\\u206612,500 SDG\\u2069");
   assert.strictEqual(normalizePhone("٠٩١٢٣٤٥٦٧٨"), "0912345678");
   assert.strictEqual(normalizePhone("۰۹۱ ۲۳۴-۵۶۷۸"), "0912345678");
-  ok("discount spread adds up exactly; amounts show as '12,500.00 SDG'; Arabic/Persian digits → English phone");
+  ok("discount spread adds up exactly; amounts show as 12,500 SDG (no forced decimals); Arabic/Persian digits → English phone");
 
   // 2. Invoice with a discount: 2×100 + 2×50 = 300 − 30 = 270.
   const ord = await call("pages/api/orders/create-staff.js", { method: "POST", ...A1, body: { clientId: "4000", items: [{ productId: "a", qty: 2 }, { productId: "b", qty: 2 }], discount: "٣٠", requestId: "req-disc-order-01" } });
