@@ -10,15 +10,8 @@ export default function Document() {
     <Html lang="ar" dir="rtl">
       <Head>
         <meta name="theme-color" content="#F4F1EA" />
-        {/* Alexandria: display face for headings and figures.
-            IBM Plex Sans Arabic: body text — very legible at small sizes
-            and on low-end screens, with clean Latin digits for prices/IDs. */}
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        <link
-          href="https://fonts.googleapis.com/css2?family=Alexandria:wght@500;600;700&family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap"
-          rel="stylesheet"
-        />
+        {/* Fonts (Alexandria for headings and figures, IBM Plex Sans Arabic
+            for body text) are self-hosted — see pages/_app.js. */}
         <script dangerouslySetInnerHTML={{ __html: THEME_BOOTSTRAP }} />
         {/* English/Arabic: sets dir before first paint (lib/i18n.js). */}
         <script dangerouslySetInnerHTML={{ __html: LANG_BOOTSTRAP }} />

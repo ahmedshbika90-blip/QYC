@@ -115,52 +115,16 @@ const { applyDelta } = require("../lib/clientsStore");
   assert.deepStrictEqual(fb.json.items.map((x) => x.id), ag.json.items.map((x) => x.id));
   ok("notifications: same signature = 1 read; resolved history bounded to the newest 20; works before the indexes are deployed");
 
-  // ---------- 4. rate limiter without Firestore ----------
-  const fresh = () => { delete require.cache[require.resolve("../lib/rateLimit")]; return require("../lib/rateLimit"); };
-  delete process.env.UPSTASH_REDIS_REST_URL; delete process.env.UPSTASH_REDIS_REST_TOKEN; delete process.env.KV_REST_API_URL; delete process.env.KV_REST_API_TOKEN;
-  let RL = fresh();
-  assert.strictEqual(RL.rateLimitBackend(), "memory");
-  db._resetReads();
-  const lim = { maxRequests: 3, windowMs: 1000 };
-  const got = [];
-  for (let i = 0; i < 5; i++) got.push(await RL.checkRateLimit("k1", lim));
-  assert.deepStrictEqual(got, [true, true, true, false, false]);
-  assert.ok(await RL.checkRateLimit("k2", lim));
-  assert.strictEqual(db._stats.reads, 0);
-  // Upstash: INCR + PEXPIRE NX in one pipeline; a slow/failed Redis falls back to memory
-  process.env.UPSTASH_REDIS_REST_URL = "https://example.upstash.io/";
-  process.env.UPSTASH_REDIS_REST_TOKEN = "tok";
-  RL = fresh();
-  assert.strictEqual(RL.rateLimitBackend(), "upstash");
-  const counts = {};
-  const sent = [];
-  const realFetch = global.fetch;
-  global.fetch = async (url, opts) => {
-    sent.push({ url, auth: opts.headers.Authorization, body: JSON.parse(opts.body) });
-    const key = JSON.parse(opts.body)[0][1];
-    counts[key] = (counts[key] || 0) + 1;
-    return { ok: true, json: async () => [{ result: counts[key] }, { result: 1 }] };
-  };
-  const up3 = [];
-  for (let i = 0; i < 4; i++) up3.push(await RL.checkRateLimit("ip_1", lim));
-  assert.deepStrictEqual(up3, [true, true, true, false]);
-  assert.deepStrictEqual(sent[0], { url: "https://example.upstash.io/pipeline", auth: "Bearer tok", body: [["INCR", "rl:ip_1"], ["PEXPIRE", "rl:ip_1", "1000", "NX"]] });
-  global.fetch = async () => { throw new Error("network down"); };
-  console.warn = () => {};
-  assert.strictEqual(await RL.checkRateLimit("ip_2", lim), true); // memory fallback, not an error
-  console.warn = warn;
-  global.fetch = realFetch;
-  delete process.env.UPSTASH_REDIS_REST_URL; delete process.env.UPSTASH_REDIS_REST_TOKEN;
-  fresh(); // back to the in-memory limiter for the rest of the file
-  ok("rate limiter: Upstash when configured (one pipeline call), memory otherwise or when Redis fails — never a Firestore read");
-
-  // ---------- 5. public order form now tells open screens ----------
-  await db.collection("clients").doc("1001").set({ name: "C2", route: "car2", active: true });
-  const before = (db._data.meta.versions || {}).orders_car2 || 0;
-  const pub = await call("pages/api/orders/create.js", { method: "POST", body: { clientId: "1001", items: [{ productId: "p3", qty: 1 }], requestId: "req-public-0000001" }, headers: { "x-forwarded-for": "1.2.3.4" } });
-  assert.strictEqual(pub.status, 201, JSON.stringify(pub.json));
-  assert.strictEqual(db._data.meta.versions.orders_car2, before + 1);
-  ok("an invoice from the public order form bumps its route's change counter");
+  // ---------- 4. no public endpoints left ----------
+  // Every API route must check the staff login (requireUser); the only
+  // exception is the nightly cron, which checks CRON_SECRET instead.
+  const fs = require("fs"), path = require("path");
+  const walk = (d) => fs.readdirSync(d).flatMap((f) => (fs.statSync(path.join(d, f)).isDirectory() ? walk(path.join(d, f)) : [path.join(d, f)]));
+  const apiFiles = walk(path.join(ROOT, "pages/api")).filter((f) => f.endsWith(".js"));
+  const open = apiFiles.filter((f) => !fs.readFileSync(f, "utf8").includes("requireUser(") && !fs.readFileSync(f, "utf8").includes("CRON_SECRET"));
+  assert.deepStrictEqual(open.map((f) => path.relative(ROOT, f)), []);
+  for (const gone of ["pages/new-order.js", "pages/api/orders/create.js", "pages/api/clients/lookup-route.js"]) assert.ok(!fs.existsSync(path.join(ROOT, gone)), gone);
+  ok("no API route without a staff login (" + apiFiles.length + " routes checked); client self-order page and endpoints removed");
 
   console.log("ALL PHASE-1 CACHE/SYNC SCENARIOS PASSED");
 })().catch((e) => { console.error("FAILED:", e); process.exit(1); });

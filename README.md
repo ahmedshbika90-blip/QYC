@@ -338,7 +338,7 @@ Check any day by hand: `curl -H "Authorization: Bearer $CRON_SECRET" https://<ap
 
 The demo seed writes the summaries too.
 
-## Server caching, delta sync, rate limit
+## Server caching and delta sync
 - **Product list** and **English names** are cached per server instance
   (90 s / 120 s) and dropped as soon as a related change counter in
   `meta/versions` moves (`lib/serverCache.js`): 1 read instead of the
@@ -349,10 +349,10 @@ The demo seed writes the summaries too.
 - **Notifications** carry a signature built from the change counters; a
   device that already has the current list gets `unchanged` for 1 read.
   Resolved-item history is bounded by indexes.
-- **Rate limit** (public order form + route lookup): Upstash Redis when
-  `UPSTASH_REDIS_REST_URL` + `UPSTASH_REDIS_REST_TOKEN` (or the
-  `KV_REST_API_*` names from the Vercel integration) are set; otherwise
-  in-memory per server instance. No Firestore reads/writes either way.
+- **No public endpoints.** Client self-ordering (`/new-order`,
+  `/api/orders/create`, `/api/clients/lookup-route`) was removed; every API
+  route requires a staff login (checked by `tests/run14.js`), so the rate
+  limiter and Upstash are no longer needed.
 
 ## Server region
 `vercel.json` pins API functions to `fra1` (Frankfurt). Keep it next to the
@@ -365,3 +365,21 @@ resource location): eur3 / europe-west* → `fra1`; nam5 / us-central1 →
 - `changeRequests`: requestedBy, status, decidedAt DESC
 - `shipmentRequests`: requestedBy, status, requestedAt DESC
 (until deployed, notifications fall back to the old queries)
+
+## Speed on weak phones
+- **Firebase Auth** is set up with `initializeAuth` and only email/password
+  persistence (`lib/firebaseClient.js`) — not `getAuth()`, which also ships
+  pop-up sign-in and reCAPTCHA code on every page. The Firestore SDK is
+  loaded only on demand by the live-update listener.
+- **Fonts** are self-hosted from npm (`@fontsource/*`, imported in
+  `pages/_app.js`): no render-blocking stylesheet from Google, and the
+  service worker keeps them offline.
+- **Logos** use `next/image` (resized to their display size, WebP, cached a
+  year).
+- **On demand:** executive tabs 2 and 3 (`components/exec/`), the
+  notification prompt and toasts (only for roles that get notifications),
+  and the PDF libraries.
+- `tests/run15.js` guards all of the above.
+- Deploying Firestore rules/indexes uses `firebase.json` in the project root:
+  `firebase deploy --only firestore:indexes --project <id>` — answer **N** if
+  it offers to delete indexes that aren't in the file.

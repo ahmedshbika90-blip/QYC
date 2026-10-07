@@ -7,8 +7,14 @@ import { getAuthFlags } from "../lib/authFlags";
 import { subscribeAuth } from "../lib/currentToken";
 import { useNotifications } from "../lib/useNotifications";
 import { useTheme } from "../lib/theme";
-import PendingActionModal from "./PendingActionModal";
-import NotificationToastStack from "./NotificationToast";
+import dynamic from "next/dynamic";
+
+// Only the roles that get notifications download these two (the prompt
+// after the first notifications check, the toasts when one arrives) — the
+// executive, accountant, admin and depot viewer never do.
+const PendingActionModal = dynamic(() => import("./PendingActionModal"), { ssr: false });
+const NotificationToastStack = dynamic(() => import("./NotificationToast"), { ssr: false });
+const NOTIFIED_ROLES = ["manager", "agent_car1", "agent_car2", "warehouse_keeper"];
 import Icon from "./Icon";
 import LangToggle from "./LangToggle";
 
@@ -259,8 +265,10 @@ export default function Nav({ role, logout }) {
   return (
     <>
       {confirmOut && <LogoutConfirm onCancel={() => setConfirmOut(false)} onConfirm={() => { setConfirmOut(false); logout(); }} />}
-      <PendingActionModal role={role} uid={auth.uid} items={items} loaded={loaded} refreshSeen={refreshSeen} />
-      <NotificationToastStack toasts={toasts} uid={auth.uid} onDismiss={dismissToast} refreshSeen={refreshSeen} />
+      {NOTIFIED_ROLES.includes(role) && loaded && (
+        <PendingActionModal role={role} uid={auth.uid} items={items} loaded={loaded} refreshSeen={refreshSeen} />
+      )}
+      {toasts?.length > 0 && <NotificationToastStack toasts={toasts} uid={auth.uid} onDismiss={dismissToast} refreshSeen={refreshSeen} />}
 
       {/* ── Top bar ───────────────────────────────────────────────── */}
       <header className="sticky top-0 z-20 bg-canvas/85 backdrop-blur-md border-b border-line">

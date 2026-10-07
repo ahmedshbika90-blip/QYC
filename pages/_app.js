@@ -1,3 +1,16 @@
+// Fonts are served from our own domain (npm @fontsource packages, bundled
+// under /_next/static/media): no render-blocking stylesheet from
+// fonts.googleapis.com, no extra connection to Google on a weak line, and
+// the service worker keeps them for offline use. Same faces and weights as
+// before; each weight is split by script (unicode-range), so a phone only
+// downloads the Arabic and Latin files it actually needs.
+import "@fontsource/ibm-plex-sans-arabic/400.css";
+import "@fontsource/ibm-plex-sans-arabic/500.css";
+import "@fontsource/ibm-plex-sans-arabic/600.css";
+import "@fontsource/ibm-plex-sans-arabic/700.css";
+import "@fontsource/alexandria/500.css";
+import "@fontsource/alexandria/600.css";
+import "@fontsource/alexandria/700.css";
 import Head from "next/head";
 import "../styles/globals.css";
 import { useEffect } from "react";

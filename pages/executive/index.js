@@ -1,20 +1,23 @@
-import { useEffect, useState } from "react";
-import Link from "next/link";
+import { useState } from "react";
+import Image from "next/image";
+import dynamic from "next/dynamic";
+// Logos go through Next.js image optimisation: each is resized to the size
+// it's shown at and served as WebP (e.g. the 140 KB company logo becomes a
+// few KB). Static imports → content-hashed URLs, cached for a year.
+import mahgoubLogo from "../../public/brand/mahgoub.png";
+import alwafiLogo from "../../public/brand/alwafi.png";
+import chipsianoPack from "../../public/brand/chipsiano.webp";
+import markWhite from "../../public/brand/mahgoub-mark-white.png";
+import markBlue from "../../public/brand/mahgoub-mark.png";
 import { useRouter } from "next/router";
 import { useAuth } from "../../lib/useAuth";
 import Nav from "../../components/Nav";
 import Icon from "../../components/Icon";
-import StockBoard from "../../components/StockBoard";
-import DateFields from "../../components/DateFields";
 import WelcomeHeader from "../../components/WelcomeHeader";
-import { DateRange, Section, TrendChart } from "../../components/SupervisorDashboard";
+import { Section, TrendChart } from "../../components/SupervisorDashboard";
 import { DonutChart, PieChart, BarList, Split, pctText } from "../../components/ExecCharts";
-import { PageLoading, SkeletonRows, Spinner } from "../../components/Loading";
-import { apiFetch } from "../../lib/apiFetch";
-import { cachedGet } from "../../lib/apiCache";
-import { useLiveRefresh } from "../../lib/useLiveRefresh";
-import { buildTrend, rangeText, todayYmd, V, fmt } from "../../lib/dashboardView";
-import { formatDate, formatDateTime, formatQty, ROUTE_LABELS_SHORT } from "../../lib/labels";
+import { PageLoading, SkeletonRows } from "../../components/Loading";
+import { buildTrend, todayYmd, V, fmt } from "../../lib/dashboardView";
 import { useLang } from "../../lib/i18n";
 
 // The executive's dashboard — view only, three tabs:
@@ -29,179 +32,13 @@ const TABS = [
   { id: "customers", label: "العملاء والمسارات", icon: "users" },
   { id: "inventory", label: "المخزون", icon: "box" },
 ];
-const UNIT = "وحدة";
-// Day: Alwafi maroon / Chipsiano orange. Night: the original palette (the
-// brand variables are unset in night mode, so the fallback colour applies).
-const GROUP_COLOR = {
-  alwafi: "rgb(var(--d-brand-alwafi, var(--d-p1)))",
-  snacks: "rgb(var(--d-brand-snacks, var(--d-p3)))",
-  other: V("p5"),
-};
-const PRODUCT_COLORS = ["p1", "p3", "p2", "p4", "p5", "p6"];
-// Per-item bars: by family in day mode, the original rotating palette at night.
-const productColor = (group, i) => {
-  const fallback = `var(--d-${PRODUCT_COLORS[i % PRODUCT_COLORS.length]})`;
-  if (group === "alwafi") return `rgb(var(--d-brand-alwafi, ${fallback}))`;
-  if (group === "snacks") return `rgb(var(--d-brand-snacks, ${fallback}))`;
-  return `rgb(${fallback})`;
-};
-// SDG amounts: thousands separators, no forced decimals (100,000).
-const money = (n) => (Number(n) || 0).toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 0 });
-const Card = ({ className = "", children }) => <div className={`exec-card min-w-0 ${className}`}>{children}</div>;
+import { UNIT, GROUP_COLOR, productColor, money, Card, useGet, ErrorBox, PeriodPicker, Kpi, Stat, addDaysYmd } from "../../components/exec/parts";
 
-function useGet(token, url, liveKeys) {
-  const [data, setData] = useState(null);
-  const [error, setError] = useState("");
-  const [busy, setBusy] = useState(true);
-  async function load() {
-    if (!token || !url) return;
-    setBusy(true);
-    try {
-      setData(await cachedGet(apiFetch, url, token));
-      setError("");
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setBusy(false);
-    }
-  }
-  useEffect(() => {
-    load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [token, url]);
-  useLiveRefresh(token, liveKeys, load);
-  return { data, error, busy, reload: load };
-}
-
-function ErrorBox({ error, onRetry }) {
-  if (!error) return null;
-  return (
-    <div role="alert" className="flex items-center justify-between gap-3 rounded-xl px-4 py-3 text-sm bg-surface-2 text-ink">
-      <span className="flex items-center gap-2"><Icon name="alert" size={18} />{error}</span>
-      <button type="button" onClick={onRetry} className="font-semibold underline shrink-0">إعادة المحاولة</button>
-    </div>
-  );
-}
-
-/* ── period picker: quick choices + custom dates ─────────────────────── */
-
-const addDaysYmd = (ymd, n) => {
-  const d = new Date(`${ymd}T12:00:00Z`);
-  d.setUTCDate(d.getUTCDate() + n);
-  return d.toISOString().slice(0, 10);
-};
-function presets() {
-  const t = todayYmd();
-  return [
-    { id: "today", label: "اليوم", from: t, to: t },
-    { id: "yesterday", label: "أمس", from: addDaysYmd(t, -1), to: addDaysYmd(t, -1) },
-    { id: "7", label: "آخر 7 أيام", from: addDaysYmd(t, -6), to: t },
-    { id: "30", label: "آخر 30 يومًا", from: addDaysYmd(t, -29), to: t },
-    { id: "month", label: "هذا الشهر", from: `${t.slice(0, 8)}01`, to: t },
-  ];
-}
-
-function PeriodPicker({ range, onChange, title = "الفترة" }) {
-  const list = presets();
-  const match = list.find((p) => p.from === range.from && p.to === range.to);
-  const [custom, setCustom] = useState(!match);
-  const today = todayYmd();
-  const period = { fromYmd: range.from, toYmd: range.to, from: `${range.from}T12:00:00+02:00`, ...(range.from === range.to ? {} : { to: `${range.to}T12:00:00+02:00` }) };
-  return (
-    <div className="exec-card p-4 md:p-5 flex flex-col gap-3">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="text-sm font-bold text-ink flex items-center gap-2">
-          <Icon name="calendar" size={18} className="text-accent-ink" />
-          {title}
-        </p>
-        <p className="text-sm text-muted">{rangeText(period)}</p>
-      </div>
-      <div className="flex gap-2 overflow-x-auto no-scrollbar pb-0.5" role="group" aria-label="اختيار الفترة">
-        {list.map((p) => {
-          const on = !custom && match?.id === p.id;
-          return (
-            <button
-              key={p.id}
-              type="button"
-              aria-pressed={on}
-              onClick={() => {
-                setCustom(false);
-                onChange(p.from, p.to);
-              }}
-              className={`shrink-0 h-10 px-4 rounded-full text-sm border transition-colors ${on ? "bg-accent text-on-accent border-accent font-bold shadow-sm" : "bg-white text-ink-soft border-line hover:border-accent"}`}
-            >
-              {p.label}
-            </button>
-          );
-        })}
-        <button
-          type="button"
-          aria-pressed={custom}
-          onClick={() => setCustom(true)}
-          className={`shrink-0 h-10 px-4 rounded-full text-sm border flex items-center gap-1.5 ${custom ? "bg-accent text-on-accent border-accent font-bold shadow-sm" : "bg-white text-ink-soft border-line hover:border-accent"}`}
-        >
-          <Icon name="calendar" size={15} />
-          مخصص
-        </button>
-      </div>
-      {custom && (
-        <DateFields
-          className="sm:max-w-md"
-          from={range.from}
-          to={range.to}
-          max={today}
-          onFrom={(v) => v && onChange(v > range.to ? range.to : v, range.to)}
-          onTo={(v) => v && onChange(range.from, v < range.from ? range.from : v)}
-        />
-      )}
-    </div>
-  );
-}
-
-/* ── headline KPI ───────────────────────────────────────────────────── */
-
-function Delta({ change }) {
-  if (change === null) return <span className="text-xs font-semibold text-accent-ink bg-accent-soft rounded-full px-2 h-6 inline-flex items-center">جديد</span>;
-  if (!change) return <span className="text-xs text-muted">بدون تغيير</span>;
-  const up = change > 0;
-  return (
-    <span className={`text-xs font-bold rounded-full px-2 h-6 inline-flex items-center gap-1 ${up ? "text-green-700 bg-green-50" : "text-red-700 bg-red-50"}`}>
-      <span aria-hidden="true">{up ? "▲" : "▼"}</span>
-      <span className="dn">{pctText(Math.abs(change))}</span>
-    </span>
-  );
-}
-
-function Kpi({ icon, label, value, unit, change, tone = "accent" }) {
-  const tones = { accent: "bg-accent-soft text-accent-ink", w: "", r: "" };
-  return (
-    <div className="exec-card exec-lift p-4 md:p-5 flex flex-col gap-3 min-w-0">
-      <div className="flex items-center justify-between gap-2">
-        <span className={`w-10 h-10 rounded-2xl flex items-center justify-center ${tones[tone] || tones.accent}`} style={tone !== "accent" ? { background: V(tone + "s"), color: V(tone) } : undefined}>
-          <Icon name={icon} size={20} />
-        </span>
-        <Delta change={change} />
-      </div>
-      <div className="min-w-0">
-        <p className="text-[13px] font-semibold text-muted">{label}</p>
-        <p className="mt-1 flex flex-wrap items-baseline gap-x-1.5 min-w-0">
-          <span className="dn font-display fig-sm font-bold text-ink">{value}</span>
-          {unit && <span className="text-xs text-muted">{unit}</span>}
-        </p>
-      </div>
-    </div>
-  );
-}
-
-function Stat({ label, value, unit, color, sub }) {
-  return (
-    <div className="rounded-xl px-4 py-3.5 min-w-0" style={{ background: color ? V(color + "s") : "rgb(var(--gray-100))" }}>
-      <div className="text-[13px] font-semibold" style={{ color: color ? V(color) : "rgb(var(--gray-600))" }}>{label}</div>
-      <div className="mt-1 min-w-0"><span className="dn fig-sm font-bold text-ink">{value}</span>{unit && <span className="text-xs text-muted ms-1.5">{unit}</span>}</div>
-      {sub && <div className="text-xs text-muted mt-1">{sub}</div>}
-    </div>
-  );
-}
+// Tabs 2 and 3 are separate downloads, fetched only when opened — the
+// overview (the tab everyone lands on) doesn't carry their code.
+const tabLoading = () => <SkeletonRows count={6} />;
+const CustomersTab = dynamic(() => import("../../components/exec/CustomersTab"), { loading: tabLoading });
+const InventoryTab = dynamic(() => import("../../components/exec/InventoryTab"), { loading: tabLoading });
 
 /* ── Tab 1: ملخص العمليات ──────────────────────────────────────────────── */
 
@@ -316,257 +153,6 @@ function OverviewTab({ token, range, setRange }) {
   );
 }
 
-/* ── Tab 2: العملاء والمسارات ───────────────────────────────────────────── */
-
-const ROUTE_COLOR = { car1: "w", car2: "r" };
-
-function CustomersTab({ token, range, setRange }) {
-  const { data: d, error, busy, reload } = useGet(token, `/api/executive/customers?from=${range.from}&to=${range.to}`, ["orders_car1", "orders_car2", "clients"]);
-  if (error) return <ErrorBox error={error} onRetry={reload} />;
-  if (!d) return <SkeletonRows count={6} />;
-  const reg = d.registered;
-  return (
-    <div className={`flex flex-col gap-12 ${busy ? "opacity-60" : ""}`}>
-      <Section
-        id="c1"
-        title="العملاء المسجلون"
-        hint="كل العملاء المسجلين في النظام حتى الآن — لا يتأثر بالفترة المختارة."
-        aside={
-          <Link href="/executive/customers" className="h-11 px-4 rounded-xl bg-white border border-line text-sm font-semibold text-ink flex items-center gap-2">
-            <Icon name="users" size={18} />
-            قاعدة العملاء الكاملة
-            <Icon name="chevronLeft" size={16} />
-          </Link>
-        }
-      >
-        <Card className="p-6 flex flex-col gap-5">
-          <div className="flex flex-wrap items-baseline gap-2 min-w-0">
-            <span className="dn font-display fig font-bold text-ink">{fmt(reg.total)}</span>
-            <span className="text-sm text-muted">عميل</span>
-          </div>
-          <Split a={reg.routes[0]?.total || 0} b={reg.routes[1]?.total || 0} />
-          <div className="grid gap-3 sm:grid-cols-2">
-            {reg.routes.map((r) => (
-              <Stat
-                key={r.route}
-                label={ROUTE_LABELS_SHORT[r.route] || r.route}
-                value={fmt(r.total)}
-                color={ROUTE_COLOR[r.route]}
-                sub={`${pctText(r.share)} من الإجمالي${r.inactive ? ` · ${fmt(r.inactive)} غير نشط` : ""}`}
-              />
-            ))}
-          </div>
-        </Card>
-      </Section>
-
-      <PeriodPicker range={range} onChange={(from, to) => setRange({ from, to })} title="فترة الأداء — تنطبق على المسارات وأكبر العملاء أدناه" />
-
-      <Section id="c2" title="المسارات" hint="أداء كل مسار في الفترة المختارة. «الوصول» = نسبة العملاء النشطين الذين اشتروا في الفترة.">
-        <div className="grid gap-5 md:grid-cols-2">
-          {d.routes.map((r) => (
-            <Card key={r.route} className="p-6 flex flex-col gap-4">
-              <h3 className="text-[15px] font-bold flex items-center gap-2" style={{ color: V(ROUTE_COLOR[r.route]) }}>
-                <Icon name="truck" size={18} />
-                {ROUTE_LABELS_SHORT[r.route] || r.route}
-                <span className="text-xs font-normal text-muted" dir="ltr">{r.route}</span>
-              </h3>
-              <div className="grid grid-cols-2 gap-3">
-                <Stat label="الفواتير" value={fmt(r.invoices)} />
-                <Stat label="الوحدات" value={fmt(r.units)} unit={UNIT} />
-                <Stat label="عملاء اشتروا" value={fmt(r.buyers)} />
-                <Stat label="الوصول" value={pctText(r.reach)} />
-              </div>
-            </Card>
-          ))}
-        </div>
-      </Section>
-
-      <Section id="c3" title="أكبر عشرة عملاء" hint="مرتبون حسب الوحدات المشتراة في الفترة المختارة، مع نصيب كل عميل من إجمالي الوحدات المباعة.">
-        {d.top.length === 0 ? (
-          <Card className="p-8 text-center text-sm text-muted">لا توجد مبيعات في هذه الفترة</Card>
-        ) : (
-          <Card className="overflow-x-auto">
-            <table className="w-full text-sm min-w-[560px]">
-              <thead>
-                <tr className="text-xs text-muted border-b border-line">
-                  <th className="px-4 py-3 text-start font-semibold w-10">#</th>
-                  <th className="px-4 py-3 text-start font-semibold">العميل</th>
-                  <th className="px-4 py-3 text-start font-semibold">نوع البيع</th>
-                  <th className="px-4 py-3 text-end font-semibold">الفواتير</th>
-                  <th className="px-4 py-3 text-end font-semibold">الوحدات</th>
-                  <th className="px-4 py-3 text-start font-semibold w-[28%]">من إجمالي الوحدات</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-line">
-                {d.top.map((t) => (
-                  <tr key={t.id}>
-                    <td className="px-4 py-3 dn font-bold text-muted">{t.rank}</td>
-                    <td className="px-4 py-3 font-semibold text-ink">{t.name || `عميل ${t.id}`} <span className="text-xs text-muted dn">#{t.id}</span></td>
-                    <td className="px-4 py-3" style={{ color: V(ROUTE_COLOR[t.route]) }}>{ROUTE_LABELS_SHORT[t.route] || t.route}</td>
-                    <td className="px-4 py-3 text-end dn">{fmt(t.invoices)}</td>
-                    <td className="px-4 py-3 text-end dn font-bold">{fmt(t.units)}</td>
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-2">
-                        <span className="flex-1 h-2 rounded-full bg-surface-2 overflow-hidden flex">
-                          <span className="h-full rounded-full" style={{ width: `${Math.min(100, (t.share / (d.top[0].share || 1)) * 100)}%`, background: V(ROUTE_COLOR[t.route]) }} />
-                        </span>
-                        <span className="dn text-xs font-bold w-12 text-end">{pctText(t.share)}</span>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </Card>
-        )}
-      </Section>
-    </div>
-  );
-}
-
-/* ── Tab 3: المخزون ──────────────────────────────────────────────────────── */
-
-function ReceivedHistory({ token }) {
-  const [from, setFrom] = useState("");
-  const [to, setTo] = useState("");
-  const [docs, setDocs] = useState(null);
-  const [cursor, setCursor] = useState(null);
-  const [error, setError] = useState("");
-  const [more, setMore] = useState(false);
-  const [open, setOpen] = useState(null);
-
-  const url = (c) => {
-    const p = new URLSearchParams({ view: "received" });
-    if (from) p.set("from", from);
-    if (to) p.set("to", to);
-    if (c) p.set("cursor", c);
-    return `/api/executive/stock?${p}`;
-  };
-  async function load() {
-    setDocs(null);
-    try {
-      const d = await cachedGet(apiFetch, url(), token);
-      setDocs(d.docs);
-      setCursor(d.nextCursor);
-      setError("");
-    } catch (err) {
-      setError(err.message);
-    }
-  }
-  async function loadMore() {
-    setMore(true);
-    try {
-      const d = await cachedGet(apiFetch, url(cursor), token);
-      setDocs((x) => [...x, ...d.docs]);
-      setCursor(d.nextCursor);
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setMore(false);
-    }
-  }
-  useEffect(() => {
-    if (token) load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [token, from, to]);
-  useLiveRefresh(token, ["inventory"], load);
-
-  const totals = {};
-  (docs || []).forEach((d) => d.items.forEach((it) => {
-    const t = (totals[it.productId] = totals[it.productId] || { name: it.name, unit: it.unit, qty: 0 });
-    t.qty += it.qty;
-  }));
-  const totalRows = Object.entries(totals).sort((a, b) => b[1].qty - a[1].qty);
-  const totalUnits = totalRows.reduce((a, [, t]) => a + t.qty, 0);
-
-  return (
-    <div className="flex flex-col gap-5">
-      <div className="flex items-end gap-2 rounded-2xl border border-line bg-white px-3 py-2.5 w-full sm:w-auto sm:self-start min-w-0">
-        <DateFields compact className="flex-1 sm:w-[300px]" from={from} to={to} max={todayYmd()} onFrom={setFrom} onTo={setTo} />
-        {(from || to) && <button type="button" onClick={() => { setFrom(""); setTo(""); }} className="h-10 px-3 rounded-xl text-sm font-semibold text-ink-soft bg-surface-2 shrink-0">آخر 90 يومًا</button>}
-      </div>
-      <ErrorBox error={error} onRetry={load} />
-      {!docs ? (
-        !error && <SkeletonRows count={4} />
-      ) : docs.length === 0 ? (
-        <Card className="p-8 text-center text-sm text-muted">لم تُستلم بضاعة معتمدة في هذه الفترة.</Card>
-      ) : (
-        <>
-          <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.6fr)]">
-            <Card className="p-6 flex flex-col gap-4 self-start">
-              <h3 className="text-[15px] font-bold text-ink">إجمالي المستلم {from || to ? "في الفترة" : "(آخر 90 يومًا)"}</h3>
-              <div className="flex flex-wrap items-baseline gap-2 min-w-0"><span className="dn font-display fig font-bold text-ink">{fmt(totalUnits)}</span><span className="text-sm text-muted">{UNIT} · {fmt(docs.length)} مستند</span></div>
-              <BarList unit="" rows={totalRows.map(([id, t], i) => ({ id, label: t.name, value: t.qty, share: totalUnits ? (t.qty / totalUnits) * 100 : 0, color: V(PRODUCT_COLORS[i % PRODUCT_COLORS.length]) }))} />
-            </Card>
-            <Card className="self-start">
-              <ul className="divide-y divide-line">
-                {docs.map((d) => (
-                  <li key={d.id}>
-                    <button type="button" onClick={() => setOpen(open === d.id ? null : d.id)} aria-expanded={open === d.id} className="w-full px-5 py-4 flex items-center justify-between gap-3 text-start">
-                      <span className="min-w-0">
-                        <span className="block font-semibold text-ink">{formatDate(d.createdAt)}</span>
-                        <span className="block text-xs text-muted mt-0.5 truncate">{d.items.map((it) => it.name).join("، ")}</span>
-                      </span>
-                      <span className="flex items-center gap-2 shrink-0">
-                        <span className="dn font-bold text-ink">{fmt(d.units)}</span>
-                        <span className="text-xs text-muted">{UNIT}</span>
-                        <Icon name={open === d.id ? "chevronDown" : "chevronLeft"} size={16} className="text-muted" />
-                      </span>
-                    </button>
-                    {open === d.id && (
-                      <div className="px-5 pb-4 flex flex-col gap-2">
-                        {d.items.map((it, i) => (
-                          <div key={i} className="flex justify-between text-sm"><span className="text-ink">{it.name}</span><span className="dn">{formatQty(it.qty)} <span className="text-xs text-muted">{it.unit}</span></span></div>
-                        ))}
-                        <p className="text-xs text-muted mt-1">اعتُمد {formatDateTime(d.finalizedAt || d.createdAt)}{d.note ? ` · ${d.note}` : ""}</p>
-                      </div>
-                    )}
-                  </li>
-                ))}
-              </ul>
-              {cursor && (
-                <button type="button" onClick={loadMore} disabled={more} className="w-full border-t border-line h-12 text-sm text-ink-soft flex items-center justify-center gap-2 disabled:opacity-50">
-                  {more && <Spinner className="w-4 h-4" />}تحميل المزيد
-                </button>
-              )}
-            </Card>
-          </div>
-        </>
-      )}
-    </div>
-  );
-}
-
-function InventoryTab({ token }) {
-  const [view, setView] = useState("now");
-  const stock = useGet(token, view === "now" ? "/api/executive/stock" : null, ["inventory", "orders_car1", "orders_car2"]);
-  return (
-    <div className="flex flex-col gap-6">
-      <div role="tablist" aria-label="أقسام المخزون" className="inline-flex gap-1 p-1 rounded-xl bg-surface-2 self-start">
-        {[["now", "المخزون الحالي"], ["received", "سجل الاستلام"]].map(([id, label]) => (
-          <button key={id} type="button" role="tab" aria-selected={view === id} onClick={() => setView(id)} className={`h-10 px-4 rounded-lg text-sm ${view === id ? "bg-white font-bold shadow-sm text-ink" : "text-muted font-medium"}`}>
-            {label}
-          </button>
-        ))}
-      </div>
-      {view === "now" ? (
-        <Section id="i1" title="المخزون الحالي" hint="الرصيد اللحظي في المخزن الرئيسي وفي كل سيارة — بالكميات فقط.">
-          <ErrorBox error={stock.error} onRetry={stock.reload} />
-          {stock.data ? <StockBoard products={stock.data.products} /> : !stock.error && <SkeletonRows count={6} />}
-        </Section>
-      ) : (
-        <Section id="i2" title="البضاعة المستلمة في المخزن" hint="استلامات المخزن المعتمدة، الأحدث أولًا. اضغط على أي استلام لرؤية أصنافه.">
-          <ReceivedHistory token={token} />
-        </Section>
-      )}
-    </div>
-  );
-}
-
-// ── Brands ribbon: the company and its two brands, with this period's
-// numbers. Cards rise in one after another when the dashboard opens; the
-// figures come from the same overview data as the tab below (cached, no
-// extra reads).
 function BrandRibbon({ token, range }) {
   const { data } = useGet(token, `/api/executive/overview?from=${range.from}&to=${range.to}`, ["orders_car1", "orders_car2"]);
   const g = Object.fromEntries((data?.groups || []).map((x) => [x.id, x]));
@@ -585,8 +171,7 @@ function BrandRibbon({ token, range }) {
   return (
     <section aria-label="علاماتنا التجارية" className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4">
       <div className="brand-in d1 exec-card sm:col-span-2 lg:col-span-1 p-4 md:p-5 flex items-center gap-4 overflow-hidden">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/brand/mahgoub.png" alt="محجوب أولاد الغذائية" className="brand-logo-pop h-[76px] md:h-[92px] w-auto shrink-0" />
+        <Image src={mahgoubLogo} width={106} height={92} priority alt="محجوب أولاد الغذائية" className="brand-logo-pop h-[76px] md:h-[92px] w-auto shrink-0" />
         <div className="min-w-0 text-ink dark:text-snow">
           <p className="text-[13px] font-semibold text-muted dark:text-snow/80">إجمالي المبيعات في الفترة</p>
           <Fig value={total} sub="وحدة" />
@@ -596,8 +181,7 @@ function BrandRibbon({ token, range }) {
 
       <div className="brand-in d2 relative overflow-hidden rounded-[1.25rem] p-4 md:p-5 flex flex-col gap-3 text-snow min-w-0" style={{ background: "linear-gradient(140deg, rgb(142 42 44) 0%, rgb(112 30 34) 100%)", boxShadow: "0 14px 30px -18px rgb(142 42 44 / 0.7)" }}>
         <div className="flex items-start justify-between gap-2">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/brand/alwafi.png" alt="الوافي" className="brand-logo-pop h-[54px] md:h-[64px] w-auto drop-shadow" />
+          <Image src={alwafiLogo} width={88} height={64} priority alt="الوافي" className="brand-logo-pop h-[54px] md:h-[64px] w-auto drop-shadow" />
           {g.alwafi && <span className="dn text-sm font-bold rounded-full px-2.5 h-7 flex items-center" style={{ background: "rgb(240 176 48)", color: "rgb(90 20 22)" }}>{pctText(g.alwafi.share)}</span>}
         </div>
         <Fig onBrand value={g.alwafi?.units} sub="وحدة — طحنية وطحينة" />
@@ -606,9 +190,10 @@ function BrandRibbon({ token, range }) {
 
       <div className="brand-in d3 relative overflow-hidden rounded-[1.25rem] p-4 md:p-5 flex flex-col gap-3 text-snow min-w-0" style={{ background: "linear-gradient(140deg, rgb(247 150 40) 0%, rgb(232 96 20) 100%)", boxShadow: "0 14px 30px -18px rgb(232 96 20 / 0.7)" }}>
         <span aria-hidden="true" className="brand-float absolute -bottom-2 end-[-6px] pointer-events-none">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src="/brand/chipsiano.webp"
+          <Image
+            src={chipsianoPack}
+            width={105}
+            height={146}
             alt=""
             className="brand-logo-pop h-[124px] md:h-[146px] w-auto"
             style={{ filter: "drop-shadow(0 8px 14px rgb(120 40 0 / 0.35))", maskImage: "linear-gradient(to top, transparent 0%, black 16%)", WebkitMaskImage: "linear-gradient(to top, transparent 0%, black 16%)" }}
@@ -669,10 +254,9 @@ export default function ExecutiveDashboard() {
           <span aria-hidden="true" className="exec-hero-orb exec-hero-orb-2" />
           {/* Company wheat mark as a watermark: white on the green glass by
               day, the company's own blue with a soft glow by night. */}
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/brand/mahgoub-mark-white.png" alt="" aria-hidden="true" className="exec-watermark exec-watermark-light" />
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/brand/mahgoub-mark.png" alt="" aria-hidden="true" className="exec-watermark exec-watermark-dark" />
+          {/* Lazy (next/image default): the hidden one for the other theme is never downloaded. */}
+          <Image src={markWhite} width={230} height={276} alt="" aria-hidden="true" className="exec-watermark exec-watermark-light" />
+          <Image src={markBlue} width={230} height={276} alt="" aria-hidden="true" className="exec-watermark exec-watermark-dark" />
           <div className="relative grid gap-5 md:grid-cols-[minmax(0,1fr)_auto] md:items-center">
             <WelcomeHeader token={token} dark subtitle="أهلًا بك في مباشر" />
             <TodayCard />

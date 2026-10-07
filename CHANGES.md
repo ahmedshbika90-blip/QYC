@@ -621,3 +621,18 @@ Tests: `tests/run12.js` (new), `run9/run10/run11` updated. `npm test` and `node 
 - Test mock (`tests/mockfs.js`): deep merge for `set(…, {merge:true})`, `in` / `>` / `<` filters, and a billed-read counter.
 
 Tests: `tests/run13.js`, `tests/run14.js` new; `npm test` (14 files) and `next build` pass; i18n check 0 missing.
+
+---
+
+# Client self-ordering removed
+- Deleted `pages/new-order.js`, `pages/api/orders/create.js`, `pages/api/clients/lookup-route.js`, and `lib/rateLimit.js` (only those two endpoints used it). No public, no-login endpoints remain; `tests/run14.js` now fails if any API route lacks `requireUser` (the nightly cron uses `CRON_SECRET` instead).
+- Upstash / rate-limit setup is no longer needed.
+- Added `firebase.json` so `firebase deploy --only firestore:indexes` works.
+
+# Phase 2 — speed on weak phones
+- `lib/firebaseClient.js`: `initializeAuth` with IndexedDB + local persistence (same sign-in persistence as before) instead of `getAuth()` → −4 kB gzip on every page.
+- Fonts self-hosted (`@fontsource/ibm-plex-sans-arabic`, `@fontsource/alexandria`, same weights) — Google Fonts `<link>` removed from `pages/_document.js`.
+- Executive logos and watermarks → `next/image` with static imports; `next.config.js` image cache 1 year, WebP. The hidden-theme watermark is no longer downloaded (lazy).
+- Executive tabs "العملاء والمسارات" and "المخزون" moved to `components/exec/` and loaded with `next/dynamic`; shared pieces in `components/exec/parts.js`.
+- `components/Nav.js`: notification prompt and toasts loaded on demand, and only for manager / sales / warehouse roles.
+- `tests/run15.js`: bundle guards.

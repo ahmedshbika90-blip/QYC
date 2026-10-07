@@ -75,11 +75,9 @@ eval(header + `
   assert.strictEqual(saved.total, 405);
   ok("locked invoice: change request carries the new price 135 and the free sample; applied as proposed (total 405)");
 
-  // 7. Public client orders can't adjust prices.
-  const pub = await call("pages/api/orders/create.js", { method: "POST", body: { clientId: "5000", items: [{ productId: "c", qty: 1, customPrice: "999", priceReason: "x" }], requestId: "req-adj-public-01" } });
-  assert.strictEqual(pub.status, 201, JSON.stringify(pub.json));
-  assert.deepStrictEqual([pub.json.items[0].price, pub.json.items[0].priceAdjusted, pub.json.total], [40, undefined, 40]);
-  ok("public client order: a price adjustment in the request is ignored — list price 40 charged");
+  // 7. Client self-ordering was removed: no public order endpoint any more.
+  assert.ok(!require("fs").existsSync(require("path").join(ROOT, "pages/api/orders/create.js")));
+  ok("public client order endpoint removed — invoices are created by staff only");
 
   console.log("ALL SESSION-7 SCENARIOS PASSED");
 })().catch((e) => { console.error("FAIL:", e.stack || e.message); process.exit(1); });
