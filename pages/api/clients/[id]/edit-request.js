@@ -78,7 +78,7 @@ export default async function handler(req, res) {
         decisionNote: "",
         seenByRequester: false,
       });
-      tx.update(clientRef, { pendingRequest: { id: requestId, type: "client_edit", requestedAt: now } });
+      tx.update(clientRef, { pendingRequest: { id: requestId, type: "client_edit", requestedAt: now }, syncAt: now });
     });
 
     await bumpVersions(["requests", "clients"]);

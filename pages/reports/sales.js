@@ -166,7 +166,7 @@ export default function SalesReport() {
               <div>
                 {/* Nothing selected = every route; tap the selected one again to clear. */}
                 <FilterChips
-                  label="المسار"
+                  label="نوع البيع"
                   value={routeFilter === "all" ? "" : routeFilter}
                   onChange={(v) => setRouteFilter(v || "all")}
                   options={[["car1", "مبيعات جملة"], ["car2", "مبيعات تجزئة"]]}

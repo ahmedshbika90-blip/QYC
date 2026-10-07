@@ -136,7 +136,11 @@ users.old = { uid: "old", email: "boss@x.com", displayName: "Boss", disabled: fa
   assert.ok(again.json.duplicate);
   const sameRef = await pay({ ref: "12345", bank: "bok", amount: 100, date: today, requestId: rid(2) });
   assert.strictEqual(sameRef.status, 409);
-  const otherBank = await pay({ ref: "12345", bank: "faisal", amount: 300, date: today, requestId: rid(3) });
+  const otherBankWarn = await pay({ ref: "12345", bank: "faisal", amount: 300, date: today, requestId: rid(3) });
+  assert.strictEqual(otherBankWarn.status, 409); // same reference, other bank: same last 4 → approval first
+  assert.ok(otherBankWarn.json.needsConfirm && otherBankWarn.json.similar[0].ref === "12345");
+  assert.ok(!sameRef.json.needsConfirm); // same bank + reference: refused outright, nothing to approve
+  const otherBank = await pay({ ref: "12345", bank: "faisal", amount: 300, date: today, requestId: rid(3), confirmSimilar: true });
   assert.strictEqual(otherBank.status, 201);
   const over = await pay({ ref: "777", bank: "nile", amount: 201, date: today, requestId: rid(4) });
   assert.strictEqual(over.status, 400);
@@ -148,7 +152,7 @@ users.old = { uid: "old", email: "boss@x.com", displayName: "Boss", disabled: fa
   const v = await pay({ action: "void", paymentId: rid(1), reason: "خطأ في المبلغ" });
   assert.strictEqual(v.status, 200);
   assert.strictEqual(v.json.summary.paid, 300);
-  assert.strictEqual((await pay({ ref: "12345", bank: "bok", amount: 600, date: today, requestId: rid(5) })).status, 201);
+  assert.strictEqual((await pay({ ref: "12345", bank: "bok", amount: 600, date: today, requestId: rid(5), confirmSimilar: true })).status, 201);
   const full = await call("pages/api/payments/[orderId].js", { ...ACC, query: { orderId: "o1" } });
   assert.strictEqual(full.json.summary.status, "paid");
   assert.strictEqual(full.json.payments.filter((p) => p.voided).length, 1);

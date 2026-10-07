@@ -1,5 +1,20 @@
 const { adminDb } = require("../../lib/firebaseAdmin");
 const { requireUser } = require("../../lib/apiAuth");
+const { notifySignature } = require("../../lib/notifySig");
+
+// Resolved items are "recent history": each history query is bounded by
+// an index (firestore.indexes.json). Until those indexes are deployed the
+// old unbounded query is used, so nothing breaks in between.
+const missingIndex = (err) => err && (err.code === 9 || /FAILED_PRECONDITION|requires an index/i.test(err.message || ""));
+async function bounded(fast, slow) {
+  try {
+    return await fast();
+  } catch (err) {
+    if (!missingIndex(err)) throw err;
+    console.warn("[notifications] index not deployed yet — using the slower query. Run: firebase deploy --only firestore:indexes");
+    return slow();
+  }
+}
 
 const ROLE_TO_ROUTE = { agent_car1: "car1", agent_car2: "car2" };
 const ROUTE_LABEL = { car1: "مبيعات جملة", car2: "مبيعات تجزئة" };
@@ -32,6 +47,10 @@ export default async function handler(req, res) {
     const decoded = await requireUser(req);
     const role = decoded.role;
     const items = [];
+
+    // Nothing changed since the device's copy → 1 read, no queries.
+    const sig = await notifySignature(decoded);
+    if (sig && req.query.sig === sig) return res.status(200).json({ unchanged: true, sig });
 
     if (role === "manager") {
       const [pendingRequests, pendingReceived, pendingDamage] = await Promise.all([
@@ -117,7 +136,11 @@ export default async function handler(req, res) {
 
       // The supervisor's decision on goods received / damage the keeper
       // recorded — informational, shown once.
-      const mine = await adminDb.collection("inventoryDocs").where("createdBy", "==", decoded.uid).get();
+      const mineQ = adminDb.collection("inventoryDocs").where("createdBy", "==", decoded.uid);
+      const mine = await bounded(
+        () => mineQ.where("type", "in", ["received", "damage"]).orderBy("finalizedAt", "desc").limit(RESOLVED_LIMIT * 2).get(),
+        () => mineQ.get()
+      );
       mine.docs
         .map((d) => ({ id: d.id, ...d.data() }))
         .filter((r) => (r.type === "received" || r.type === "damage") && (r.status === "confirmed" || r.status === "rejected"))
@@ -142,10 +165,11 @@ export default async function handler(req, res) {
 
       // Modification bucket: purely informational for an agent — they
       // never decide these, only find out the outcome.
-      const decidedMine = await adminDb
-        .collection("changeRequests")
-        .where("requestedBy", "==", decoded.uid)
-        .get();
+      const decidedQ = adminDb.collection("changeRequests").where("requestedBy", "==", decoded.uid);
+      const decidedMine = await bounded(
+        () => decidedQ.where("status", "in", ["approved", "rejected"]).orderBy("decidedAt", "desc").limit(RESOLVED_LIMIT).get(),
+        () => decidedQ.get()
+      );
       decidedMine.docs
         .map((d) => ({ id: d.id, ...d.data() }))
         .filter((r) => r.status === "approved" || r.status === "rejected")
@@ -211,10 +235,13 @@ export default async function handler(req, res) {
       }
 
       // My own shipping/cargo-return requests once resolved — informational.
-      const myShipments = await adminDb
-        .collection("shipmentRequests")
-        .where("requestedBy", "==", decoded.uid)
-        .get();
+      // Newest requests first, then ordered by when they were resolved;
+      // RESOLVED_LIMIT×3 leaves room for long-pending older ones.
+      const shipQ = adminDb.collection("shipmentRequests").where("requestedBy", "==", decoded.uid);
+      const myShipments = await bounded(
+        () => shipQ.where("status", "in", ["rejected", "fulfilled", "cancelled"]).orderBy("requestedAt", "desc").limit(RESOLVED_LIMIT * 3).get(),
+        () => shipQ.get()
+      );
       myShipments.docs
         .map((d) => ({ id: d.id, ...d.data() }))
         .filter((r) => ["rejected", "fulfilled", "cancelled"].includes(r.status))
@@ -243,7 +270,7 @@ export default async function handler(req, res) {
     // Any other role (e.g. depot_viewer): no notifications.
 
     items.sort((a, b) => (b.at || "").localeCompare(a.at || ""));
-    return res.status(200).json({ items });
+    return res.status(200).json({ items, sig });
   } catch (err) {
     const status = err.statusCode || 500;
     return res.status(status).json({ error: err.message });

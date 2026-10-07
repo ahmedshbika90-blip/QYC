@@ -12,9 +12,11 @@ import { useRequestId } from "../../lib/useRequestId";
 import { isClientEditLocked, clientEditDeadline, CLIENT_EDIT_WINDOW_HOURS } from "../../lib/clientEditLock";
 import SuccessScreen from "../../components/SuccessScreen";
 import Icon from "../../components/Icon";
+import DeliveryRoutePicker, { routesFromClients } from "../../components/DeliveryRoutePicker";
+import { getClients } from "../../lib/clientsStore";
 
 export default function ClientDetail() {
-  const { role, token, loading, logout } = useAuth();
+  const { user, role, token, loading, logout } = useAuth();
   const router = useRouter();
   const { id } = router.query;
 
@@ -26,6 +28,10 @@ export default function ClientDetail() {
   const [done, setDone] = useState(null); // "saved" | "requested"
   const [reason, setReason] = useState("");
   const requestIds = useRequestId();
+  const [known, setKnown] = useState([]);
+  useEffect(() => {
+    if (token && user) getClients(apiFetch, token, user.uid).then(setKnown).catch(() => {});
+  }, [token, user]);
 
   useEffect(() => {
     if (!token || !id) return;
@@ -45,6 +51,7 @@ export default function ClientDetail() {
       setForm({
         name: data.name,
         storeName: data.storeName,
+        deliveryRoute: data.deliveryRoute || "",
         location: data.location,
         route: data.route,
         storeClass: data.storeClass || "",
@@ -71,7 +78,8 @@ export default function ClientDetail() {
     try {
       // Clients registered before store classes existed have none yet —
       // omit it rather than sending "" (which the server rejects).
-      const fields = { ...form, storeClass: form.storeClass || undefined };
+      // Same for the route (المسار): older clients have none until one is picked.
+      const fields = { ...form, storeClass: form.storeClass || undefined, deliveryRoute: form.deliveryRoute.trim() || undefined };
       let res;
       if (locked) {
         const { route, ...rest } = fields; // route changes are supervisor-only
@@ -187,6 +195,13 @@ export default function ClientDetail() {
             />
           </div>
 
+          <DeliveryRoutePicker
+            value={form.deliveryRoute}
+            onChange={(v) => setForm((f) => ({ ...f, deliveryRoute: v }))}
+            options={routesFromClients(known, form.route)}
+            required={Boolean(client.deliveryRoute)}
+          />
+
           <div>
             <label className="block text-sm text-gray-600 mb-1">الموقع</label>
             <input
@@ -246,7 +261,7 @@ export default function ClientDetail() {
           </div>
 
           <div>
-            <label className="block text-sm text-gray-600 mb-1">المسار</label>
+            <label className="block text-sm text-gray-600 mb-1">نوع البيع</label>
             <select
               value={form.route}
               onChange={(e) => setForm({ ...form, route: e.target.value })}
@@ -258,7 +273,7 @@ export default function ClientDetail() {
             </select>
             {role !== "manager" && (
               <p className="text-xs text-gray-400 mt-1">
-                المدير فقط يمكنه تغيير مسار العميل.
+                المدير فقط يمكنه تغيير نوع البيع للعميل.
               </p>
             )}
           </div>

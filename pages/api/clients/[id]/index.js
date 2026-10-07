@@ -68,7 +68,10 @@ export default async function handler(req, res) {
         updatedAt: new Date().toISOString(),
         updatedBy: decoded.uid,
       };
+      updates.syncAt = updates.updatedAt; // delta sync (lib/clientsStore.js)
       if (route !== undefined) updates.route = route;
+      // Lets the old route's devices drop this client on their next delta sync.
+      if (route !== undefined && route !== client.route) updates.movedFrom = client.route;
 
       await ref.update(updates);
       await bumpVersion("clients");

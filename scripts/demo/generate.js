@@ -18,6 +18,8 @@
 const DAY = 24 * 3600 * 1000;
 const TZ_OFFSET_H = 2; // Africa/Khartoum
 
+const { statsDocsFromOrders } = require("../../lib/salesStatsModel");
+
 function rng(seed) {
   // mulberry32
   let a = seed >>> 0;
@@ -46,6 +48,9 @@ const LAST = ["أحمد", "علي", "محمد", "عثمان", "الخليفة", 
 const STORE_W = ["مخازن", "شركة", "مؤسسة", "توكيلات", "مجموعة"];
 const STORE_R = ["بقالة", "سوبرماركت", "كافتيريا", "دكان", "ميني ماركت"];
 const STORE_SUFFIX = ["النيل", "البركة", "الأمانة", "الصفا", "النور", "الخير", "الوفاء", "السلام", "الرحمة", "الهدى", "التوفيق", "الفردوس", "الريان", "الشروق", "المدينة", "الأمل", "الزهراء", "الإخلاص"];
+// Delivery route (المسار) for each area — no random draw, so the seeded
+// data stays exactly what it was.
+const routeOfArea = (a) => (a.startsWith("أم درمان") ? "خط أم درمان" : a.startsWith("بحري") || a === "الحاج يوسف" ? "خط بحري" : a.startsWith("السوق") ? "خط السوق" : "خط الخرطوم");
 const AREAS = ["الخرطوم 2", "العمارات", "الرياض", "الصحافة", "جبرة", "الكلاكلة", "الديم", "بري", "المعمورة", "الطائف", "أركويت", "أم درمان — الثورة", "أم درمان — السوق", "أم درمان — ود نوباوي", "بحري — الصافية", "بحري — شمبات", "بحري — الحلفايا", "السوق العربي", "السوق المركزي", "الحاج يوسف"];
 
 const BANKS = [
@@ -157,6 +162,8 @@ function generate({ months = 4, seed = 2026, now = new Date(), uids = {}, wholes
       createdBy: U[route],
       demo: true,
     };
+    doc.deliveryRoute = routeOfArea(doc.location);
+    doc.syncAt = doc.createdAt;
     clients.push({ id, data: doc });
     return {
       id,
@@ -394,7 +401,7 @@ function generate({ months = 4, seed = 2026, now = new Date(), uids = {}, wholes
       const id = `demo-pay-${o.id.slice(9)}-${k + 1}`;
       const createdAt = notFuture(at(dayIdx, 11 + r() * 5));
       payments.push({ id, ref, bank, amount, date: ymdOf(dayIdx), note: null, createdAt, createdBy: U.accountant, createdByEmail: U.accountantEmail });
-      paymentRefs.push({ id: `${bank}__${ref}`, data: { orderId: o.id, paymentId: id, createdAt, bank, ref, refRev: [...ref].reverse().join(""), demo: true } });
+      paymentRefs.push({ id: `${bank}__${ref}`, data: { orderId: o.id, paymentId: id, createdAt, bank, ref, refRev: [...ref].reverse().join(""), last4: ref.slice(-4), amount, date: ymdOf(dayIdx), clientId: d.clientId ? String(d.clientId) : null, route: d.route || null, demo: true } });
       paid += amount;
     });
     if (payments.length) {
@@ -404,6 +411,11 @@ function generate({ months = 4, seed = 2026, now = new Date(), uids = {}, wholes
       });
     }
   });
+
+  // Daily / monthly sales summaries, built by the same code the app uses.
+  const { dayDocs, monthDocs } = statsDocsFromOrders(orders.map((o) => o.data));
+  dayDocs.forEach((d) => (d.data.demo = true));
+  monthDocs.forEach((d) => (d.data.demo = true));
 
   return {
     period: { from: ymdOf(0), to: todayYmd, days: totalDays },
@@ -417,6 +429,8 @@ function generate({ months = 4, seed = 2026, now = new Date(), uids = {}, wholes
     inventoryDocs,
     invoicePayments,
     paymentRefs,
+    dailyStats: dayDocs,
+    monthlyStats: monthDocs,
   };
 }
 

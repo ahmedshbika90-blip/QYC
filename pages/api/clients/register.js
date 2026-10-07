@@ -4,6 +4,7 @@ const { isValidPhone, normalizePhone } = require("../../../lib/validation");
 const { bumpVersion } = require("../../../lib/versions");
 const { STORE_CLASSES } = require("../../../lib/labels");
 const { isValidRequestId } = require("../../../lib/requestId");
+const { cleanDeliveryRoute, DELIVERY_ROUTE_MAX } = require("../../../lib/clientFields");
 
 const COUNTER_DOC = adminDb.collection("meta").doc("clientIdCounter");
 
@@ -90,6 +91,13 @@ export default async function handler(req, res) {
     if (!["car1", "car2"].includes(route)) {
       return res.status(400).json({ error: 'المسار يجب أن يكون جملة أو تجزئة' });
     }
+    const deliveryRoute = cleanDeliveryRoute(req.body?.deliveryRoute);
+    if (!deliveryRoute) {
+      return res.status(400).json({ error: "المسار مطلوب — اختره من القائمة أو أضف مسارًا جديدًا" });
+    }
+    if (deliveryRoute.length > DELIVERY_ROUTE_MAX) {
+      return res.status(400).json({ error: `اسم المسار أطول من ${DELIVERY_ROUTE_MAX} حرفًا` });
+    }
     if (!STORE_CLASSES.includes(storeClass)) {
       return res.status(400).json({ error: "تصنيف المتجر يجب أن يكون A أو B أو C" });
     }
@@ -106,6 +114,7 @@ export default async function handler(req, res) {
       nameMiddle: nameMiddle.trim(),
       nameLast: nameLast.trim(),
       storeName,
+      deliveryRoute,
       location,
       route,
       phone,
@@ -115,6 +124,7 @@ export default async function handler(req, res) {
       createdAt: new Date().toISOString(),
       createdBy: decoded.uid,
     };
+    clientDoc.syncAt = clientDoc.createdAt; // devices download only clients changed since their copy (lib/clientsStore.js)
 
     const result = await registerOnce(requestId, clientDoc);
     if (!result.duplicate) await bumpVersion("clients");

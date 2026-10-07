@@ -308,6 +308,9 @@ export default function OrderDetail() {
               <p className="text-sm text-gray-500">
                 العميل <span className="tabular-ltr">#{order.clientId}</span> — {order.client?.name} ({order.client?.storeName})
               </p>
+              {order.client?.deliveryRoute && (
+                <p className="text-xs text-gray-500 mt-0.5">المسار: <span className="font-semibold">{order.client.deliveryRoute}</span></p>
+              )}
               <p className="text-xs text-gray-400">{order.client?.location}</p>
               {order.client?.phone && (
                 <div className="flex gap-4 mt-2">

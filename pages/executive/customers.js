@@ -41,7 +41,7 @@ export default function ExecutiveCustomers() {
       if (status === "active" && c.active === false) return false;
       if (status === "inactive" && c.active !== false) return false;
       if (!s) return true;
-      return [c.name, c.storeName, c.location, c.phone, c.id].some((v) => String(v || "").toLowerCase().includes(s));
+      return [c.name, c.storeName, c.deliveryRoute, c.location, c.phone, c.id].some((v) => String(v || "").toLowerCase().includes(s));
     });
   }, [clients, q, route, cls, status]);
   useEffect(() => setShown(PAGE), [q, route, cls, status]);
@@ -62,10 +62,10 @@ export default function ExecutiveCustomers() {
 
         <div className="relative">
           <Icon name="search" size={18} className="absolute top-1/2 -translate-y-1/2 start-3 text-muted" />
-          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="ابحث بالاسم أو المتجر أو الموقع أو الهاتف أو الرقم..." className="h-12 w-full rounded-xl border border-line bg-white ps-10 pe-3 text-base" />
+          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="ابحث بالاسم أو المتجر أو المسار أو الموقع أو الهاتف أو الرقم..." className="h-12 w-full rounded-xl border border-line bg-white ps-10 pe-3 text-base" />
         </div>
         <div className="grid gap-3 sm:grid-cols-3">
-          <FilterChips label="المسار" value={route} onChange={setRoute} options={ROUTES.map((r) => [r, ROUTE_LABELS_SHORT[r] || r])} className="sm:col-span-1" />
+          <FilterChips label="نوع البيع" value={route} onChange={setRoute} options={ROUTES.map((r) => [r, ROUTE_LABELS_SHORT[r] || r])} className="sm:col-span-1" />
           <FilterChips label="التصنيف" value={cls} onChange={setCls} options={STORE_CLASSES.map((c) => [c, c])} className="sm:col-span-1" />
           <FilterChips label="الحالة" value={status} onChange={setStatus} options={[["active", "نشط"], ["inactive", "غير نشط"]]} className="sm:col-span-1" />
         </div>
@@ -85,7 +85,7 @@ export default function ExecutiveCustomers() {
                       {c.name} <span className="text-xs text-muted num">#{c.id}</span>
                       {c.active === false && <span className="ms-2 text-xs text-amber-700">غير نشط</span>}
                     </p>
-                    <p className="text-sm text-muted mt-0.5 truncate">{[c.storeName, c.location].filter(Boolean).join(" · ")}</p>
+                    <p className="text-sm text-muted mt-0.5 truncate">{[c.storeName, c.deliveryRoute, c.location].filter(Boolean).join(" · ")}</p>
                     {c.phone && <p className="text-xs text-muted mt-0.5 num" dir="ltr" style={{ textAlign: "start" }}>{c.phone}</p>}
                   </div>
                   <div className="text-end shrink-0 text-xs text-muted flex flex-col items-end gap-1">

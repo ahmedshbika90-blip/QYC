@@ -565,3 +565,59 @@ naming:
   how ERP systems like SAP and NetSuite label the same physical goods
   differently across the warehouse-to-customer flow, and reduces the
   overloaded-noun problem.
+
+---
+
+# Round: competitor prices, delivery route (المسار), accountant reference search
+
+## 1. Competitor prices — أسعار المنافسين
+- **Sales supervisor** (Abdalbagi): new page `/competitors` (menu → أسعار المنافسين). Company, SKU, item name, price, date. Same large one-column layout as the invoice form. Company / SKU / item suggest earlier entries; picking a known SKU fills its item name. After saving, company and date stay filled for the next product from the same visit. "آخر ما أدخلته" lists his last 20 entries with delete.
+- **Executive** (Amel): new tab `/executive/competitors`. "حسب الصنف": one card per SKU, each company's latest price cheapest first, "الأقل سعرًا" tag, price range, and the change since that company's previous entry (amount and %). "كل الإدخالات": the full log with who entered it. Search and company filter. Updates live. The manager can open it too.
+- Data: `competitorPrices/{requestId}` (resend-safe). Only sales supervisors can add; the person who entered an entry (or the manager) can delete it. Live counter `competitors`.
+- Files: `lib/competitors.js`, `lib/competitorView.js`, `pages/api/competitors/*`, `pages/competitors.js`, `pages/executive/competitors.js`, `components/Nav.js`.
+
+## 2. Delivery route — المسار (above الموقع)
+- New client field `deliveryRoute` (e.g. "خط بحري"), required for new clients. Picker (`components/DeliveryRoutePicker.js`): dropdown of routes already used on the same sales type, plus "+ إضافة مسار جديد" which opens a text box in place.
+- In client registration and client edit (and edit requests), above الموقع.
+- Shown above/before the location on invoice cards, the invoice page, the accountant's invoice, the clients list and the executive customer base. New "المسار" filter (above location) in invoice and client search.
+- The old wholesale/retail field that was also labelled "المسار" is now **"نوع البيع"** everywhere, so the two never get mixed up.
+- Existing clients have no route until someone picks one when editing (not forced on old clients).
+
+## 3. Accountant — reference search by the last 4 digits
+- Search now matches the **last 4 digits** of رقم العملية (5+ digits = references ending in them, or the exact one). Starts-with search removed — bank references share their first digits.
+- Speed: one indexed query (`last4`) + one parallel batch of reads, instead of ~4 sequential round trips. Amount, date and client are copied onto each reference record. The one-time upgrade flag is remembered per server. The page waits for 4 digits, ignores stale replies and keeps results in memory until a payment changes.
+- **Same last 4 on save:** the payment is NOT saved; an amber panel lists the matching payments (client, bank, reference with last 4 highlighted, amount, date, link to invoice) with "مراجعة الرقم" / "اعتماد الدفعة". Approving saves it with the same request ID. Same bank + same reference is still refused outright. Editing warns only if the reference changes.
+- Old references are upgraded automatically on the first search (`meta/paymentRefsSearch2`).
+
+Tests: `tests/run12.js` (new), `run9/run10/run11` updated. `npm test` and `node scripts/i18n-check.js` both pass.
+
+---
+
+# Phase 1 — dashboard cost & speed
+
+## 1. Daily summaries
+- `lib/salesStats.js` + `lib/salesStatsModel.js`: day documents (per route, product, client), monthly route totals, readiness flag, rebuild/verify helpers.
+- Written inside the invoice transaction: `pages/api/orders/create-staff.js`, `pages/api/orders/create.js`, `lib/invoiceChanges.js` (edits, cancels, approved change requests).
+- Read by `lib/dashboardSummary.js` (summary, trend) and `lib/executiveSummary.js` (overview, customers). Old functions kept as `*FromOrders` — used until the backfill marks the summaries ready, and by the tests as the reference.
+- A comparison window cut part-way through a day ("same point yesterday") reads that one day from raw invoices — the only way to stay exact.
+- Manager summary fetches client names only for the clients it shows (was: every buyer).
+- Ties in rankings are now broken by id (old order depended on document order) — the only visible difference, and only between equal values.
+- `scripts/stats/backfill.js` (dry run by default), `pages/api/cron/verify-stats.js` + `vercel.json` cron, demo generator/seed write the summaries.
+- Tests `tests/run13.js`: old vs new on 4 months of demo data (7 ranges × 3 screens + 3 trends), after live creates/edits/cancels (incl. a 20-day-old invoice), after a damaged day is repaired, and after a backfill from empty.
+
+## 2. Region — `vercel.json` `regions: ["fra1"]` (see README for matching Firestore).
+
+## 3. Server cache — `lib/serverCache.js`; `/api/products/list`, `/api/i18n/terms`. New change counters `products` (product create/update/delete) and `profiles` (staff names).
+
+## 4. Client delta sync — `syncAt` on every client write (register, edit, edit request, decision); `movedFrom` when the manager changes a client's sales type; `/api/clients/list?since=`; `lib/clientsStore.js` applies deltas, offline copy unchanged.
+
+## 5. Notifications — `lib/notifySig.js`; `/api/notifications` and `/api/action-items` answer `unchanged` for the same signature; history queries bounded with indexes (fallback until deployed). Devices keep the last list across page changes. Implemented on the existing `meta/versions` counters rather than new per-person documents (same 1-read cost, no new write paths to keep in step).
+
+## 6. Rate limit — `lib/rateLimit.js`: Upstash Redis REST (INCR + PEXPIRE NX) or in-memory fallback; the `rateLimits` Firestore collection is no longer used.
+
+## Fixes found on the way
+- Public order form didn't bump its route's change counter (open screens never refreshed).
+- Demo seed set the old payment-search flag (`paymentRefsSearch` → `paymentRefsSearch2`).
+- Test mock (`tests/mockfs.js`): deep merge for `set(…, {merge:true})`, `in` / `>` / `<` filters, and a billed-read counter.
+
+Tests: `tests/run13.js`, `tests/run14.js` new; `npm test` (14 files) and `next build` pass; i18n check 0 missing.

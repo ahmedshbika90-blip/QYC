@@ -1,5 +1,6 @@
 const { adminDb } = require("../../lib/firebaseAdmin");
 const { requireUser } = require("../../lib/apiAuth");
+const { notifySignature } = require("../../lib/notifySig");
 
 const ROLE_TO_ROUTE = { agent_car1: "car1", agent_car2: "car2" };
 
@@ -28,6 +29,10 @@ export default async function handler(req, res) {
     const role = decoded.role;
     let count = 0;
 
+    // Same signature as the device's copy → nothing changed (1 read).
+    const sig = await notifySignature(decoded);
+    if (sig && req.query.sig === sig) return res.status(200).json({ unchanged: true, sig });
+
     if (role === "manager") {
       const [pendingRequests, pendingReceived, pendingDamage] = await Promise.all([
         adminDb.collection("changeRequests").where("status", "==", "pending").get(),
@@ -55,7 +60,7 @@ export default async function handler(req, res) {
     }
     // Any other role (e.g. depot_viewer): count stays 0.
 
-    return res.status(200).json({ count });
+    return res.status(200).json({ count, sig });
   } catch (err) {
     const status = err.statusCode || 500;
     return res.status(status).json({ error: err.message });

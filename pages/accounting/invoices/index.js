@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/router";
 import { useAuth } from "../../../lib/useAuth";
@@ -12,6 +12,7 @@ import { PageLoading, SkeletonRows, Spinner } from "../../../components/Loading"
 import { apiFetch } from "../../../lib/apiFetch";
 import { cachedGet } from "../../../lib/apiCache";
 import { useLiveRefresh } from "../../../lib/useLiveRefresh";
+import { getRefMatches, setRefMatches, clearRefCache } from "../../../lib/refSearchCache";
 import { formatDate, formatDateTime, formatNumber, shortCode, ROUTE_LABELS_SHORT } from "../../../lib/labels";
 import { ROUTES } from "../../../lib/roles";
 
@@ -22,10 +23,10 @@ const toDigits = (v) =>
     .replace(/\D/g, "")
     .slice(0, 11);
 
-// Shows a reference with the typed digits marked (at its start or end).
+// Shows a reference with the typed digits (its ending) marked.
 function RefHighlight({ value, part }) {
-  const i = value.startsWith(part) ? 0 : value.endsWith(part) ? value.length - part.length : -1;
-  if (i < 0 || !part) return <span className="num" dir="ltr">{value}</span>;
+  const i = part && value.endsWith(part) ? value.length - part.length : value === part ? 0 : -1;
+  if (i < 0) return <span className="num" dir="ltr">{value}</span>;
   return (
     <span className="num" dir="ltr">
       {value.slice(0, i)}
@@ -35,50 +36,72 @@ function RefHighlight({ value, part }) {
   );
 }
 
-// Matches for a transaction reference (رقم العملية). Shown automatically
-// whenever the search box holds only digits: the server checks that
-// reference against every bank in one go (exact reference).
+const MIN_DIGITS = 4;
+
+// Matches for a transaction reference (رقم العملية), searched by its LAST 4
+// digits — the first digits repeat between transfers, the last 4 don't.
+// Runs once 4 digits are typed; more digits narrow it to references ending
+// in them (or the exact reference). Shorter input waits, so typing "4417"
+// is one request, not four.
 function RefMatches({ token, digits }) {
-  const [matches, setMatches] = useState(null);
+  const [matches, setMatches] = useState(() => getRefMatches(digits) || null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const latest = useRef("");
   useEffect(() => {
-    setMatches(null);
+    latest.current = digits;
     setError("");
-    if (!digits) return;
+    if (digits.length < MIN_DIGITS) {
+      setMatches(null);
+      setBusy(false);
+      return;
+    }
+    const hit = getRefMatches(digits);
+    if (hit) {
+      setMatches(hit);
+      setBusy(false);
+      return;
+    }
+    setMatches(null);
+    setBusy(true);
     const t = setTimeout(async () => {
-      setBusy(true);
       try {
         const res = await apiFetch(`/api/accounting/find-ref?ref=${digits}`, { headers: { Authorization: `Bearer ${token}` } });
         const d = await res.json();
         if (!res.ok) throw new Error(d.error);
-        setMatches(d.matches);
+        setRefMatches(digits, d.matches);
+        if (latest.current === digits) setMatches(d.matches); // ignore answers to older keystrokes
       } catch (err) {
-        setError(err.message);
+        if (latest.current === digits) setError(err.message);
       } finally {
-        setBusy(false);
+        if (latest.current === digits) setBusy(false);
       }
-    }, 350);
+    }, 200);
     return () => clearTimeout(t);
   }, [digits, token]);
 
   if (!digits) return null;
+  if (digits.length < MIN_DIGITS) {
+    return (
+      <p className="mb-4 text-sm text-muted bg-white rounded-xl px-4 py-3">
+        اكتب آخر 4 أرقام من رقم العملية للبحث (<span className="num">{digits.length}</span>/4).
+      </p>
+    );
+  }
   return (
     <section className="mb-4" aria-live="polite">
       <p className="text-xs font-bold text-muted mb-2 flex items-center gap-2">
-        {digits.length >= 3 ? "رقم العملية يبدأ أو ينتهي بـ" : "رقم العملية"} <span className="num" dir="ltr">{digits}</span>
+        رقم العملية ينتهي بـ <span className="num" dir="ltr">{digits}</span>
         {busy && <Spinner className="w-3.5 h-3.5" />}
       </p>
       {error && <p role="alert" className="text-sm text-red-600">{error}</p>}
       {matches && matches.length === 0 && (
-        <p className="text-sm text-muted bg-white rounded-xl px-4 py-3">
-          {digits.length >= 3 ? "لا توجد دفعة يبدأ أو ينتهي رقمها بهذه الأرقام." : "لا توجد دفعة بهذا الرقم — اكتب 3 أرقام على الأقل للبحث بجزء من الرقم."}
-        </p>
+        <p className="text-sm text-muted bg-white rounded-xl px-4 py-3">لا توجد دفعة ينتهي رقم عمليتها بهذه الأرقام.</p>
       )}
       {matches && matches.length > 0 && (
         <ul className="bg-white rounded-2xl shadow divide-y divide-line border-2 border-accent/40">
           {matches.map((m) => (
-            <li key={`${m.bank}-${m.orderId}`}>
+            <li key={`${m.bank}-${m.ref}-${m.orderId}`}>
               <Link href={`/accounting/invoices/${encodeURIComponent(m.orderId)}`} className="flex items-start justify-between gap-3 px-4 py-3.5 active:bg-surface-2">
                 <div className="min-w-0">
                   <p className="font-semibold text-ink truncate">{m.clientName || `عميل ${m.clientId}`}</p>
@@ -156,7 +179,10 @@ export default function AccountingInvoices() {
     if (token) load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token, period, dateFrom, dateTo, route, pay]);
-  useLiveRefresh(token, ["orders_car1", "orders_car2", "payments"], load);
+  useLiveRefresh(token, ["orders_car1", "orders_car2", "payments"], () => {
+    clearRefCache();
+    load();
+  });
 
   // Only digits typed → it may be a transaction reference: ask the server too.
   const refDigits = /^[\d٠-٩۰-۹]{1,11}$/.test(q.trim()) ? toDigits(q.trim()) : "";
@@ -202,7 +228,7 @@ export default function AccountingInvoices() {
             autoFocus={focus}
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            placeholder="ابحث باسم العميل أو رقم الفاتورة أو رقم العملية..."
+            placeholder="ابحث باسم العميل أو رقم الفاتورة أو آخر 4 أرقام من رقم العملية..."
             className="h-12 w-full rounded-xl border border-line bg-white ps-10 pe-3 text-base"
             enterKeyHint="search"
           />
@@ -211,7 +237,7 @@ export default function AccountingInvoices() {
 
         <FilterPanel dateFrom={dateFrom} onDateFromChange={setDateFrom} dateTo={dateTo} onDateToChange={setDateTo} extraActiveCount={[route, pay].filter(Boolean).length}>
           <FilterChips label="حالة الدفع" value={pay} onChange={setPay} options={PAYMENT_FILTERS} />
-          <FilterChips label="المسار" value={route} onChange={setRoute} options={ROUTES.map((r) => [r, ROUTE_LABELS_SHORT[r] || r])} />
+          <FilterChips label="نوع البيع" value={route} onChange={setRoute} options={ROUTES.map((r) => [r, ROUTE_LABELS_SHORT[r] || r])} />
         </FilterPanel>
 
         {error && (

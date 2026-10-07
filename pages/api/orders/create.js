@@ -2,6 +2,8 @@ const { adminDb } = require("../../../lib/firebaseAdmin");
 const { buildOrderFromItems, getActiveClient, calculateDeliveryDate } = require("../../../lib/orderCreation");
 const { applyStockMovements } = require("../../../lib/inventory");
 const { checkRateLimit, getClientIp } = require("../../../lib/rateLimit");
+const { writeInvoiceStats } = require("../../../lib/salesStats");
+const { bumpVersions, ordersKey } = require("../../../lib/versions");
 
 // Public — clients place their own orders here with no login, using their 4-digit ID.
 export default async function handler(req, res) {
@@ -57,7 +59,7 @@ export default async function handler(req, res) {
         resolvedItems.map((it) => ({ productId: it.productId, field: client.route, delta: -it.qty }))
       );
 
-      tx.set(docRef, {
+      const invoice = {
         clientId,
         route: client.route,
         items: resolvedItems,
@@ -68,9 +70,14 @@ export default async function handler(req, res) {
         deliveryDate: deliveryDate ? deliveryDate.toISOString() : null,
         createdAt: new Date().toISOString(),
         placedBy: "client",
-      });
+      };
+      tx.set(docRef, invoice);
+      writeInvoiceStats(tx, null, invoice); // daily summary, same transaction
     });
 
+    // Was missing: open screens (and the product cache) never heard about
+    // invoices placed through the public form.
+    await bumpVersions([ordersKey(client.route)]);
     return res.status(201).json({
       orderId: docRef.id,
       clientId,

@@ -63,7 +63,7 @@ const { generate } = require("../scripts/demo/generate");
   const statuses = new Set(acc.json.invoices.map((i) => i.payment.status));
   assert.ok(statuses.has("paid") && statuses.has("unpaid"));
   const someRef = d.paymentRefs[0].data.ref;
-  const fr = await call("pages/api/accounting/find-ref.js", { role: "accountant", uid: "a", query: { ref: someRef.slice(0, 4) } });
+  const fr = await call("pages/api/accounting/find-ref.js", { role: "accountant", uid: "a", query: { ref: someRef.slice(-4) } });
   assert.ok(fr.json.matches.some((m) => m.ref === someRef));
   ok("accountant sees paid / partial / unpaid invoices and can find a demo payment by its first digits");
 

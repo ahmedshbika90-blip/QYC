@@ -308,3 +308,60 @@ npm run demo:seed -- --run --confirm=<project-id> --months=6 --seed=7
 Same `--seed` → same data every time. Every demo document has `demo: true`.
 Prefer a separate Firebase project for demos; on the live project, take a
 backup first.
+
+## Daily sales summaries (dashboard read cost)
+Dashboards read pre-computed day documents instead of every invoice:
+`dailyStats/{YYYY-MM-DD}` (Khartoum business day) and `monthlyStats/{YYYY-MM}`
+(route totals, for the 12-month trend). Every invoice create / edit /
+cancel adds its difference to its own day **in the same transaction**
+(`lib/salesStats.js`, `writeInvoiceStats`). Lines without a saved unit cost
+are stored as quantities and priced at the product's current average cost
+when read, exactly like the old calculation.
+
+Used by: manager summary + trend, executive overview + customers. Until
+`meta/statsState.ready` is true the old invoice-by-invoice code runs, so the
+code can be deployed before the backfill.
+
+**After deploying:**
+```
+npm run stats:backfill                                   # dry run — shows days/invoices, writes nothing
+npm run stats:backfill -- --run --confirm=<project-id>   # builds every day + month, then switches dashboards over
+```
+Safe to repeat; days that already match are left alone. `--from=YYYY-MM-DD
+--to=YYYY-MM-DD` rebuilds just a range.
+
+**Nightly check:** Vercel cron (`vercel.json`, 00:30 UTC = 02:30 Khartoum)
+calls `/api/cron/verify-stats`, which recomputes yesterday from the raw
+invoices and repairs any drift (recorded in `meta/statsCheck`, repairs in
+`statsDrift`). Needs `CRON_SECRET` set in Vercel; does nothing without it.
+Check any day by hand: `curl -H "Authorization: Bearer $CRON_SECRET" https://<app>/api/cron/verify-stats?day=2026-10-01`.
+
+The demo seed writes the summaries too.
+
+## Server caching, delta sync, rate limit
+- **Product list** and **English names** are cached per server instance
+  (90 s / 120 s) and dropped as soon as a related change counter in
+  `meta/versions` moves (`lib/serverCache.js`): 1 read instead of the
+  whole collection when nothing changed.
+- **Clients** are synced by delta: every client write stamps `syncAt`;
+  a device with a copy downloads only clients written since then
+  (`lib/clientsStore.js`, `/api/clients/list?since=`).
+- **Notifications** carry a signature built from the change counters; a
+  device that already has the current list gets `unchanged` for 1 read.
+  Resolved-item history is bounded by indexes.
+- **Rate limit** (public order form + route lookup): Upstash Redis when
+  `UPSTASH_REDIS_REST_URL` + `UPSTASH_REDIS_REST_TOKEN` (or the
+  `KV_REST_API_*` names from the Vercel integration) are set; otherwise
+  in-memory per server instance. No Firestore reads/writes either way.
+
+## Server region
+`vercel.json` pins API functions to `fra1` (Frankfurt). Keep it next to the
+Firestore location (Firebase console → Project settings → Default GCP
+resource location): eur3 / europe-west* → `fra1`; nam5 / us-central1 →
+`iad1`.
+
+## New Firestore indexes (deploy: `firebase deploy --only firestore:indexes`)
+- `inventoryDocs`: createdBy, type, finalizedAt DESC
+- `changeRequests`: requestedBy, status, decidedAt DESC
+- `shipmentRequests`: requestedBy, status, requestedAt DESC
+(until deployed, notifications fall back to the old queries)

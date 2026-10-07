@@ -29,9 +29,10 @@ const { generate } = require("./generate");
 const WIPE = [
   "orders", "clients", "inventoryDocs", "shipmentRequests", "changeRequests", "clientRequests",
   "transfers", "invoicePayments", "paymentRefs", "auditLog", "dailyCounters", "sentReports", "rateLimits", "agentOpenShipment",
+  "dailyStats", "monthlyStats",
 ];
-const META_RESET = ["clientIdCounter", "paymentRefsSearch"];
-const VERSION_KEYS = ["orders_car1", "orders_car2", "requests", "inventory", "clients", "shipmentRequests", "payments"];
+const META_RESET = ["clientIdCounter", "paymentRefsSearch", "paymentRefsSearch2"];
+const VERSION_KEYS = ["orders_car1", "orders_car2", "requests", "inventory", "clients", "shipmentRequests", "payments", "products"];
 
 const parseArgs = (argv) =>
   Object.fromEntries(
@@ -81,7 +82,7 @@ async function main(argv) {
     process.exit(1);
   }
   const data = generate({ months, seed, uids, catalog: real });
-  const writes = data.clients.length + data.orders.length + data.inventoryDocs.length + data.invoicePayments.length + data.paymentRefs.length;
+  const writes = data.clients.length + data.orders.length + data.inventoryDocs.length + data.invoicePayments.length + data.paymentRefs.length + data.dailyStats.length + data.monthlyStats.length;
 
   console.log("Will DELETE:");
   for (const name of WIPE) console.log(`  ${name.padEnd(18)} ${await count(name)} documents`);
@@ -121,8 +122,13 @@ async function main(argv) {
   put("inventoryDocs", data.inventoryDocs);
   put("invoicePayments", data.invoicePayments);
   put("paymentRefs", data.paymentRefs);
+  put("dailyStats", data.dailyStats);
+  put("monthlyStats", data.monthlyStats);
   bw.set(adminDb.collection("meta").doc("clientIdCounter"), { value: data.lastClientId });
-  bw.set(adminDb.collection("meta").doc("paymentRefsSearch"), { doneAt: new Date().toISOString(), updated: 0 });
+  // Demo references already carry the last-4 search field; demo invoices
+  // already have their daily summaries.
+  bw.set(adminDb.collection("meta").doc("paymentRefsSearch2"), { doneAt: new Date().toISOString(), updated: 0 });
+  bw.set(adminDb.collection("meta").doc("statsState"), { ready: true, at: new Date().toISOString(), source: "demo" }, { merge: true });
   // Every open screen/device refreshes its cached lists.
   const inc = admin.firestore.FieldValue.increment(1);
   bw.set(adminDb.collection("meta").doc("versions"), Object.fromEntries(VERSION_KEYS.map((k) => [k, inc])), { merge: true });

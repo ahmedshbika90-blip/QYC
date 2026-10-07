@@ -2,6 +2,7 @@ const { adminDb } = require("../../../lib/firebaseAdmin");
 const { requireUser, requireRole } = require("../../../lib/apiAuth");
 const { isValidRequestId } = require("../../../lib/requestId");
 const { createOnce } = require("../../../lib/idempotentCreate");
+const { bumpVersions } = require("../../../lib/versions");
 const { parseDecimal, parseQty } = require("../../../lib/qty");
 const { PRODUCT_CATEGORIES, PRODUCT_UNITS } = require("../../../lib/constants");
 const { cleanEnglishName } = require("../../../lib/englishName");
@@ -81,6 +82,7 @@ export default async function handler(req, res) {
 
     const ref = adminDb.collection("products").doc(requestId);
     const result = await createOnce(ref, productDoc, { ownerField: "createdBy", ownerId: decoded.uid });
+    if (!result.duplicate) await bumpVersions(["products"]); // product list caches (lib/serverCache.js)
     return res.status(result.duplicate ? 200 : 201).json({ id: ref.id, ...result.data, duplicate: result.duplicate });
   } catch (err) {
     const status = err.statusCode || 500;

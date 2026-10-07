@@ -11,6 +11,9 @@ import FilterChips from "./FilterChips";
 export default function FilterPanel({
   nameQuery,
   onNameChange,
+  deliveryRoute = "",
+  onDeliveryRouteChange,
+  deliveryRouteOptions = [],
   locationQuery,
   onLocationChange,
   storeClass,
@@ -30,7 +33,7 @@ export default function FilterPanel({
 }) {
   const [open, setOpen] = useState(false);
   const activeCount =
-    [nameQuery, locationQuery, storeClass, discountFilter, sampleFilter, priceFilter, dateFrom, dateTo].filter(Boolean).length + extraActiveCount;
+    [nameQuery, deliveryRoute, locationQuery, storeClass, discountFilter, sampleFilter, priceFilter, dateFrom, dateTo].filter(Boolean).length + extraActiveCount;
 
   const inputClass = "border rounded-lg px-3 h-11 text-base";
 
@@ -62,6 +65,19 @@ export default function FilterPanel({
               placeholder="ابحث حسب اسم العميل..."
               className={inputClass}
             />
+          )}
+          {onDeliveryRouteChange && deliveryRouteOptions.length > 0 && (
+            <select
+              value={deliveryRoute}
+              onChange={(e) => onDeliveryRouteChange(e.target.value)}
+              className={`${inputClass} bg-white`}
+              aria-label="المسار"
+            >
+              <option value="">المسار: الكل</option>
+              {deliveryRouteOptions.map((r) => (
+                <option key={r} value={r}>{r}</option>
+              ))}
+            </select>
           )}
           {onLocationChange && (
             <input

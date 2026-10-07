@@ -3,6 +3,7 @@ import Link from "next/link";
 import { useAuth } from "../../lib/useAuth";
 import Nav from "../../components/Nav";
 import FilterPanel from "../../components/FilterPanel";
+import { routesFromClients } from "../../components/DeliveryRoutePicker";
 import FilterChips from "../../components/FilterChips";
 import Icon from "../../components/Icon";
 import { PageLoading, SkeletonRows } from "../../components/Loading";
@@ -20,16 +21,18 @@ export default function ClientsList() {
 
   const [search, setSearch] = useState("");
   const [nameQuery, setNameQuery] = useState("");
+  const [deliveryRoute, setDeliveryRoute] = useState(""); // المسار
   const [locationQuery, setLocationQuery] = useState("");
   const [storeClass, setStoreClass] = useState("");
   const [routeFilter, setRouteFilter] = useState("");
 
   // Any filter active? Used to offer a single "clear everything" action,
   // so nobody is left staring at a short list wondering why.
-  const activeFilters = [search, nameQuery, locationQuery, storeClass, routeFilter].filter(Boolean).length;
+  const activeFilters = [search, nameQuery, deliveryRoute, locationQuery, storeClass, routeFilter].filter(Boolean).length;
   function clearFilters() {
     setSearch("");
     setNameQuery("");
+    setDeliveryRoute("");
     setLocationQuery("");
     setStoreClass("");
     setRouteFilter("");
@@ -61,13 +64,15 @@ export default function ClientsList() {
         if (!hay.includes(s)) return false;
       }
       if (nameQuery && !(c.name || "").toLowerCase().includes(nameQuery.toLowerCase())) return false;
+      if (deliveryRoute && (c.deliveryRoute || "") !== deliveryRoute) return false;
       if (locationQuery && !(c.location || "").toLowerCase().includes(locationQuery.toLowerCase()))
         return false;
       if (storeClass && c.storeClass !== storeClass) return false;
       if (routeFilter && c.route !== routeFilter) return false;
       return true;
     });
-  }, [clients, search, nameQuery, locationQuery, storeClass, routeFilter]);
+  }, [clients, search, nameQuery, deliveryRoute, locationQuery, storeClass, routeFilter]);
+  const routeOptions = useMemo(() => routesFromClients(clients), [clients]);
 
   if (loading) return <PageLoading />;
 
@@ -109,6 +114,9 @@ export default function ClientsList() {
         <FilterPanel
           nameQuery={nameQuery}
           onNameChange={setNameQuery}
+          deliveryRoute={deliveryRoute}
+          onDeliveryRouteChange={setDeliveryRoute}
+          deliveryRouteOptions={routeOptions}
           locationQuery={locationQuery}
           onLocationChange={setLocationQuery}
           storeClass={storeClass}
@@ -116,7 +124,7 @@ export default function ClientsList() {
           extraActiveCount={routeFilter ? 1 : 0}
         >
           {role === "manager" && (
-            <FilterChips label="المسار" value={routeFilter} onChange={setRouteFilter} options={[["car1", "مبيعات جملة"], ["car2", "مبيعات تجزئة"]]} />
+            <FilterChips label="نوع البيع" value={routeFilter} onChange={setRouteFilter} options={[["car1", "مبيعات جملة"], ["car2", "مبيعات تجزئة"]]} />
           )}
         </FilterPanel>
 
@@ -167,7 +175,7 @@ export default function ClientsList() {
                     {c.active === false && <span className="ms-2 text-xs text-red-500">(غير نشط)</span>}
                   </p>
                   <p className="text-sm text-gray-500 truncate">
-                    {c.storeName} — {c.location}
+                    {c.storeName} — {c.deliveryRoute ? `${c.deliveryRoute} · ` : ""}{c.location}
                   </p>
                 </div>
                 <div className="flex items-center gap-2 shrink-0">

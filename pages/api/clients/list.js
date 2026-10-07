@@ -2,6 +2,8 @@ const { adminDb } = require("../../../lib/firebaseAdmin");
 const { requireUser } = require("../../../lib/apiAuth");
 const { getVersion } = require("../../../lib/versions");
 
+const SYNC_OVERLAP_MS = 2 * 60 * 1000;
+
 const ROLE_TO_ROUTE = {
   agent_car1: "car1",
   agent_car2: "car2",
@@ -35,6 +37,27 @@ export default async function handler(req, res) {
       return res.status(200).json({ unchanged: true, version });
     }
 
+    // Delta: the device sends the time of its last copy (?since=), and gets
+    // only the clients written since then — every client write stamps
+    // `syncAt`. Overlaps a couple of minutes so a write that committed just
+    // after a slightly later one is never skipped (repeats are harmless:
+    // the device replaces by id). A client moved off an agent's route comes
+    // back in `removed`. One read per changed client, not the whole list.
+    const startedAt = new Date().toISOString();
+    const since = String(req.query.since || "");
+    if (since && !isNaN(Date.parse(since))) {
+      const from = new Date(Date.parse(since) - SYNC_OVERLAP_MS).toISOString();
+      const snap = await adminDb.collection("clients").where("syncAt", ">=", from).get();
+      const changed = snap.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+      return res.status(200).json({
+        delta: true,
+        version,
+        syncAt: startedAt,
+        clients: changed.filter((c) => !restrictedRoute || c.route === restrictedRoute),
+        removed: restrictedRoute ? changed.filter((c) => c.route !== restrictedRoute && c.movedFrom === restrictedRoute).map((c) => c.id) : [],
+      });
+    }
+
     // Equality-only filter, sorted in memory — avoids needing a composite
     // index on (route, createdAt) for a list that's small and fully loaded.
     let query = adminDb.collection("clients");
@@ -45,7 +68,7 @@ export default async function handler(req, res) {
       .map((doc) => ({ id: doc.id, ...doc.data() }))
       .sort((a, b) => (b.createdAt || "").localeCompare(a.createdAt || ""));
 
-    return res.status(200).json({ clients, version });
+    return res.status(200).json({ clients, version, syncAt: startedAt });
   } catch (err) {
     const status = err.statusCode || 500;
     return res.status(status).json({ error: err.message });

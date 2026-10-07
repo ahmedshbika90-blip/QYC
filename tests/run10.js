@@ -151,21 +151,44 @@ users.adm = { uid: "adm", email: "a@x.com", customClaims: { role: "admin" } };
   assert.deepStrictEqual(viaFallback.json.docs.map((d) => d.id), ["rc1"]);
   ok("receipts history reads receipts only via the index; without the index it falls back instead of erroring");
 
-  // 9. partial reference search: starts with / ends with, old refs backfilled once
-  await db.collection("paymentRefs").doc("onb__55512345").set({ orderId: "o2", paymentId: "legacy", createdAt: "2026-01-01T00:00:00Z" }); // saved before ref fields existed
-  delete db._data.meta.paymentRefsSearch; // i.e. the first search after this update
-  const pre = await call("pages/api/accounting/find-ref.js", { ...ACC, query: { ref: "555" } });
-  assert.deepStrictEqual(pre.json.matches.map((m) => m.ref), ["55512345"]);
-  const suf = await call("pages/api/accounting/find-ref.js", { ...ACC, query: { ref: "345" } });
-  assert.deepStrictEqual(suf.json.matches.map((m) => m.ref), ["55512345"]);
-  const mid = await call("pages/api/accounting/find-ref.js", { ...ACC, query: { ref: "123" } });
-  assert.deepStrictEqual(mid.json.matches, []); // middle digits only: not a start/end match
+  // 9. reference search by the LAST 4 digits; old refs backfilled once
+  await db.collection("paymentRefs").doc("onb__55512345").set({ orderId: "o2", paymentId: "legacy", createdAt: "2026-01-01T00:00:00Z" }); // saved before search fields existed
+  const l4 = await call("pages/api/accounting/find-ref.js", { ...ACC, query: { ref: "2345" } });
+  assert.deepStrictEqual(l4.json.matches.map((m) => [m.ref, m.clientName]), [["55512345", "Wholesaler A"]]);
+  assert.ok(db._data.meta.paymentRefsSearch2 && db._data.paymentRefs["onb__55512345"].last4 === "2345");
+  const tail = await call("pages/api/accounting/find-ref.js", { ...ACC, query: { ref: "12345" } });
+  assert.deepStrictEqual(tail.json.matches.map((m) => m.ref), ["55512345"]); // 5+ digits: ends with
+  const head = await call("pages/api/accounting/find-ref.js", { ...ACC, query: { ref: "5551" } });
+  assert.deepStrictEqual(head.json.matches, []); // first digits don't match — they repeat between transfers
   const ex = await call("pages/api/accounting/find-ref.js", { ...ACC, query: { ref: "44" } });
-  assert.deepStrictEqual(ex.json.matches, []); // under 3 digits → exact only
-  assert.ok(db._data.meta.paymentRefsSearch && db._data.paymentRefs["onb__55512345"].refRev === "54321555");
+  assert.deepStrictEqual(ex.json.matches, []); // under 4 digits → exact only
   const fresh = await call("pages/api/accounting/find-ref.js", { ...ACC, query: { ref: "444" } });
   assert.deepStrictEqual(fresh.json.matches.map((m) => [m.ref, m.exact]), [["444", true]]);
-  ok("reference search finds a payment by its first or last 3+ digits; older references are upgraded once automatically");
+  ok("reference search finds a payment by its last 4 digits (or a longer ending); older references are upgraded once automatically");
+
+  // 10. same last 4 as an existing payment → warn, then save only when approved
+  await db.collection("orders").doc("o3").set({ route: "car1", clientId: "2001", status: "active", createdAt: new Date().toISOString(), total: 1000, subtotal: 1000, discount: 0, items: [] });
+  const p10 = await pay("o3", { ref: "90001234", bank: "bok", amount: 100, date: today, requestId: prid(10) });
+  assert.strictEqual(p10.status, 201, JSON.stringify(p10.json));
+  assert.deepStrictEqual([db._data.paymentRefs["bok__90001234"].last4, db._data.paymentRefs["bok__90001234"].amount, db._data.paymentRefs["bok__90001234"].clientId], ["1234", 100, "2001"]);
+  const wn = await pay("o3", { ref: "77701234", bank: "nile", amount: 200, date: today, requestId: prid(11) });
+  assert.strictEqual(wn.status, 409, JSON.stringify(wn.json));
+  assert.ok(wn.json.needsConfirm);
+  assert.deepStrictEqual(wn.json.similar.map((m) => [m.ref, m.amount, m.clientName, m.orderId]), [["90001234", 100, "Wholesaler A", "o3"]]);
+  assert.ok(!db._data.paymentRefs["nile__77701234"]); // nothing saved yet
+  const okd = await pay("o3", { ref: "77701234", bank: "nile", amount: 200, date: today, requestId: prid(11), confirmSimilar: true });
+  assert.strictEqual(okd.status, 201, JSON.stringify(okd.json));
+  const again = await pay("o3", { ref: "77701234", bank: "nile", amount: 200, date: today, requestId: prid(11) });
+  assert.ok(again.json.duplicate); // a resend never warns about itself
+  const amtOnly = await pay("o3", { action: "edit", paymentId: prid(10), ref: "90001234", bank: "bok", amount: 150, date: today });
+  assert.strictEqual(amtOnly.status, 200, JSON.stringify(amtOnly.json)); // reference unchanged → no warning
+  assert.strictEqual(db._data.paymentRefs["bok__90001234"].amount, 150);
+  const reRef = await pay("o3", { action: "edit", paymentId: prid(10), ref: "55501234", bank: "bok", amount: 150, date: today });
+  assert.strictEqual(reRef.status, 409);
+  assert.deepStrictEqual(reRef.json.similar.map((m) => m.ref), ["77701234"]);
+  const both = await call("pages/api/accounting/find-ref.js", { ...ACC, query: { ref: "1234" } });
+  assert.deepStrictEqual(both.json.matches.map((m) => m.ref).sort(), ["77701234", "90001234"]);
+  ok("a payment whose last 4 digits match an earlier one is held for approval; approving saves it; edits warn only when the reference changes");
 
   console.log("ALL SALES/PAYMENTS-ROUND SCENARIOS PASSED");
 })().catch((e) => { console.error("FAILED:", e); process.exit(1); });

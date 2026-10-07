@@ -7,6 +7,7 @@ import Nav from "../../components/Nav";
 import StatusTabs from "../../components/StatusTabs";
 import PeriodTabs, { periodStartISO } from "../../components/PeriodTabs";
 import FilterPanel from "../../components/FilterPanel";
+import { routesFromClients } from "../../components/DeliveryRoutePicker";
 import { hasDiscount } from "../../lib/invoiceDiscount";
 import OrderCard from "../../components/OrderCard";
 import QuickActions from "../../components/QuickActions";
@@ -33,6 +34,8 @@ export default function Car1Dashboard() {
 
   const [statusFilter, setStatusFilter] = useState("active");
   const [nameQuery, setNameQuery] = useState("");
+  const [deliveryRoute, setDeliveryRoute] = useState(""); // المسار
+  const routeOptions = useMemo(() => routesFromClients(Object.values(clientsById)), [clientsById]);
   const [locationQuery, setLocationQuery] = useState("");
   const [storeClass, setStoreClass] = useState("");
   const [discountFilter, setDiscountFilter] = useState("");
@@ -116,6 +119,7 @@ export default function Car1Dashboard() {
         const name = clientsById[order.clientId]?.name || "";
         if (!name.toLowerCase().includes(nameQuery.toLowerCase())) return false;
       }
+      if (deliveryRoute && (clientsById[order.clientId]?.deliveryRoute || "") !== deliveryRoute) return false;
       if (locationQuery) {
         const location = clientsById[order.clientId]?.location || "";
         if (!location.toLowerCase().includes(locationQuery.toLowerCase())) return false;
@@ -129,7 +133,7 @@ export default function Car1Dashboard() {
       if (priceFilter === "without" && order.hasPriceAdjustment) return false;
       return true;
     };
-  }, [clientsById, nameQuery, locationQuery, storeClass, discountFilter, sampleFilter, priceFilter]);
+  }, [clientsById, nameQuery, deliveryRoute, locationQuery, storeClass, discountFilter, sampleFilter, priceFilter]);
 
   const baseFiltered = useMemo(() => orders.filter(matchesFilters), [orders, matchesFilters]);
   const counts = useMemo(
@@ -229,7 +233,10 @@ export default function Car1Dashboard() {
           <FilterPanel
             nameQuery={nameQuery}
             onNameChange={setNameQuery}
-            locationQuery={locationQuery}
+            deliveryRoute={deliveryRoute}
+          onDeliveryRouteChange={setDeliveryRoute}
+          deliveryRouteOptions={routeOptions}
+          locationQuery={locationQuery}
             onLocationChange={setLocationQuery}
             storeClass={storeClass}
             onStoreClassChange={setStoreClass}
@@ -246,7 +253,7 @@ export default function Car1Dashboard() {
           />
         </div>
 
-        {(nameQuery || locationQuery || storeClass || discountFilter || sampleFilter || priceFilter) && nextCursor && (
+        {(nameQuery || deliveryRoute || locationQuery || storeClass || discountFilter || sampleFilter || priceFilter) && nextCursor && (
           <p className="text-xs text-amber-700 bg-amber-50 rounded-xl px-3 py-2 mb-3">
             البحث يشمل الفواتير المحمّلة فقط — اضغط &quot;تحميل المزيد&quot; أو حدد فترة لنتائج أشمل.
           </p>
@@ -272,7 +279,8 @@ export default function Car1Dashboard() {
                   key={order.id}
                   order={order}
                   name={clientsById[order.clientId]?.name}
-                  location={clientsById[order.clientId]?.location}
+                  deliveryRoute={clientsById[order.clientId]?.deliveryRoute}
+                location={clientsById[order.clientId]?.location}
                   subtitle={formatDateTime(order.createdAt)}
                   onStatusChange={updateStatus}
                   canCancel={!order.locked}

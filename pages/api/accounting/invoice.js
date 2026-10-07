@@ -18,7 +18,7 @@ export default async function handler(req, res) {
     const order = presentOrder(snap.id, snap.data(), decoded.role);
     const c = order.clientId ? await adminDb.collection("clients").doc(String(order.clientId)).get() : null;
     const d = c && c.exists ? c.data() : null;
-    const client = d ? { id: c.id, name: d.name || "", storeName: d.storeName || "", location: d.location || "", route: d.route } : null;
+    const client = d ? { id: c.id, name: d.name || "", storeName: d.storeName || "", deliveryRoute: d.deliveryRoute || "", location: d.location || "", route: d.route } : null;
     // Agents' notes and change requests aren't the accountant's business.
     const { notes, pendingRequest, lastRequest, ...rest } = order;
     return res.status(200).json({ order: rest, client });

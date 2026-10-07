@@ -14,7 +14,7 @@ function itemsSummary(items) {
 // marked cancelled and excluded from the sales report.
 // canCancel: false for an agent viewing a locked invoice — they must open
 // it and send a request instead, so no button that would only be refused.
-export default function OrderCard({ order, name, location, badge, subtitle, edited, onStatusChange, canCancel = true }) {
+export default function OrderCard({ order, name, location, deliveryRoute, badge, subtitle, edited, onStatusChange, canCancel = true }) {
   const isCancelled = order.status === "cancelled";
   // Comments on the invoice are the same for every role: the order carries
   // its own flags, so agents see "معدّلة" and "عينة مجانية" too (only the
@@ -57,7 +57,13 @@ export default function OrderCard({ order, name, location, badge, subtitle, edit
               </span>
               {badge}
             </span>
-            {location && <span className="block text-xs text-muted truncate">{location}</span>}
+            {(deliveryRoute || location) && (
+              <span className="block text-xs text-muted truncate">
+                {deliveryRoute && <span className="font-semibold text-ink-soft">{deliveryRoute}</span>}
+                {deliveryRoute && location && " — "}
+                {location}
+              </span>
+            )}
             <span className={`block text-sm text-ink-soft truncate mt-0.5 ${isCancelled ? "line-through" : ""}`}>
               {itemsSummary(order.items)}
             </span>

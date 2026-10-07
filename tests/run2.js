@@ -36,11 +36,12 @@ eval(header + `
   assert.deepStrictEqual([st.depot, st.car1], [40, 10]);
   ok("loading via shipment request: re-fulfilling an already-fulfilled request is refused, double confirm moves stock once (depot 50→40, car 0→10)");
 
-  const body = { nameFirst: "New", nameMiddle: "Store", nameLast: "Owner", storeName: "NS", location: "Souq", phone: "0912345678", storeClass: "A", requestId: "req-client-000001" };
+  const body = { nameFirst: "New", nameMiddle: "Store", nameLast: "Owner", storeName: "NS", deliveryRoute: "  خط   بحري ", location: "Souq", phone: "0912345678", storeClass: "A", requestId: "req-client-000001" };
   const a = await call("pages/api/clients/register.js", { method: "POST", ...A1, body });
   const b = await call("pages/api/clients/register.js", { method: "POST", ...A1, body });
   assert.strictEqual(a.status, 201, JSON.stringify(a.json)); assert.ok(b.json.duplicate);
   assert.strictEqual(a.json.clientId, b.json.clientId);
+  assert.strictEqual(db._data.clients[a.json.clientId].deliveryRoute, "خط بحري"); // spaces tidied
   assert.strictEqual(Object.keys(db._data.clients).length, 1);
   assert.strictEqual((await get("meta", "clientIdCounter")).value, 1000);
   ok("client registration: repeat returns same client " + a.json.clientId + ", no wasted ID");

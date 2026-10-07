@@ -5,6 +5,7 @@ import FilterChips from "../components/FilterChips";
 import StatusTabs from "../components/StatusTabs";
 import PeriodTabs, { periodStartISO } from "../components/PeriodTabs";
 import FilterPanel from "../components/FilterPanel";
+import { routesFromClients } from "../components/DeliveryRoutePicker";
 import { hasDiscount } from "../lib/invoiceDiscount";
 import OrderCard from "../components/OrderCard";
 import QuickActions from "../components/QuickActions";
@@ -30,6 +31,8 @@ export default function SupervisorDashboard() {
 
   const [statusFilter, setStatusFilter] = useState("active");
   const [nameQuery, setNameQuery] = useState("");
+  const [deliveryRoute, setDeliveryRoute] = useState(""); // المسار
+  const routeOptions = useMemo(() => routesFromClients(Object.values(clientsById)), [clientsById]);
   const [locationQuery, setLocationQuery] = useState("");
   const [storeClass, setStoreClass] = useState("");
   const [discountFilter, setDiscountFilter] = useState("");
@@ -113,6 +116,7 @@ export default function SupervisorDashboard() {
         const name = clientsById[order.clientId]?.name || "";
         if (!name.toLowerCase().includes(nameQuery.toLowerCase())) return false;
       }
+      if (deliveryRoute && (clientsById[order.clientId]?.deliveryRoute || "") !== deliveryRoute) return false;
       if (locationQuery) {
         const location = clientsById[order.clientId]?.location || "";
         if (!location.toLowerCase().includes(locationQuery.toLowerCase())) return false;
@@ -126,7 +130,7 @@ export default function SupervisorDashboard() {
       if (priceFilter === "without" && order.hasPriceAdjustment) return false;
       return true;
     };
-  }, [clientsById, routeFilter, nameQuery, locationQuery, storeClass, discountFilter, sampleFilter, priceFilter]);
+  }, [clientsById, routeFilter, nameQuery, deliveryRoute, locationQuery, storeClass, discountFilter, sampleFilter, priceFilter]);
 
   const baseFiltered = useMemo(() => orders.filter(matchesFilters), [orders, matchesFilters]);
   const counts = useMemo(
@@ -220,6 +224,9 @@ export default function SupervisorDashboard() {
           <FilterPanel
           nameQuery={nameQuery}
           onNameChange={setNameQuery}
+          deliveryRoute={deliveryRoute}
+          onDeliveryRouteChange={setDeliveryRoute}
+          deliveryRouteOptions={routeOptions}
           locationQuery={locationQuery}
           onLocationChange={setLocationQuery}
           storeClass={storeClass}
@@ -237,7 +244,7 @@ export default function SupervisorDashboard() {
           />
         </div>
 
-        {(nameQuery || locationQuery || storeClass || discountFilter || sampleFilter || priceFilter) && nextCursor && (
+        {(nameQuery || deliveryRoute || locationQuery || storeClass || discountFilter || sampleFilter || priceFilter) && nextCursor && (
           <p className="text-xs text-amber-600 mb-3">
             البحث يشمل الفواتير المحمّلة فقط — اضغط "تحميل المزيد" أو حدد فترة لنتائج أشمل.
           </p>
@@ -266,6 +273,7 @@ export default function SupervisorDashboard() {
                 key={order.id}
                 order={order}
                 name={clientsById[order.clientId]?.name}
+                deliveryRoute={clientsById[order.clientId]?.deliveryRoute}
                 location={clientsById[order.clientId]?.location}
                 edited={order.edited}
                 badge={

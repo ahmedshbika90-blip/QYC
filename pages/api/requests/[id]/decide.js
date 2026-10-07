@@ -63,7 +63,7 @@ export default async function handler(req, res) {
         const clientRef = adminDb.collection("clients").doc(request.clientId);
         const clientSnap = await tx.get(clientRef);
         if (clientSnap.exists) {
-          const clientUpdate = { pendingRequest: admin.firestore.FieldValue.delete() };
+          const clientUpdate = { pendingRequest: admin.firestore.FieldValue.delete(), syncAt: now };
           if (action === "approve") {
             Object.assign(clientUpdate, buildClientUpdates(request.proposedClient, clientSnap.data()), {
               updatedAt: now,

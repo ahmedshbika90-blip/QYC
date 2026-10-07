@@ -45,6 +45,8 @@ const L = {
   allStock: { href: "/stock", label: "المخزون", icon: "box" },
   execDash: { href: "/executive", label: "لوحة المتابعة", short: "اللوحة", icon: "chart" },
   execClients: { href: "/executive/customers", label: "قاعدة العملاء", short: "العملاء", icon: "users" },
+  execCompetitors: { href: "/executive/competitors", label: "أسعار المنافسين", short: "المنافسون", icon: "tag" },
+  competitors: { href: "/competitors", label: "أسعار المنافسين", short: "المنافسون", icon: "tag" },
 };
 
 // Per role: `tabs` = the mobile bottom bar (most-used first, max 4 +
@@ -63,8 +65,8 @@ function layoutFor(role) {
       return {
         tabs: [home, L.documents, L.clients],
         center: L.placeOrder,
-        more: [L.requests, L.fleet, L.sales, L.stock],
-        desktop: [home, L.placeOrder, L.documents, L.requests, L.clients, L.fleet, L.sales, L.stock],
+        more: [L.requests, L.competitors, L.fleet, L.sales, L.stock],
+        desktop: [home, L.placeOrder, L.documents, L.requests, L.clients, L.competitors, L.fleet, L.sales, L.stock],
       };
     case "agent_car2":
       return {
@@ -76,8 +78,8 @@ function layoutFor(role) {
     case "manager":
       return {
         tabs: [home, L.requests, L.inventory, L.sales],
-        more: [L.invoices, L.margin, L.clients, L.products, L.transfers],
-        desktop: [home, L.invoices, L.requests, L.inventory, L.sales, L.margin, L.clients, L.products, L.transfers],
+        more: [L.invoices, L.margin, L.clients, L.products, L.transfers, L.execCompetitors],
+        desktop: [home, L.invoices, L.requests, L.inventory, L.sales, L.margin, L.clients, L.products, L.transfers, L.execCompetitors],
       };
     case "warehouse_keeper":
       return {
@@ -90,7 +92,7 @@ function layoutFor(role) {
     case "accountant":
       return { tabs: [L.accInvoices, L.allStock], more: [], desktop: [L.accInvoices, L.allStock] };
     case "executive":
-      return { tabs: [L.execDash, L.execClients], more: [], desktop: [L.execDash, L.execClients] };
+      return { tabs: [L.execDash, L.execClients, L.execCompetitors], more: [], desktop: [L.execDash, L.execClients, L.execCompetitors] };
     case "depot_viewer":
       return { tabs: [], more: [], desktop: [L.viewStock] };
     default:

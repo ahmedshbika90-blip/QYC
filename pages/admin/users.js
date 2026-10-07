@@ -32,7 +32,7 @@ const jobLabel = (job, route) => (job ? `${ROLE_LABELS[job] || job}${isSales(job
 
 function RouteSelect({ value, onChange, disabled }) {
   return (
-    <div role="radiogroup" aria-label="المسار" className="grid grid-cols-2 gap-2">
+    <div role="radiogroup" aria-label="نوع البيع" className="grid grid-cols-2 gap-2">
       {SALES_ROUTES.map((r) => (
         <button
           key={r.route}

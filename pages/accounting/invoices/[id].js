@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/router";
 import { useAuth } from "../../../lib/useAuth";
 import Nav from "../../../components/Nav";
@@ -13,6 +13,7 @@ import { useRequestId } from "../../../lib/useRequestId";
 import { formatDate, formatDateTime, formatNumber, formatQty, shortCode, ROUTE_LABELS_SHORT } from "../../../lib/labels";
 import NumericInput from "../../../components/NumericInput";
 import { BANKS, BANK_LABELS } from "../../../lib/paymentsShared";
+import { clearRefCache } from "../../../lib/refSearchCache";
 
 const field = "h-12 w-full rounded-xl border border-line bg-white px-3 text-base text-ink";
 const todayYmd = () => new Date().toLocaleDateString("en-CA", { timeZone: "Africa/Khartoum" });
@@ -30,8 +31,60 @@ async function call(token, url, body) {
     body: body ? JSON.stringify(body) : undefined,
   });
   const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data.error || "حدث خطأ");
+  if (!res.ok) throw Object.assign(new Error(data.error || "حدث خطأ"), { data });
   return data;
+}
+
+// Shown after "تسجيل الدفعة" when another payment's reference ends in the
+// same 4 digits: most often the same transfer entered twice. The accountant
+// compares, then either fixes the number or approves the payment.
+function SimilarRefsWarning({ ref4, similar, orderId, busy, onReview, onApprove }) {
+  return (
+    <div role="alertdialog" aria-labelledby="similar-title" className="rounded-2xl border-2 border-amber-300 bg-amber-50 p-4 flex flex-col gap-3">
+      <div className="flex items-start gap-2.5">
+        <span className="w-9 h-9 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center shrink-0">
+          <Icon name="alert" size={18} />
+        </span>
+        <div>
+          <p id="similar-title" className="font-bold text-ink">
+            آخر 4 أرقام (<span className="num" dir="ltr">{ref4}</span>) تطابق دفعة مسجلة من قبل
+          </p>
+          <p className="text-sm text-ink-soft mt-0.5">تأكد أنها ليست نفس التحويل قبل اعتماد الدفعة.</p>
+        </div>
+      </div>
+      <ul className="bg-white rounded-xl divide-y divide-line">
+        {similar.map((m) => (
+          <li key={`${m.bank}-${m.ref}`} className="px-3 py-2.5 flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <p className="font-semibold text-ink text-sm truncate">
+                {m.clientName || `عميل ${m.clientId}`}
+                {m.orderId === orderId && <span className="ms-2 text-xs font-semibold text-amber-700">على هذه الفاتورة</span>}
+              </p>
+              <p className="text-xs text-muted mt-0.5">
+                {m.bankLabel} · <span className="num" dir="ltr">{m.ref.slice(0, -4)}<mark className="bg-amber-100 text-ink rounded px-0.5">{m.ref.slice(-4)}</mark></span> ·{" "}
+                <a href={`/accounting/invoices/${encodeURIComponent(m.orderId)}`} target="_blank" rel="noopener noreferrer" className="underline">
+                  فاتورة <span className="num">{shortCode(m.orderId)}</span>
+                </a>
+              </p>
+            </div>
+            <div className="text-end shrink-0">
+              {m.amount != null && <p className="num font-bold text-ink text-sm">{formatNumber(m.amount)}</p>}
+              {m.date && <p className="text-xs text-muted mt-0.5">{formatDate(`${m.date}T12:00:00Z`)}</p>}
+            </div>
+          </li>
+        ))}
+      </ul>
+      <div className="grid grid-cols-2 gap-2">
+        <button type="button" onClick={onReview} className="h-12 rounded-xl border border-line bg-white font-semibold text-ink-soft">
+          مراجعة الرقم
+        </button>
+        <button type="button" onClick={onApprove} disabled={busy} className="h-12 rounded-xl bg-solid-amber text-snow font-semibold flex items-center justify-center gap-2 disabled:opacity-60">
+          {busy ? <Spinner className="w-4 h-4" /> : <Icon name="check" size={18} />}
+          اعتماد الدفعة
+        </button>
+      </div>
+    </div>
+  );
 }
 
 // Add a payment, or edit one (`editing` = the payment being changed).
@@ -44,13 +97,18 @@ function PaymentForm({ token, orderId, remaining, onAdded, editing, onCancel }) 
   const room = editing ? remaining + Number(editing.amount) : remaining;
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [similar, setSimilar] = useState(null); // payments whose reference ends in the same 4 digits
+  const refInput = useRef(null);
   const rid = useRequestId();
-  const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
+  const set = (k, v) => {
+    if (k === "ref" || k === "bank") setSimilar(null); // a different number needs a fresh check
+    setForm((f) => ({ ...f, [k]: v }));
+  };
   const amount = Number(form.amount) || 0;
   const over = amount > room + 1e-9;
 
-  async function submit(e) {
-    e.preventDefault();
+  async function submit(e, confirmSimilar = false) {
+    e?.preventDefault();
     setError("");
     if (!/^\d{1,11}$/.test(form.ref)) return setError("رقم العملية يجب أن يكون أرقامًا فقط، من 1 إلى 11 رقمًا");
     if (!form.bank) return setError("اختر البنك");
@@ -60,11 +118,19 @@ function PaymentForm({ token, orderId, remaining, onAdded, editing, onCancel }) 
     const payload = { ...form, amount: form.amount };
     try {
       const body = editing ? { ...payload, action: "edit", paymentId: editing.id } : { ...payload, requestId: rid.idFor(payload) };
-      const data = await call(token, `/api/payments/${encodeURIComponent(orderId)}`, body);
+      const data = await call(token, `/api/payments/${encodeURIComponent(orderId)}`, confirmSimilar ? { ...body, confirmSimilar: true } : body);
       rid.reset();
+      setSimilar(null);
+      clearRefCache();
       if (!editing) setForm({ ...empty, date: form.date });
       onAdded(data);
     } catch (err) {
+      if (err.data?.needsConfirm) {
+        // Not saved yet — waiting for the accountant's decision. Same
+        // request ID on approval, so a double tap can't record it twice.
+        setSimilar(err.data.similar);
+        return;
+      }
       setError(err.message);
       if (!err.isNetworkError) rid.reset();
     } finally {
@@ -86,6 +152,7 @@ function PaymentForm({ token, orderId, remaining, onAdded, editing, onCancel }) 
         <label className="flex flex-col gap-1.5 text-sm font-medium text-ink-soft">
           رقم العملية
           <input
+            ref={refInput}
             inputMode="numeric"
             dir="ltr"
             value={form.ref}
@@ -120,6 +187,20 @@ function PaymentForm({ token, orderId, remaining, onAdded, editing, onCancel }) 
         ملاحظة (اختياري)
         <input value={form.note} onChange={(e) => set("note", e.target.value)} maxLength={200} className={field} />
       </label>
+      {similar ? (
+        <SimilarRefsWarning
+          ref4={form.ref.slice(-4)}
+          similar={similar}
+          orderId={orderId}
+          busy={busy}
+          onReview={() => {
+            setSimilar(null);
+            refInput.current?.focus();
+            refInput.current?.select();
+          }}
+          onApprove={() => submit(null, true)}
+        />
+      ) : (
       <div className={editing ? "grid grid-cols-2 gap-2" : ""}>
         {editing && (
           <button type="button" onClick={onCancel} className="h-12 w-full rounded-xl border border-line font-semibold text-ink-soft">
@@ -131,6 +212,7 @@ function PaymentForm({ token, orderId, remaining, onAdded, editing, onCancel }) 
           {editing ? "حفظ التعديل" : "تسجيل الدفعة"}
         </button>
       </div>
+      )}
     </form>
   );
 }
@@ -210,6 +292,7 @@ export default function AccountingInvoice() {
     try {
       await call(token, `/api/payments/${encodeURIComponent(id)}`, { action: "void", paymentId: p.id, reason });
       invalidate("/api/accounting");
+      clearRefCache();
       setToast("تم إلغاء الدفعة");
       load();
     } catch (err) {
@@ -240,6 +323,7 @@ export default function AccountingInvoice() {
                   <h1 className="font-display text-xl font-bold text-ink mt-0.5">{client?.name || `عميل ${order.clientId}`}</h1>
                   <p className="text-sm text-muted mt-0.5">
                     {client?.storeName ? `${client.storeName} · ` : ""}
+                    {client?.deliveryRoute ? `${client.deliveryRoute} · ` : ""}
                     {ROUTE_LABELS_SHORT[order.route] || order.route} · {formatDateTime(order.createdAt)}
                   </p>
                 </div>

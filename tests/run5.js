@@ -86,7 +86,7 @@ eval(header + `
   ok("goods received: pending in الطلبات (dot), stock and المخزون history only after the supervisor approves");
 
   // 6. Phones typed on an Arabic keyboard are stored in English digits.
-  const reg = await call("pages/api/clients/register.js", { method: "POST", ...A1, body: { nameFirst: "أ", nameMiddle: "ب", nameLast: "ج", storeName: "S", location: "L", phone: "٠٩١٢٣٤٥٦٧٨", storeClass: "B", requestId: "req-reg-arabic-01" } });
+  const reg = await call("pages/api/clients/register.js", { method: "POST", ...A1, body: { nameFirst: "أ", nameMiddle: "ب", nameLast: "ج", storeName: "S", deliveryRoute: "خط 1", location: "L", phone: "٠٩١٢٣٤٥٦٧٨", storeClass: "B", requestId: "req-reg-arabic-01" } });
   assert.strictEqual(reg.status, 201, JSON.stringify(reg.json));
   const c = await get("clients", reg.json.clientId);
   assert.deepStrictEqual([c.phone, c.whatsapp], ["0912345678", "0912345678"]);

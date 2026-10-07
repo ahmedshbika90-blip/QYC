@@ -3,6 +3,7 @@ const { requireUser, requireRole } = require("../../../../lib/apiAuth");
 const { parseDecimal, parseQty } = require("../../../../lib/qty");
 const { PRODUCT_CATEGORIES, PRODUCT_UNITS } = require("../../../../lib/constants");
 const { cleanEnglishName } = require("../../../../lib/englishName");
+const { bumpVersions } = require("../../../../lib/versions");
 
 function fail(message) {
   const err = new Error(message);
@@ -91,6 +92,7 @@ export default async function handler(req, res) {
     }
 
     await ref.update(updates);
+    await bumpVersions(["products"]); // product list caches (lib/serverCache.js)
     return res.status(200).json({ ok: true });
   } catch (err) {
     const status = err.statusCode || 500;

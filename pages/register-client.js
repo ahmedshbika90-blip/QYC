@@ -10,6 +10,7 @@ import { apiFetch } from "../lib/apiFetch";
 import { invalidateClients, getClients } from "../lib/clientsStore";
 import { useRequestId } from "../lib/useRequestId";
 import { STORE_CLASSES } from "../lib/labels";
+import DeliveryRoutePicker, { routesFromClients } from "../components/DeliveryRoutePicker";
 
 export default function RegisterClient() {
   const { user, role, token, loading, logout } = useAuth();
@@ -25,6 +26,7 @@ export default function RegisterClient() {
     nameMiddle: "",
     nameLast: "",
     storeName: "",
+    deliveryRoute: "",
     location: "",
     route: "car1",
     storeClass: "",
@@ -32,6 +34,10 @@ export default function RegisterClient() {
     whatsapp: "",
   });
   const [sameAsPhone, setSameAsPhone] = useState(true);
+  // Routes already used on this sales type (wholesale / retail).
+  const salesRoute = role === "agent_car1" ? "car1" : role === "agent_car2" ? "car2" : form.route;
+  const routeOptions = useMemo(() => routesFromClients(known, salesRoute), [known, salesRoute]);
+  const [pickerKey, setPickerKey] = useState(0); // remounts the picker after a save
   const [result, setResult] = useState(null);
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -48,6 +54,10 @@ export default function RegisterClient() {
     // check the server itself enforces.
     if (!form.nameFirst.trim() || !form.nameMiddle.trim() || !form.nameLast.trim()) {
       setError("اسم العميل مطلوب ثلاثيًا: الاسم الأول والأوسط والأخير");
+      return;
+    }
+    if (!form.deliveryRoute.trim()) {
+      setError("المسار مطلوب — اختره من القائمة أو أضف مسارًا جديدًا");
       return;
     }
     if (!form.storeName.trim() || !form.location.trim() || !form.phone.trim()) {
@@ -83,6 +93,7 @@ export default function RegisterClient() {
         nameMiddle: "",
         nameLast: "",
         storeName: "",
+        deliveryRoute: "",
         location: "",
         route: "car1",
         storeClass: "",
@@ -90,6 +101,7 @@ export default function RegisterClient() {
         whatsapp: "",
       });
       setSameAsPhone(true);
+      setPickerKey((k) => k + 1);
       // No new tab: the success card replaces the form right here, and
       // "تسجيل عميل آخر" brings back an empty form.
     } catch (err) {
@@ -172,6 +184,13 @@ export default function RegisterClient() {
               required
             />
           </div>
+
+          <DeliveryRoutePicker
+            key={`${pickerKey}-${salesRoute}`}
+            value={form.deliveryRoute}
+            onChange={(v) => setForm((f) => ({ ...f, deliveryRoute: v }))}
+            options={routeOptions}
+          />
 
           <div>
             <label className="block text-sm text-gray-600 mb-1">الموقع</label>
@@ -259,11 +278,11 @@ export default function RegisterClient() {
           </div>
 
           <div>
-            <label className="block text-sm text-gray-600 mb-1">المسار</label>
+            <label className="block text-sm text-gray-600 mb-1">نوع البيع</label>
             {role === "manager" ? (
               <select
                 value={form.route}
-                onChange={(e) => setForm({ ...form, route: e.target.value })}
+                onChange={(e) => setForm({ ...form, route: e.target.value, deliveryRoute: "" })}
                 className="w-full border rounded-lg px-3 h-12 text-base"
               >
                 <option value="car1">مبيعات جملة (حسب الطلب)</option>
@@ -276,7 +295,7 @@ export default function RegisterClient() {
             )}
             {role !== "manager" && (
               <p className="text-xs text-gray-400 mt-1">
-                يتم تحديد المسار تلقائيًا حسب حسابك — العملاء الجدد يُسجَّلون على مسارك فقط.
+                يتم تحديد نوع البيع تلقائيًا حسب حسابك — العملاء الجدد يُسجَّلون عليه فقط.
               </p>
             )}
           </div>

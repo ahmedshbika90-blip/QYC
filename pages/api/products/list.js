@@ -1,5 +1,19 @@
 const { adminDb } = require("../../../lib/firebaseAdmin");
 const { requireUser } = require("../../../lib/apiAuth");
+const { cachedByVersions } = require("../../../lib/serverCache");
+
+// Everything that can change a product (catalog edits, stock, average cost)
+// bumps one of these counters; see lib/serverCache.js.
+const PRODUCT_KEYS = ["products", "orders_car1", "orders_car2", "inventory", "transfers", "shipmentRequests"];
+const CACHE_MS = 90 * 1000;
+
+// Every product, read once per change (or per 90 s) on this server instance.
+// Never mutated below — each request builds new objects from it.
+const allProducts = () =>
+  cachedByVersions("products", PRODUCT_KEYS, CACHE_MS, async () => {
+    const snap = await adminDb.collection("products").orderBy("name").get();
+    return snap.docs.map((doc) => Object.freeze({ id: doc.id, ...doc.data() }));
+  });
 
 // Staff-only product catalog (every caller must be logged in).
 // Only active products are returned by default; ?all=1 includes inactive
@@ -22,12 +36,8 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'route يجب أن يكون "car1" أو "car2"' });
     }
 
-    let query = adminDb.collection("products").orderBy("name");
-    if (!includeInactive) {
-      query = query.where("active", "==", true);
-    }
-    const snap = await query.get();
-    let products = snap.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+    // Same set as before: ordered by name, active === true unless ?all=1.
+    let products = (await allProducts()).filter((p) => includeInactive || p.active === true);
 
     // Low-stock flag: depot balance at or below the supervisor's configured
     // threshold. minStock of 0 (the default) means "no alert configured".

@@ -5,6 +5,7 @@ const { applyStockMovements } = require("../../../lib/inventory");
 const { isValidRequestId } = require("../../../lib/requestId");
 const { stripCost } = require("../../../lib/invoiceLock");
 const { applyInvoiceDiscount } = require("../../../lib/invoiceDiscount");
+const { writeInvoiceStats } = require("../../../lib/salesStats");
 
 const MAX_NOTES = 1000;
 const { bumpVersions, ordersKey } = require("../../../lib/versions");
@@ -70,7 +71,7 @@ export default async function handler(req, res) {
         resolvedItems.map((it) => ({ productId: it.productId, field: client.route, delta: -it.qty }))
       );
 
-      tx.set(docRef, {
+      const invoice = {
         clientId,
         route: client.route,
         items: resolvedItems,
@@ -82,7 +83,9 @@ export default async function handler(req, res) {
         deliveryDate: deliveryDate ? deliveryDate.toISOString() : null,
         createdAt: new Date().toISOString(),
         placedBy: decoded.uid,
-      });
+      };
+      tx.set(docRef, invoice);
+      writeInvoiceStats(tx, null, invoice); // daily summary, same transaction
     });
 
     if (existing) {

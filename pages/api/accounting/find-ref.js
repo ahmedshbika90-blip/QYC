@@ -1,11 +1,11 @@
-const { adminDb } = require("../../../lib/firebaseAdmin");
 const { requireUser, requireRole, sendError } = require("../../../lib/apiAuth");
-const { findByRef, summarize, paymentDocsFor } = require("../../../lib/payments");
-const { BANK_LABELS } = require("../../../lib/paymentsShared");
+const { findByRef, describeRefs, cleanRef } = require("../../../lib/payments");
 
 // Accountant: invoices with a payment whose transaction reference (رقم
-// العملية) equals, starts with or ends with the typed digits (3+ digits for
-// partial matches). Reads ≈ one per match, capped at 20 matches.
+// العملية) ends with the typed digits — normally the LAST 4, which (unlike
+// the first digits) almost never repeat between transfers. 5+ digits also
+// match the exact reference; under 4 digits, the exact reference only.
+// One indexed query, then one parallel batch of reads for the rows.
 //   GET /api/accounting/find-ref?ref=4417
 export default async function handler(req, res) {
   if (req.method !== "GET") return res.status(405).json({ error: "طريقة الطلب غير مسموح بها" });
@@ -13,40 +13,9 @@ export default async function handler(req, res) {
     const decoded = await requireUser(req);
     requireRole(decoded, ["accountant"]);
     res.setHeader("Cache-Control", "no-store");
-    const hits = await findByRef(req.query.ref);
-    if (!hits.length) return res.status(200).json({ matches: [] });
-    const ids = [...new Set(hits.map((h) => h.orderId))];
-    const [orderSnaps, payDocs] = await Promise.all([
-      adminDb.getAll(...ids.map((id) => adminDb.collection("orders").doc(id))),
-      paymentDocsFor(ids),
-    ]);
-    const orders = {};
-    orderSnaps.forEach((s) => s.exists && (orders[s.id] = s.data()));
-    const clientIds = [...new Set(Object.values(orders).map((o) => o.clientId).filter(Boolean))];
-    const clientSnaps = clientIds.length ? await adminDb.getAll(...clientIds.map((id) => adminDb.collection("clients").doc(String(id)))) : [];
-    const names = {};
-    clientSnaps.forEach((s) => s.exists && (names[s.id] = s.data().name || ""));
-    const matches = hits
-      .filter((h) => orders[h.orderId])
-      .map((h) => {
-        const o = orders[h.orderId];
-        const p = (payDocs[h.orderId]?.payments || []).find((x) => x.id === h.paymentId);
-        return {
-          orderId: h.orderId,
-          bank: h.bank,
-          bankLabel: BANK_LABELS[h.bank] || h.bank,
-          ref: h.ref,
-          exact: h.ref === String(req.query.ref || "").trim(),
-          amount: p?.amount ?? null,
-          date: p?.date ?? null,
-          clientName: names[o.clientId] || null,
-          clientId: o.clientId || null,
-          createdAt: o.createdAt,
-          route: o.route,
-          payment: summarize(o, payDocs[h.orderId]),
-        };
-      });
-    return res.status(200).json({ matches });
+    const typed = cleanRef(req.query.ref);
+    const hits = await findByRef(typed);
+    return res.status(200).json({ matches: await describeRefs(hits, typed) });
   } catch (err) {
     return sendError(res, err);
   }

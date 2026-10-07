@@ -391,7 +391,7 @@ function CustomersTab({ token, range, setRange }) {
                 <tr className="text-xs text-muted border-b border-line">
                   <th className="px-4 py-3 text-start font-semibold w-10">#</th>
                   <th className="px-4 py-3 text-start font-semibold">العميل</th>
-                  <th className="px-4 py-3 text-start font-semibold">المسار</th>
+                  <th className="px-4 py-3 text-start font-semibold">نوع البيع</th>
                   <th className="px-4 py-3 text-end font-semibold">الفواتير</th>
                   <th className="px-4 py-3 text-end font-semibold">الوحدات</th>
                   <th className="px-4 py-3 text-start font-semibold w-[28%]">من إجمالي الوحدات</th>

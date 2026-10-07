@@ -11,7 +11,7 @@ export default async function handler(req, res) {
     await requireUser(req);
     const v = await getAllVersions();
     const versions = {};
-    for (const k of ["orders_car1", "orders_car2", "requests", "inventory", "clients", "shipmentRequests", "payments"])
+    for (const k of ["orders_car1", "orders_car2", "requests", "inventory", "clients", "shipmentRequests", "payments", "competitors"])
       versions[k] = v[k] || 0;
     return res.status(200).json({ versions });
   } catch (err) {
