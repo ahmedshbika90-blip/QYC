@@ -535,7 +535,7 @@ export default function PlaceOrder() {
           ) : result ? (
             <SuccessScreen
               title="تم تسجيل الفاتورة"
-              number={shortCode(result.orderId)}
+              number={result.number || shortCode(result.orderId)}
               hint={`الإجمالي ${formatNumber(result.total)} — ${
                 result.deliveryDate ? `التسليم ${formatDate(result.deliveryDate)}` : "حسب الطلب، تواصل مع العميل لتحديد الموعد"
               }`}

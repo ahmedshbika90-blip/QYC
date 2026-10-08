@@ -2,6 +2,7 @@ const { adminDb } = require("../../../../lib/firebaseAdmin");
 const { requireUser, requireRole } = require("../../../../lib/apiAuth");
 const { bumpVersions } = require("../../../../lib/versions");
 const { MAX_CANCEL_NOTE } = require("../../../../lib/shipmentStatus");
+const { reportServerError } = require("../../../../lib/monitor");
 
 // The warehouse keeper's alternative to accepting: cancel a shipping
 // order or a cargo return that's waiting on him, with a note saying why
@@ -70,6 +71,7 @@ export default async function handler(req, res) {
     if (outcome !== "repeat") await bumpVersions(["shipmentRequests"]);
     return res.status(200).json({ ok: true, status: "cancelled", duplicate: outcome === "repeat" });
   } catch (err) {
+    reportServerError(err, req, res);
     const status = err.statusCode || 500;
     return res.status(status).json({ error: err.message });
   }

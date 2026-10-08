@@ -7,18 +7,22 @@
     "build": "next build",
     "start": "next start",
     "demo:seed": "node scripts/demo/seed.js",
-    "test": "node tests/run.js && node tests/run2.js && node tests/run3.js && node tests/run4.js && node tests/run5.js && node tests/run6.js && node tests/run7.js && node tests/run8.js && node tests/run9.js && node tests/run10.js && node tests/run11.js && node tests/run12.js && node tests/run13.js && node tests/run14.js && node tests/run15.js",
-    "stats:backfill": "node scripts/stats/backfill.js"
+    "test": "node tests/run.js && node tests/run2.js && node tests/run3.js && node tests/run4.js && node tests/run5.js && node tests/run6.js && node tests/run7.js && node tests/run8.js && node tests/run9.js && node tests/run10.js && node tests/run11.js && node tests/run12.js && node tests/run13.js && node tests/run14.js && node tests/run15.js && node tests/run16.js && node tests/run17.js && node tests/run18.js && node tests/run19.js",
+    "stats:backfill": "node scripts/stats/backfill.js",
+    "test:emulator": "npx -y firebase-tools@13 emulators:exec --only firestore,auth --project demo-mubashir \"node tests/emulator/run.js\"",
+    "invoices:number": "node scripts/invoices/number-existing.js"
   },
   "dependencies": {
     "@fontsource/alexandria": "^5.3.0",
     "@fontsource/ibm-plex-sans-arabic": "^5.3.0",
+    "@sentry/nextjs": "^8.55.2",
     "dotenv": "^16.4.5",
     "firebase": "^10.12.2",
     "firebase-admin": "^12.1.1",
     "html2canvas": "^1.4.1",
     "jspdf": "^2.5.1",
     "next": "14.2.5",
+    "qrcode": "^1.5.4",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
   },

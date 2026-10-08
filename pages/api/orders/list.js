@@ -2,6 +2,7 @@ const { adminDb } = require("../../../lib/firebaseAdmin");
 const { requireUser } = require("../../../lib/apiAuth");
 const { presentOrder } = require("../../../lib/invoiceLock");
 const { paymentDocsFor, publicPayment } = require("../../../lib/payments");
+const { reportServerError } = require("../../../lib/monitor");
 
 const ROLE_TO_ROUTE = {
   agent_car1: "car1",
@@ -82,6 +83,7 @@ export default async function handler(req, res) {
 
     return res.status(200).json({ orders, nextCursor });
   } catch (err) {
+    reportServerError(err, req, res);
     const status = err.statusCode || 500;
     return res.status(status).json({ error: err.message });
   }

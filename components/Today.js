@@ -23,7 +23,7 @@ export function TodayHeader({ title, subtitle, stats = [], aside }) {
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="text-sm text-muted">{todayLabel()}</p>
-          <h1 className="font-display text-[28px] leading-tight font-bold text-ink mt-0.5">{title}</h1>
+          <h1 className="font-display text-[1.75rem] leading-tight font-bold text-ink mt-0.5">{title}</h1>
           {subtitle && <p className="text-sm text-muted mt-1">{subtitle}</p>}
         </div>
         {aside}
@@ -86,11 +86,11 @@ export function ActionInbox({ items, title = "بانتظارك", emptyText, load
                   <Icon name={it.icon || "bell"} size={20} />
                 </span>
                 <span className="flex-1 min-w-0">
-                  <span className="block text-[15px] font-semibold text-ink leading-snug line-clamp-2">{it.title}</span>
+                  <span className="block text-[0.9375rem] font-semibold text-ink leading-snug line-clamp-2">{it.title}</span>
                   {it.meta && <span className="block text-xs text-muted truncate mt-0.5">{it.meta}</span>}
                 </span>
                 {it.cta ? (
-                  <span className={`shrink-0 h-8 px-3 rounded-lg text-[13px] font-bold flex items-center ${TONES[it.tone || "warn"]}`}>
+                  <span className={`shrink-0 h-8 px-3 rounded-lg text-[0.8125rem] font-bold flex items-center ${TONES[it.tone || "warn"]}`}>
                     {it.cta}
                   </span>
                 ) : (

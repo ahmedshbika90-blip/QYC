@@ -9,7 +9,9 @@ import Icon from "./Icon";
 //
 // Works for every page without changes there: it watches for elements with
 // role="alert" or the red error text style.
-const SELECTOR = '[role="alert"], p.text-red-600';
+// Red NUMBERS (a negative margin, an amount owed) are figures, not errors:
+// they carry the "num" class and are skipped.
+const SELECTOR = '[role="alert"], p.text-red-600:not(.num)';
 const HIDE_AFTER_MS = 7000;
 
 // Next.js announces every page change to screen readers through a hidden

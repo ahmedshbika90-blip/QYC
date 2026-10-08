@@ -17,6 +17,7 @@ import { useEffect } from "react";
 import ConnectionBanner from "../components/ConnectionBanner";
 import ErrorSpotlight from "../components/ErrorSpotlight";
 import { initLang } from "../lib/i18n";
+import { startClientMonitor } from "../lib/clientMonitor";
 
 export default function App({ Component, pageProps }) {
   // Service worker: lets the app open even with no internet (see
@@ -26,6 +27,7 @@ export default function App({ Component, pageProps }) {
   // after hydration so React's first render always matches the server's.
   useEffect(() => {
     initLang();
+    startClientMonitor(); // no-op unless NEXT_PUBLIC_SENTRY_DSN is set
   }, []);
 
   useEffect(() => {

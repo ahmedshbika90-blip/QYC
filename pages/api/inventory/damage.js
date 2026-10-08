@@ -5,6 +5,7 @@ const { isValidRequestId } = require("../../../lib/requestId");
 const { createOnce } = require("../../../lib/idempotentCreate");
 const { applyStockMovements } = require("../../../lib/inventory");
 const { bumpVersions } = require("../../../lib/versions");
+const { reportServerError } = require("../../../lib/monitor");
 
 // Records damaged goods as a write-off: quantity moves OUT of a real stock
 // bucket (depot, car1, or car2) and INTO "damaged", which counts as gone —
@@ -97,6 +98,7 @@ export default async function handler(req, res) {
 
     return res.status(result.duplicate ? 200 : 201).json({ id: docRef.id, duplicate: result.duplicate, status: immediate ? "confirmed" : "pending" });
   } catch (err) {
+    reportServerError(err, req, res);
     const status = err.statusCode || 500;
     return res.status(status).json({ error: err.message });
   }

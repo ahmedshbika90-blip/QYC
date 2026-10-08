@@ -383,3 +383,111 @@ resource location): eur3 / europe-west* → `fra1`; nam5 / us-central1 →
 - Deploying Firestore rules/indexes uses `firebase.json` in the project root:
   `firebase deploy --only firestore:indexes --project <id>` — answer **N** if
   it offers to delete indexes that aren't in the file.
+
+## Routes and locations
+- **Route (المسار)** — pick from the list or "+ إضافة مسار جديد".
+- **Location (الموقع)** — a search box: matching saved locations appear
+  under it as you type (locations on the chosen route first; spelling
+  variants match); a name that isn't there is saved as a new one.
+- **Clients screen → "إضافة مسار أو موقع"** adds a route and/or a location
+  without registering a client (`places` collection, `/api/places`). Sales
+  staff add for their own sales type, the manager chooses one.
+- Lists = routes/locations on clients + `places`, refreshed right after a
+  save (no page refresh).
+
+## Competitor prices
+Entry (sales supervisor): date → route → company → item → weight (+ جم/كجم/مل/لتر)
+→ price. No SKU. Items are grouped by name (spelling variants evened out)
++ weight. The executive page shows per-item cards (cheapest first,
+comparison bar, change, trend line), the biggest price moves, filters by
+route/company and a 30-day / 3-month / year window; the executive overview
+has a "أسعار المنافسين" card.
+
+## Safety (Phase 3)
+Everything here is **off until configured**.
+
+| Feature | Turn on with | Where |
+|---|---|---|
+| Error reports (Sentry) | `SENTRY_DSN` + `NEXT_PUBLIC_SENTRY_DSN` (same DSN) | Vercel env vars |
+| App Check | `NEXT_PUBLIC_APPCHECK_SITE_KEY`, then `APP_CHECK=monitor` → later `enforce` | Vercel env vars |
+| Two-step login | `node scripts/security/enable-totp.js --run --confirm=<project>`, staff turn it on at **/security**, then `NEXT_PUBLIC_REQUIRE_2FA=1` + `REQUIRE_2FA=1` | script + Vercel |
+| Rules/indexes deploy from CI | GitHub secrets `FIREBASE_SERVICE_ACCOUNT` (the JSON), `FIREBASE_PROJECT_ID` | GitHub → Settings → Secrets |
+
+- **Sentry** reports only real server faults (500) and browser crashes.
+  Removed before sending (`lib/scrub.js`): user, request body, headers,
+  cookies, query strings, typed text, names in «…», phone numbers, emails.
+  The browser part is a separate download fetched only when the DSN is set.
+- **App Check**: `monitor` logs requests without a valid token but lets
+  them through — run it a few days, check Vercel logs for `[appCheck]`,
+  then switch to `enforce`.
+- **Two-step login** (authenticator app, TOTP) for admin, manager,
+  accountant. Login asks for the 6-digit code after the password.
+- **Tests:** `npm test` (in-memory, 16 files) and `npm run test:emulator`
+  (Firebase Emulator: real rules, real transactions, real tokens; needs
+  Java 11+). GitHub Actions (`.github/workflows/ci.yml`) runs both plus the
+  translation check and the build on every push.
+
+## Reading settings (سهولة القراءة)
+Every user, from the «أأ» button in the top bar (`/accessibility`): text size
+(4 steps), high contrast (pure white/black, darker colours, thicker borders),
+bold text, underlined links, dark mode. Saved on the device and applied
+before the first paint (`lib/a11y.js`, script in `pages/_document.js`). All
+text sizes are in rem so they scale. Default text colours are now true
+black (light mode) and true white (dark mode).
+
+## Accounting by invoice log (accountant)
+- **Invoice log (سجل الفواتير)** = one van's invoices of one business day
+  (`logState/{route}_{day}`: invoices, total, paid, received, distributed —
+  kept in the same transactions as invoices and payments; rebuilt by the
+  nightly check and the stats backfill).
+- **Record a payment on the log** (reference, bank, amount, date, note —
+  same duplicate and last-4 rules), then **distribute** it to the clients'
+  invoices (manual or "توزيع تلقائي"); re-split or void any time
+  (`lib/logPayments.js`, `/api/accounting/logs/[id]`). Each share is a
+  payment on the invoice, so invoice badges and the invoice list keep
+  working. Shares can only be changed from the log.
+- **المناديب** (accountant home): all agents together, then each agent —
+  what he owes over all his logs, oldest unpaid day, money waiting to be
+  distributed; tap for his daily logs.
+- **سجلات الفواتير**: every log, filter by agent and status.
+- **التقارير**: one agent or all, any period — per-day logs, totals,
+  payments received; print/PDF and Excel (CSV) download.
+- New indexes: `logState` (route, day), `logPayments` (route, day).
+
+## Operating margin in accounting
+Every log, agent card (period), the combined view and the reports (screen
++ Excel) show **هامش التشغيل** — sales after discount minus cost of goods,
+the same calculation as the manager's margin. Shown for information next to
+what the agent owes; it is not added to it.
+
+## Invoice numbers (Phase 4)
+Legal numbers `INV-2026-000123`: sequential and gap-free per Khartoum year,
+given inside the invoice transaction (`lib/invoiceNumbers.js`); a resend or
+a refused invoice uses none; cancelled invoices keep theirs. Shown on the
+invoice, the accountant's lists, logs and search.
+**Turn on once:** `npm run invoices:number` (dry run), then
+`npm run invoices:number -- --run --confirm=<project-id>` — numbers every
+existing invoice oldest-first per year and switches numbering on.
+
+## Nightly stock check (Phase 4)
+Every stock change writes a `stockLedger` record in the same transaction
+(sales, cancellations, edits, receipts, loadings, returns, damage,
+transfers, the manager's depot corrections, opening balances). Each night
+(`/api/cron/nightly`, which also runs the sales-summary check) every
+balance is compared with its starting point + ledger. Differences go to the
+manager as a notification and on **فحص المخزون** (`/stock-check`); nothing
+is corrected automatically. After a count, "الرصيد صحيح بعد الجرد" accepts
+the current balance. The first run takes today's balances as the start.
+
+## Company settings (Phase 4)
+`lib/companyConfig.js` is the only place for time zone, UTC offset,
+currency and company name (env vars `NEXT_PUBLIC_TIME_ZONE`,
+`NEXT_PUBLIC_UTC_OFFSET`, `NEXT_PUBLIC_CURRENCY`, `NEXT_PUBLIC_COMPANY_NAME[_EN]`,
+defaults = Mahgoub Sons). Every invoice and payment stores its `currency`.
+The time zone is not editable from a screen on purpose: daily summaries,
+invoice logs and invoice-number years are keyed to its business day.
+
+## Documents (agents)
+One screen: a big **طلب جديد** button (asks: أمر شحن or مرتجع بضاعة), then
+**طلباتي** — with "بحاجة لإجراء منك" on top listing exactly what the nav
+badge on المستندات is counting.

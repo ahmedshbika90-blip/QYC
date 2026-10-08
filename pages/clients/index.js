@@ -4,6 +4,8 @@ import { useAuth } from "../../lib/useAuth";
 import Nav from "../../components/Nav";
 import FilterPanel from "../../components/FilterPanel";
 import { routesFromClients } from "../../components/DeliveryRoutePicker";
+import AddPlaceDialog from "../../components/AddPlaceDialog";
+import SuccessToast from "../../components/SuccessToast";
 import FilterChips from "../../components/FilterChips";
 import Icon from "../../components/Icon";
 import { PageLoading, SkeletonRows } from "../../components/Loading";
@@ -22,6 +24,8 @@ export default function ClientsList() {
   const [search, setSearch] = useState("");
   const [nameQuery, setNameQuery] = useState("");
   const [deliveryRoute, setDeliveryRoute] = useState(""); // المسار
+  const [addingPlace, setAddingPlace] = useState(false);
+  const [toast, setToast] = useState("");
   const [locationQuery, setLocationQuery] = useState("");
   const [storeClass, setStoreClass] = useState("");
   const [routeFilter, setRouteFilter] = useState("");
@@ -82,14 +86,36 @@ export default function ClientsList() {
       <div className="max-w-3xl mx-auto p-4 sm:p-8">
         <div className="flex justify-between items-center mb-4 gap-3">
           <h1 className="font-display text-2xl font-bold text-ink">العملاء</h1>
+          <div className="flex items-center gap-2 shrink-0">
+          {/* Start side of "إضافة عميل" (right in Arabic, left in English). */}
+          <button
+            type="button"
+            onClick={() => setAddingPlace(true)}
+            className="inline-flex items-center gap-2 h-12 px-3 sm:px-4 rounded-2xl border border-accent text-accent-ink bg-white text-[0.9375rem] font-bold hover:bg-accent-soft active:bg-accent-soft shrink-0"
+          >
+            <Icon name="route" size={20} />
+            <span className="hidden sm:inline">إضافة مسار أو موقع</span>
+            <span className="sm:hidden">مسار / موقع</span>
+          </button>
           <Link
             href="/register-client"
-            className="inline-flex items-center gap-2 h-12 px-4 rounded-2xl bg-accent text-on-accent text-[15px] font-bold shadow-sm hover:bg-accent-strong active:bg-accent-strong shrink-0"
+            className="inline-flex items-center gap-2 h-12 px-4 rounded-2xl bg-accent text-on-accent text-[0.9375rem] font-bold shadow-sm hover:bg-accent-strong active:bg-accent-strong shrink-0"
           >
             <Icon name="userPlus" size={20} />
             إضافة عميل
           </Link>
+          </div>
         </div>
+        {addingPlace && (
+          <AddPlaceDialog
+            token={token}
+            user={user}
+            role={role}
+            onClose={() => setAddingPlace(false)}
+            onAdded={(names) => setToast(`تمت الإضافة: ${names}`)}
+          />
+        )}
+        {toast && <SuccessToast message={toast} onDone={() => setToast("")} />}
 
         <div className="relative mb-3">
           <input

@@ -44,7 +44,7 @@ export default function OrderCard({ order, name, location, deliveryRoute, badge,
       <div className="flex items-center gap-3">
         <Link href={`/orders/${order.id}`} className="min-w-0 flex-1 flex items-center gap-3">
           <span
-            className={`w-11 h-11 rounded-xl flex items-center justify-center shrink-0 font-display font-bold text-[15px] ${
+            className={`w-11 h-11 rounded-xl flex items-center justify-center shrink-0 font-display font-bold text-[0.9375rem] ${
               isCancelled ? "bg-red-50 text-red-600" : "bg-accent-soft text-accent-ink"
             }`}
           >
@@ -70,31 +70,31 @@ export default function OrderCard({ order, name, location, deliveryRoute, badge,
             {(isEdited || order.pendingRequest || hasDiscount(order) || order.hasFreeSample || order.hasPriceAdjustment) && (
               <span className="flex flex-wrap gap-1.5 mt-1.5">
                 {order.hasFreeSample && (
-                  <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-accent-ink bg-accent-soft rounded-md px-1.5 py-0.5">
+                  <span className="inline-flex items-center gap-1 text-[0.6875rem] font-semibold text-accent-ink bg-accent-soft rounded-md px-1.5 py-0.5">
                     <Icon name="gift" size={12} />
                     عينة مجانية
                   </span>
                 )}
                 {order.hasPriceAdjustment && (
-                  <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-amber-800 bg-amber-50 rounded-md px-1.5 py-0.5">
+                  <span className="inline-flex items-center gap-1 text-[0.6875rem] font-semibold text-amber-800 bg-amber-50 rounded-md px-1.5 py-0.5">
                     <Icon name="tag" size={12} />
                     سعر معدّل
                   </span>
                 )}
                 {isEdited && (
-                  <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-amber-700 bg-amber-50 rounded-md px-1.5 py-0.5">
+                  <span className="inline-flex items-center gap-1 text-[0.6875rem] font-semibold text-amber-700 bg-amber-50 rounded-md px-1.5 py-0.5">
                     <Icon name="pencil" size={12} />
                     معدّلة
                   </span>
                 )}
                 {/* Same kind of tag as "معدّلة": this invoice has a discount. */}
                 {hasDiscount(order) && (
-                  <span className="text-[11px] font-semibold text-blue-700 bg-blue-50 rounded-md px-1.5 py-0.5">
+                  <span className="text-[0.6875rem] font-semibold text-blue-700 bg-blue-50 rounded-md px-1.5 py-0.5">
                     يوجد تخفيض {formatNumber(orderDiscount(order))}
                   </span>
                 )}
                 {order.pendingRequest && (
-                  <span className="text-[11px] font-semibold text-amber-700 bg-amber-50 rounded-md px-1.5 py-0.5">طلب بانتظار الموافقة</span>
+                  <span className="text-[0.6875rem] font-semibold text-amber-700 bg-amber-50 rounded-md px-1.5 py-0.5">طلب بانتظار الموافقة</span>
                 )}
               </span>
             )}
@@ -102,7 +102,7 @@ export default function OrderCard({ order, name, location, deliveryRoute, badge,
           </span>
         </Link>
         <div className="flex flex-col items-end gap-1.5 shrink-0">
-          <span className="num text-[15px] font-semibold text-ink tabular-ltr">
+          <span className="num text-[0.9375rem] font-semibold text-ink tabular-ltr">
             {order.total != null ? formatNumber(order.total) : "—"}
           </span>
           {!isCancelled && order.payment && (

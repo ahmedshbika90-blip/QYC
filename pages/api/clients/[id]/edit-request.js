@@ -4,6 +4,7 @@ const { isValidRequestId } = require("../../../../lib/requestId");
 const { bumpVersions } = require("../../../../lib/versions");
 const { buildClientUpdates, changedFields, snapshot } = require("../../../../lib/clientFields");
 const { isClientEditLocked } = require("../../../../lib/clientEditLock");
+const { reportServerError } = require("../../../../lib/monitor");
 
 const ROLE_TO_ROUTE = { agent_car1: "car1", agent_car2: "car2" };
 const MAX_REASON = 500;
@@ -84,6 +85,7 @@ export default async function handler(req, res) {
     await bumpVersions(["requests", "clients"]);
     return res.status(201).json({ id: requestId });
   } catch (err) {
+    reportServerError(err, req, res);
     const status = err.statusCode || 500;
     return res.status(status).json({ error: err.message });
   }

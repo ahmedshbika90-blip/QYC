@@ -3,6 +3,7 @@ const { requireUser, requireRole } = require("../../../../lib/apiAuth");
 const { applyStockMovements } = require("../../../../lib/inventory");
 const { bumpVersions } = require("../../../../lib/versions");
 const { parseDecimal } = require("../../../../lib/qty");
+const { reportServerError } = require("../../../../lib/monitor");
 
 // Only the supervisor can approve a Goods Received or a Damage document —
 // this is the actual gate that moves stock. Both arrive in his الطلبات
@@ -134,6 +135,7 @@ export default async function handler(req, res) {
     await bumpVersions(["inventory"]);
     return res.status(200).json({ ok: true });
   } catch (err) {
+    reportServerError(err, req, res);
     const status = err.statusCode || 500;
     return res.status(status).json({ error: err.message });
   }

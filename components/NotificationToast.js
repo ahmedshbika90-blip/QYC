@@ -187,16 +187,16 @@ function ToastCard({ toast, onOpen, onDismiss }) {
           }}
           className="flex-1 text-start min-w-0 cursor-pointer"
         >
-          <p className="text-[15px] font-bold text-ink leading-snug truncate">{toast.requestType}</p>
+          <p className="text-[0.9375rem] font-bold text-ink leading-snug truncate">{toast.requestType}</p>
           <p className="text-xs text-muted truncate mt-0.5">
             من: {toast.from} · {toast.state}
           </p>
           {toast.note && (
-            <p className={`text-[13px] mt-1 leading-snug line-clamp-2 ${toast.tone === "bad" ? "text-red-600" : "text-ink-soft"}`}>
+            <p className={`text-[0.8125rem] mt-1 leading-snug line-clamp-2 ${toast.tone === "bad" ? "text-red-600" : "text-ink-soft"}`}>
               {toast.note}
             </p>
           )}
-          <p className="text-[11px] text-amber-700/80 mt-1.5 font-medium">
+          <p className="text-[0.6875rem] text-amber-700/80 mt-1.5 font-medium">
             اسحب جانبًا للإغلاق · اضغط للفتح
           </p>
         </button>

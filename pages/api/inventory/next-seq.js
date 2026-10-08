@@ -1,6 +1,7 @@
 const { adminDb } = require("../../../lib/firebaseAdmin");
 const { requireUser, requireRole } = require("../../../lib/apiAuth");
 const { businessDay } = require("../../../lib/businessDay");
+const { reportServerError } = require("../../../lib/monitor");
 
 // What number the NEXT loading/offloading for a car would get today — shown
 // on the warehouse keeper's form ("this will be the 3rd loading today").
@@ -19,6 +20,7 @@ export default async function handler(req, res) {
     const snap = await adminDb.collection("dailyCounters").doc(`${route}_${type}_${businessDay()}`).get();
     return res.status(200).json({ next: (snap.exists ? snap.data().value : 0) + 1 });
   } catch (err) {
+    reportServerError(err, req, res);
     const status = err.statusCode || 500;
     return res.status(status).json({ error: err.message });
   }

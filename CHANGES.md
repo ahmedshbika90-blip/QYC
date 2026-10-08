@@ -636,3 +636,53 @@ Tests: `tests/run13.js`, `tests/run14.js` new; `npm test` (14 files) and `next b
 - Executive tabs "العملاء والمسارات" and "المخزون" moved to `components/exec/` and loaded with `next/dynamic`; shared pieces in `components/exec/parts.js`.
 - `components/Nav.js`: notification prompt and toasts loaded on demand, and only for manager / sales / warehouse roles.
 - `tests/run15.js`: bundle guards.
+
+---
+
+# Routes, locations, competitor prices
+- `components/SearchCombobox.js` (search-as-you-type pick-or-add) for الموقع on client register/edit; `lib/arabicSearch.js` (Arabic spelling-variant matching).
+- `lib/usePlaceOptions.js`: route/location lists from clients + `places`; reloaded after every save — fixes "new route missing until refresh" after "تسجيل عميل آخر".
+- `places` collection, `lib/places.js`, `/api/places` (GET/POST), live key `places`; `components/AddPlaceDialog.js` + "إضافة مسار أو موقع" button on the clients screen (sales staff, manager).
+- Competitor prices: fields date → route → company → item → weight+unit → price; SKU removed (old entries still show it); `itemKey` grouping; a new route typed here is added to `places`; `/api/competitors?days=`.
+- Executive: redesigned `/executive/competitors`; "أسعار المنافسين" card on the overview (`components/exec/CompetitorsCard.js`, loaded on demand).
+
+# Phase 3 — safety & quality
+- Sentry: `lib/monitor.js` (server, all 58 API routes report from their catch block, 500s only, response held ≤1.5 s until sent), `lib/clientMonitor.js` (browser, lazy), `lib/scrub.js`. `@sentry/nextjs` added.
+- App Check: `lib/appCheckClient.js` (lazy, header on API calls, before the Firestore listener), `lib/appCheckServer.js` (off / monitor / enforce), checked in `requireUser`.
+- Two-step login: `lib/mfa.js`, `pages/security.js` (QR via `qrcode`, loaded on that page only), second step on `pages/login.js`, redirect in `lib/useAuth.js`, enforcement in `requireUser`, `scripts/security/enable-totp.js`, menu link for admin/manager/accountant. `qrcode` added.
+- Emulator tests `tests/emulator/run.js` (rules, real tokens, stock race, daily summaries, disabled account); `firebase.json` emulator ports; `npm run test:emulator`.
+- GitHub Actions `.github/workflows/ci.yml`: tests, i18n check, build, emulator tests, optional rules/indexes deploy (never deletes console-only indexes).
+- `lib/firebaseAdmin.js`: credential-free init only when talking to the emulator.
+- Tests: `tests/run16.js` (scrubbing, Sentry gating, App Check modes, 2FA enforcement); `tests/run12.js` extended (places, weight/route, day window).
+
+---
+
+# Staff testing round — readability and accounting by invoice log
+- Clearer default text colours (true black / true white), px font sizes → rem.
+- Reading settings page `/accessibility` (text size, high contrast, bold, underlined links, dark mode), «أأ» button in the top bar; `lib/a11y.js`; applied before first paint.
+- Invoice logs: `lib/invoiceLogs.js` (logState totals written in invoice/payment transactions), `lib/logPayments.js` (record / distribute / void), `lib/accountingViews.js`, APIs `/api/accounting/logs`, `/api/accounting/logs/[id]`, `/api/accounting/agents`, `/api/accounting/report`.
+- Pages: `/accounting/agents` (new accountant home), `/accounting/agents/[route]`, `/accounting/logs`, `/accounting/logs/[id]`, `/accounting/reports`. Accountant menu: المناديب · السجلات · التقارير · الفواتير.
+- Single-invoice payments update the log; shares from a log payment can't be edited/voided on the invoice. Reference search finds log payments.
+- Nightly check / backfill (`rebuildDay`) also rebuild logState. Demo data and seed include logState.
+- Tests: `tests/run17.js`.
+
+---
+
+# Operating margin in accounting
+- `lib/accountingViews.js` `attachMargins` (from dailyStats + product costs); margin on log rows, log page, agent cards, combined, agent detail, reports (+ CSV column). Test in `tests/run17.js`.
+
+# Phase 4 (part 1) — invoice numbers, stock check
+- `lib/invoiceNumbers.js` (`prepareInvoiceNumber` in `create-staff` transaction, `numberExisting`), `scripts/invoices/number-existing.js` (`npm run invoices:number`), `invoiceNo()` in `lib/labels.js`; shown on invoice, accountant list/search, logs, payment search. Demo data numbered.
+- Stock ledger: `writeLedger` in `lib/inventory.js` (every `applyStockMovements`), depot corrections now transactional with a ledger record, opening balances on product create.
+- `lib/stockCheck.js`, `/api/stock-check` (manager), `pages/stock-check.js`, manager notification, `/api/cron/nightly` (stats check + stock check; `vercel.json` now points here — one cron job). Live key `stockCheck`.
+- Tests: `tests/run18.js`.
+- Still to do in Phase 4: vans as data, company settings.
+
+---
+
+# Staff feedback round 2 + Phase 4 (part 2)
+- Negative margin no longer shows the floating error banner: `ErrorSpotlight` skips red numbers (`.num`); `TodayMargin` opted out.
+- Sign-in prompt: decided per sign-in (`newLoginSession` in `lib/notificationSeen.js`, called on sign-in and sign-out), so needs-action items show at every sign-in even without a page reload; informative ones still once.
+- Documents (`components/ShipmentRequestsPanel.js`): tabs removed; big "طلب جديد" button → chooser (أمر شحن / مرتجع بضاعة) → form; "طلباتي" shows "بحاجة لإجراء منك" (the shipping items behind the nav badge) above the list.
+- Company settings: `lib/companyConfig.js` (time zone, offset, currency, company name from env, Mahgoub Sons defaults); all hard-coded `Africa/Khartoum` / `+02:00` replaced; `currency` stored on invoices, invoice payments and log payments.
+- Tests: `tests/run19.js`. Remaining Phase 4 item: vans as data.

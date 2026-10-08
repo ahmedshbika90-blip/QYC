@@ -9,6 +9,8 @@ import { apiFetch } from "../lib/apiFetch";
 import { invalidate } from "../lib/apiCache";
 import { useLiveRefresh } from "../lib/useLiveRefresh";
 import { useRequestId } from "../lib/useRequestId";
+import { useNotifications } from "../lib/useNotifications";
+import { markSeen } from "../lib/notificationSeen";
 import { formatDateTime, formatQty } from "../lib/labels";
 import {
   SHIPMENT_STATUS_LABELS,
@@ -61,7 +63,16 @@ export default function ShipmentRequestsPanel({ role, token }) {
   // deliberately no "تالف" (damage) option for agents.
   const [typeFilter, setTypeFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
-  const [tab, setTab] = useState("new");
+  // One screen: "طلباتي" (with what needs you on top) and a clear
+  // "طلب جديد" button that asks shipping order or goods return first.
+  const [tab, setTab] = useState("own");
+  const [choosing, setChoosing] = useState(false);
+  const uid = getAuthFlags().uid;
+  const notif = useNotifications(token, role, uid);
+  // Shipping items that need this person (confirm a delivery, approve a
+  // request…) or that changed since they last looked — the same items the
+  // nav's badge on المستندات counts, now spelled out here.
+  const actionItems = (notif.items || []).filter((it) => it.bucket === "shipping");
   const [own, setOwn] = useState([]);
   const [toDecide, setToDecide] = useState([]);
   const [fetching, setFetching] = useState(true);
@@ -193,11 +204,6 @@ export default function ShipmentRequestsPanel({ role, token }) {
     }
   }
 
-  const tabs = [
-    ["new", "طلب جديد", 0],
-    ["own", "طلباتي", 0],
-  ];
-
   const doneHint =
     done?.type === "offloading"
       ? "بانتظار استلام أمين المخزن. ستصلك رسالة عند التنفيذ أو الإلغاء."
@@ -207,30 +213,65 @@ export default function ShipmentRequestsPanel({ role, token }) {
 
   return (
     <div>
-      <div role="tablist" className="inline-flex gap-1 p-1 mb-4 rounded-xl bg-surface-2 overflow-x-auto no-scrollbar">
-        {tabs.map(([key, label, dot]) => (
-          <button
-            key={key}
-            type="button"
-            role="tab"
-            aria-selected={tab === key}
-            onClick={() => {
-              setTab(key);
-              setError("");
-            }}
-            className={`relative whitespace-nowrap h-10 px-4 rounded-lg text-sm ${
-              tab === key ? "bg-white text-ink font-semibold shadow-sm" : "text-muted"
-            }`}
-          >
-            {label}
-            {dot > 0 && (
-              <span className="absolute top-1 end-1 w-2.5 h-2.5 rounded-full bg-amber-600 ring-2 ring-white">
-                <span className="sr-only">يوجد {dot} بانتظار موافقتك</span>
-              </span>
-            )}
-          </button>
-        ))}
-      </div>
+      {tab === "own" ? (
+        <button
+          type="button"
+          onClick={() => {
+            setError("");
+            setChoosing(true);
+          }}
+          className="w-full h-14 mb-5 rounded-2xl bg-accent text-on-accent text-lg font-bold flex items-center justify-center gap-2 shadow active:bg-accent-strong"
+        >
+          <Icon name="plus" size={24} strokeWidth={2.6} />
+          طلب جديد
+        </button>
+      ) : (
+        <button
+          type="button"
+          onClick={() => {
+            setTab("own");
+            setDone(null);
+            setError("");
+          }}
+          className="mb-4 h-11 px-3 rounded-xl text-ink font-semibold flex items-center gap-1.5 hover:bg-surface-2"
+        >
+          <Icon name="chevronRight" size={20} className="rtl:rotate-0 ltr:rotate-180" />
+          طلباتي
+        </button>
+      )}
+
+      {choosing && (
+        <div role="dialog" aria-modal="true" aria-labelledby="new-req-title" className="fixed inset-0 z-50 bg-black/60 flex items-end sm:items-center justify-center sm:p-4" onClick={() => setChoosing(false)}>
+          <div onClick={(e) => e.stopPropagation()} className="bg-white w-full sm:max-w-md rounded-t-3xl sm:rounded-3xl shadow-xl p-5 flex flex-col gap-3" style={{ paddingBottom: "max(1.25rem, env(safe-area-inset-bottom))" }}>
+            <h2 id="new-req-title" className="font-display text-xl font-bold text-ink">ماذا تريد أن تطلب؟</h2>
+            {[
+              ["loading", "أمر شحن", "بضاعة من المخزن إلى سيارتك", "truck"],
+              ["offloading", "مرتجع بضاعة", "تفريغ بضاعة من سيارتك إلى المخزن", "box"],
+            ].map(([value, label, sub, icon]) => (
+              <button
+                key={value}
+                type="button"
+                onClick={() => {
+                  changeType(value);
+                  setDone(null);
+                  setTab("new");
+                  setChoosing(false);
+                }}
+                className="w-full text-start rounded-2xl border-2 border-line hover:border-accent active:bg-accent-soft p-4 flex items-center gap-3 min-h-[5rem]"
+              >
+                <span className="w-12 h-12 rounded-xl bg-accent-soft text-accent-ink flex items-center justify-center shrink-0">
+                  <Icon name={icon} size={24} />
+                </span>
+                <span>
+                  <span className="block text-lg font-bold text-ink">{label}</span>
+                  <span className="block text-sm text-ink-soft">{sub}</span>
+                </span>
+              </button>
+            ))}
+            <button type="button" onClick={() => setChoosing(false)} className="h-12 rounded-xl text-ink-soft font-semibold">إلغاء</button>
+          </div>
+        </div>
+      )}
 
       {error && (
         <div role="alert" className="flex items-start gap-2 text-red-600 bg-red-50 rounded-xl px-3 py-2.5 text-sm mb-4">
@@ -268,24 +309,14 @@ export default function ShipmentRequestsPanel({ role, token }) {
           </div>
         ) : (
           <form onSubmit={submit} className="bg-white rounded-2xl shadow p-4 space-y-4">
-            <div className="grid grid-cols-2 gap-2">
-              {[
-                ["loading", "أمر شحن", "من المخزن إلى السيارة"],
-                ["offloading", "مرتجع بضاعة", "من السيارة إلى المخزن"],
-              ].map(([value, label, sub]) => (
-                <button
-                  type="button"
-                  key={value}
-                  onClick={() => changeType(value)}
-                  aria-pressed={type === value}
-                  className={`rounded-xl py-2.5 border text-center ${
-                    type === value ? "bg-accent text-on-accent border-accent" : "bg-white text-ink-soft border-line"
-                  }`}
-                >
-                  <span className="block text-base font-semibold">{label}</span>
-                  <span className={`block text-xs ${type === value ? "opacity-80" : "text-muted"}`}>{sub}</span>
-                </button>
-              ))}
+            <div className="flex items-center gap-3">
+              <span className="w-11 h-11 rounded-xl bg-accent-soft text-accent-ink flex items-center justify-center shrink-0">
+                <Icon name={type === "offloading" ? "box" : "truck"} size={22} />
+              </span>
+              <div>
+                <p className="text-lg font-bold text-ink">{type === "offloading" ? "مرتجع بضاعة" : "أمر شحن"}</p>
+                <p className="text-sm text-ink-soft">{type === "offloading" ? "من السيارة إلى المخزن" : "من المخزن إلى السيارة"}</p>
+              </div>
             </div>
 
             <p className="text-sm text-ink-soft bg-surface-2 rounded-xl px-3 py-2.5">
@@ -327,6 +358,38 @@ export default function ShipmentRequestsPanel({ role, token }) {
           </form>
         ))}
 
+      {tab === "own" && actionItems.length > 0 && (
+        <section aria-labelledby="needs-you" className="mb-5">
+          <h2 id="needs-you" className="font-display text-lg font-bold text-ink mb-2 flex items-center gap-2">
+            <span className="w-2.5 h-2.5 rounded-full bg-amber-600" aria-hidden="true" />
+            {actionItems.some((it) => it.needsAction) ? "بحاجة لإجراء منك" : "تحديثات جديدة"}
+          </h2>
+          <ul className="bg-white rounded-2xl shadow divide-y divide-line border-2 border-amber-300 overflow-hidden">
+            {actionItems.map((it) => (
+              <li key={it.id}>
+                <Link
+                  href={it.href}
+                  onClick={() => !it.needsAction && markSeen(uid, it.id)}
+                  className="flex items-center justify-between gap-3 px-4 py-3.5 hover:bg-surface-2 active:bg-surface-2"
+                >
+                  <div className="min-w-0">
+                    <p className="font-bold text-ink truncate">{it.requestType}</p>
+                    <p className="text-sm text-ink-soft truncate">
+                      {it.from && <>من: {it.from}</>}
+                      {it.at && <> · {formatDateTime(it.at)}</>}
+                    </p>
+                    {it.note && <p className="text-sm text-ink-soft line-clamp-2">{it.note}</p>}
+                  </div>
+                  <span className={`text-sm font-bold px-2.5 py-1 rounded-lg shrink-0 ${it.needsAction ? "bg-amber-100 text-amber-800" : it.tone === "bad" ? "bg-red-50 text-red-700" : "bg-green-50 text-green-700"}`}>
+                    {it.state}
+                  </span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
       {tab === "own" && getAuthFlags().salesSupervisor && toDecide.length > 0 && (
           <div className="space-y-2 mb-5">
             <h2 className="text-sm font-bold text-amber-700">بانتظار موافقتي — من المندوبين</h2>
@@ -362,6 +425,7 @@ export default function ShipmentRequestsPanel({ role, token }) {
           </div>
       )}
 
+      {tab === "own" && <h2 className="font-display text-lg font-bold text-ink mb-2">طلباتي</h2>}
       {tab === "own" && (
         <div className="grid grid-cols-2 gap-2 mb-3">
           <select

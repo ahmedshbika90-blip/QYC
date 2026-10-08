@@ -14,7 +14,7 @@ export default function QuickActions({ actions }) {
           <Link
             key={a.href}
             href={a.href}
-            className={`flex items-center justify-center gap-2 rounded-2xl h-14 px-3 text-[15px] font-semibold text-center leading-tight ${
+            className={`flex items-center justify-center gap-2 rounded-2xl h-14 px-3 text-[0.9375rem] font-semibold text-center leading-tight ${
               primary
                 ? "bg-accent text-on-accent shadow-sm active:bg-accent-strong"
                 : "bg-white text-ink shadow active:bg-surface-2"

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/router";
-import { markSeen } from "../lib/notificationSeen";
+import { markSeen, loginSession } from "../lib/notificationSeen";
 
 // The prompt shown when the app is OPENED, listing what's going on: what
 // the item is, who it's from, its state (and the note, when there is one),
@@ -18,7 +18,7 @@ import { markSeen } from "../lib/notificationSeen";
 // tab can keep for days), or coming back to it after it sat in the
 // background for a while.
 const RESUME_AFTER_MS = 10 * 60 * 1000;
-let shownForUid = null; // whose prompt has already been decided in this open
+let shownFor = null; // "uid:signInNumber" whose prompt has already been decided in this open
 let hiddenAt = null;
 
 export default function PendingActionModal({ role, uid, items, loaded, refreshSeen }) {
@@ -27,8 +27,9 @@ export default function PendingActionModal({ role, uid, items, loaded, refreshSe
 
   // Decide once per "open", as soon as the first notifications fetch lands.
   useEffect(() => {
-    if (!role || !uid || !loaded || shownForUid === uid) return;
-    shownForUid = uid;
+    const key = `${uid}:${loginSession()}`;
+    if (!role || !uid || !loaded || shownFor === key) return;
+    shownFor = key;
     if (!items.length) return;
     // Pending first — they're the ones that need something done.
     const list = [...items].sort((a, b) => Number(b.needsAction) - Number(a.needsAction));

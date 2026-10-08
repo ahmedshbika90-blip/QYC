@@ -2,6 +2,7 @@ const { requireUser, requireRole, sendError } = require("../../../lib/apiAuth");
 const { addPayment, voidPayment, editPayment, summarize } = require("../../../lib/payments");
 const { adminDb } = require("../../../lib/firebaseAdmin");
 const { bumpVersions } = require("../../../lib/versions");
+const { reportServerError } = require("../../../lib/monitor");
 
 // Accountant only — payments are invisible to every other role.
 //   GET  /api/payments/:orderId                       → { payments, summary }
@@ -44,6 +45,7 @@ export default async function handler(req, res) {
 
     return res.status(405).json({ error: "طريقة الطلب غير مسموح بها" });
   } catch (err) {
+    reportServerError(err, req, res);
     return sendError(res, err);
   }
 }

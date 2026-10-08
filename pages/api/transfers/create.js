@@ -2,6 +2,7 @@ const { adminDb } = require("../../../lib/firebaseAdmin");
 const { requireUser, requireRole } = require("../../../lib/apiAuth");
 const { bumpVersions } = require("../../../lib/versions");
 const { parseQty, isValidQty } = require("../../../lib/qty");
+const { reportServerError } = require("../../../lib/monitor");
 
 // Internal stock transfer OUT of the main depot to another center.
 //
@@ -80,6 +81,7 @@ export default async function handler(req, res) {
     if (!duplicate) await bumpVersions(["transfers"]);
     return res.status(duplicate ? 200 : 201).json({ id: ref.id, duplicate });
   } catch (err) {
+    reportServerError(err, req, res);
     const status = err.statusCode || 500;
     return res.status(status).json({ error: err.message, shortages: err.shortages });
   }

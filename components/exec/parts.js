@@ -9,6 +9,7 @@ import { cachedGet } from "../../lib/apiCache";
 import { useLiveRefresh } from "../../lib/useLiveRefresh";
 import { rangeText, todayYmd, V } from "../../lib/dashboardView";
 
+import { UTC_OFFSET } from "../../lib/companyConfig";
 export const UNIT = "وحدة";
 // Day: Alwafi maroon / Chipsiano orange. Night: the original palette (the
 // brand variables are unset in night mode, so the fallback colour applies).
@@ -86,7 +87,7 @@ export function PeriodPicker({ range, onChange, title = "الفترة" }) {
   const match = list.find((p) => p.from === range.from && p.to === range.to);
   const [custom, setCustom] = useState(!match);
   const today = todayYmd();
-  const period = { fromYmd: range.from, toYmd: range.to, from: `${range.from}T12:00:00+02:00`, ...(range.from === range.to ? {} : { to: `${range.to}T12:00:00+02:00` }) };
+  const period = { fromYmd: range.from, toYmd: range.to, from: `${range.from}T12:00:00${UTC_OFFSET}`, ...(range.from === range.to ? {} : { to: `${range.to}T12:00:00${UTC_OFFSET}` }) };
   return (
     <div className="exec-card p-4 md:p-5 flex flex-col gap-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -163,7 +164,7 @@ export function Kpi({ icon, label, value, unit, change, tone = "accent" }) {
         <Delta change={change} />
       </div>
       <div className="min-w-0">
-        <p className="text-[13px] font-semibold text-muted">{label}</p>
+        <p className="text-[0.8125rem] font-semibold text-muted">{label}</p>
         <p className="mt-1 flex flex-wrap items-baseline gap-x-1.5 min-w-0">
           <span className="dn font-display fig-sm font-bold text-ink">{value}</span>
           {unit && <span className="text-xs text-muted">{unit}</span>}
@@ -176,7 +177,7 @@ export function Kpi({ icon, label, value, unit, change, tone = "accent" }) {
 export function Stat({ label, value, unit, color, sub }) {
   return (
     <div className="rounded-xl px-4 py-3.5 min-w-0" style={{ background: color ? V(color + "s") : "rgb(var(--gray-100))" }}>
-      <div className="text-[13px] font-semibold" style={{ color: color ? V(color) : "rgb(var(--gray-600))" }}>{label}</div>
+      <div className="text-[0.8125rem] font-semibold" style={{ color: color ? V(color) : "rgb(var(--gray-600))" }}>{label}</div>
       <div className="mt-1 min-w-0"><span className="dn fig-sm font-bold text-ink">{value}</span>{unit && <span className="text-xs text-muted ms-1.5">{unit}</span>}</div>
       {sub && <div className="text-xs text-muted mt-1">{sub}</div>}
     </div>

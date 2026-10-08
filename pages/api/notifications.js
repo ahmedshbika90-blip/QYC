@@ -1,6 +1,7 @@
 const { adminDb } = require("../../lib/firebaseAdmin");
 const { requireUser } = require("../../lib/apiAuth");
 const { notifySignature } = require("../../lib/notifySig");
+const { reportServerError } = require("../../lib/monitor");
 
 // Resolved items are "recent history": each history query is bounded by
 // an index (firestore.indexes.json). Until those indexes are deployed the
@@ -53,11 +54,26 @@ export default async function handler(req, res) {
     if (sig && req.query.sig === sig) return res.status(200).json({ unchanged: true, sig });
 
     if (role === "manager") {
-      const [pendingRequests, pendingReceived, pendingDamage] = await Promise.all([
+      const [pendingRequests, pendingReceived, pendingDamage, stockCheck] = await Promise.all([
         adminDb.collection("changeRequests").where("status", "==", "pending").get(),
         adminDb.collection("inventoryDocs").where("type", "==", "received").where("status", "==", "pending").get(),
         adminDb.collection("inventoryDocs").where("type", "==", "damage").where("status", "==", "pending").get(),
+        adminDb.collection("meta").doc("stockCheck").get(),
       ]);
+      // Nightly stock check found balances that don't match their movements.
+      const sc = stockCheck.exists ? stockCheck.data() : null;
+      if (sc && sc.diffs && sc.diffs.length) {
+        items.push({
+          id: `stockcheck-${sc.at}`,
+          bucket: "modification",
+          needsAction: true,
+          requestType: "فحص المخزون",
+          from: `${sc.diffs.length} فرق في الأرصدة`,
+          state: "راجع الأرصدة",
+          href: "/stock-check",
+          at: sc.at,
+        });
+      }
       pendingRequests.docs.forEach((d) => {
         const r = d.data();
         items.push({
@@ -272,6 +288,7 @@ export default async function handler(req, res) {
     items.sort((a, b) => (b.at || "").localeCompare(a.at || ""));
     return res.status(200).json({ items, sig });
   } catch (err) {
+    reportServerError(err, req, res);
     const status = err.statusCode || 500;
     return res.status(status).json({ error: err.message });
   }

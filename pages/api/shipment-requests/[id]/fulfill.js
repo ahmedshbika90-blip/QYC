@@ -3,6 +3,7 @@ const { requireUser, requireRole } = require("../../../../lib/apiAuth");
 const { isValidRequestId } = require("../../../../lib/requestId");
 const { createMovementDoc } = require("../../../../lib/movementDoc");
 const { bumpVersions } = require("../../../../lib/versions");
+const { reportServerError } = require("../../../../lib/monitor");
 
 // Turns an agent's approved shipment request into the actual
 // loading/offloading document — this is the ONLY way one gets created;
@@ -100,6 +101,7 @@ export default async function handler(req, res) {
 
     return res.status(result.duplicate ? 200 : 201).json({ id: result.id, dailySeq: result.dailySeq, duplicate: result.duplicate });
   } catch (err) {
+    reportServerError(err, req, res);
     const status = err.statusCode || 500;
     return res.status(status).json({ error: err.message });
   }

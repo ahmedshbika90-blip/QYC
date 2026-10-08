@@ -83,7 +83,7 @@ function ReceivedHistory({ token }) {
         <>
           <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.6fr)]">
             <Card className="p-6 flex flex-col gap-4 self-start">
-              <h3 className="text-[15px] font-bold text-ink">إجمالي المستلم {from || to ? "في الفترة" : "(آخر 90 يومًا)"}</h3>
+              <h3 className="text-[0.9375rem] font-bold text-ink">إجمالي المستلم {from || to ? "في الفترة" : "(آخر 90 يومًا)"}</h3>
               <div className="flex flex-wrap items-baseline gap-2 min-w-0"><span className="dn font-display fig font-bold text-ink">{fmt(totalUnits)}</span><span className="text-sm text-muted">{UNIT} · {fmt(docs.length)} مستند</span></div>
               <BarList unit="" rows={totalRows.map(([id, t], i) => ({ id, label: t.name, value: t.qty, share: totalUnits ? (t.qty / totalUnits) * 100 : 0, color: V(PRODUCT_COLORS[i % PRODUCT_COLORS.length]) }))} />
             </Card>

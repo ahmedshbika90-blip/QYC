@@ -3,6 +3,7 @@ const { requireUser, requireRole } = require("../../../lib/apiAuth");
 const { fetchReportOrders } = require("../../../lib/reportQuery");
 const { isLocked } = require("../../../lib/invoiceLock");
 const { netLines, orderDiscount } = require("../../../lib/invoiceDiscount");
+const { reportServerError } = require("../../../lib/monitor");
 
 const DEFAULT_WINDOW_DAYS = 7;
 const round = (n) => Math.round(n * 100) / 100;
@@ -137,6 +138,7 @@ export default async function handler(req, res) {
       products,
     });
   } catch (err) {
+    reportServerError(err, req, res);
     const status = err.statusCode || 500;
     return res.status(status).json({ error: err.message });
   }

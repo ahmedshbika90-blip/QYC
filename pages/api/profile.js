@@ -1,5 +1,6 @@
 const { adminDb } = require("../../lib/firebaseAdmin");
 const { requireUser, sendError } = require("../../lib/apiAuth");
+const { reportServerError } = require("../../lib/monitor");
 
 // The signed-in person's own profile picture (used on the executive's
 // dashboard). Stored as a small JPEG/PNG/WebP data URL — the browser resizes
@@ -35,6 +36,7 @@ export default async function handler(req, res) {
     }
     return res.status(405).json({ error: "طريقة الطلب غير مسموح بها" });
   } catch (err) {
+    reportServerError(err, req, res);
     return sendError(res, err);
   }
 }

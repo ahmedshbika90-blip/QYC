@@ -2,6 +2,7 @@ const { adminDb } = require("../../../../lib/firebaseAdmin");
 const { requireUser } = require("../../../../lib/apiAuth");
 const { applyStockMovements } = require("../../../../lib/inventory");
 const { bumpVersions } = require("../../../../lib/versions");
+const { reportServerError } = require("../../../../lib/monitor");
 
 const ROLE_TO_ROUTE = {
   agent_car1: "car1",
@@ -102,6 +103,7 @@ export default async function handler(req, res) {
     await bumpVersions(["inventory"]);
     return res.status(200).json({ ok: true });
   } catch (err) {
+    reportServerError(err, req, res);
     const status = err.statusCode || 500;
     return res.status(status).json({ error: err.message });
   }

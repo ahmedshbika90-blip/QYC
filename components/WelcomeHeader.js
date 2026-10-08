@@ -6,6 +6,7 @@ import { getAuthFlags } from "../lib/authFlags";
 import { formatDate } from "../lib/labels";
 import { useLang } from "../lib/i18n";
 
+import { TIME_ZONE } from "../lib/companyConfig";
 // A quiet greeting at the top of the executive's dashboard: profile picture
 // (tap to change), "good morning / evening" and the person's first name.
 // No pop-up, nothing to dismiss.
@@ -13,7 +14,7 @@ import { useLang } from "../lib/i18n";
 const PHOTO_KEY = (uid) => `profilePhoto:${uid}`;
 
 function greeting(now = new Date()) {
-  const h = Number(new Intl.DateTimeFormat("en-GB", { hour: "numeric", hourCycle: "h23", timeZone: "Africa/Khartoum" }).format(now));
+  const h = Number(new Intl.DateTimeFormat("en-GB", { hour: "numeric", hourCycle: "h23", timeZone: TIME_ZONE }).format(now));
   return h < 12 ? "صباح الخير" : "مساء الخير";
 }
 
@@ -130,7 +131,7 @@ export default function WelcomeHeader({ token, subtitle, dark = false }) {
       <input ref={input} type="file" accept="image/*" className="hidden" onChange={pick} />
       <div className="min-w-0">
         <p className={`text-sm m-0 ${dark ? "text-snow/85" : "text-muted"}`}>{subtitle || formatDate(new Date().toISOString())}</p>
-        <h1 className={`font-display text-[24px] md:text-[32px] leading-tight font-bold mt-0.5 ${dark ? "text-snow" : "text-ink"}`}>
+        <h1 className={`font-display text-[1.5rem] md:text-[2rem] leading-tight font-bold mt-0.5 ${dark ? "text-snow" : "text-ink"}`}>
           {greeting()}{first ? <>، <span data-no-translate>{first}</span></> : ""}
         </h1>
         {error && <p role="alert" className={`text-xs mt-1 ${dark ? "text-snow bg-[rgb(185_40_30)]/90 rounded px-2 py-1" : "text-red-600"}`}>{error}</p>}

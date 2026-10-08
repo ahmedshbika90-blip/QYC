@@ -277,7 +277,7 @@ export default function SupervisorDashboard() {
                 location={clientsById[order.clientId]?.location}
                 edited={order.edited}
                 badge={
-                  <span className={`shrink-0 text-[11px] font-semibold rounded-md px-1.5 py-0.5 ${order.route === "car1" ? "bg-accent-soft text-accent-ink" : "bg-blue-100 text-blue-700"}`}>
+                  <span className={`shrink-0 text-[0.6875rem] font-semibold rounded-md px-1.5 py-0.5 ${order.route === "car1" ? "bg-accent-soft text-accent-ink" : "bg-blue-100 text-blue-700"}`}>
                     {order.route === "car1" ? "جملة" : "تجزئة"}
                   </span>
                 }

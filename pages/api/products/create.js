@@ -6,6 +6,7 @@ const { bumpVersions } = require("../../../lib/versions");
 const { parseDecimal, parseQty } = require("../../../lib/qty");
 const { PRODUCT_CATEGORIES, PRODUCT_UNITS } = require("../../../lib/constants");
 const { cleanEnglishName } = require("../../../lib/englishName");
+const { reportServerError } = require("../../../lib/monitor");
 
 function fail(message) {
   const err = new Error(message);
@@ -82,9 +83,15 @@ export default async function handler(req, res) {
 
     const ref = adminDb.collection("products").doc(requestId);
     const result = await createOnce(ref, productDoc, { ownerField: "createdBy", ownerId: decoded.uid });
-    if (!result.duplicate) await bumpVersions(["products"]); // product list caches (lib/serverCache.js)
+    if (!result.duplicate) {
+      // Opening balance → stock ledger (lib/stockCheck.js).
+      const opening = Number(result.data?.stock?.depot) || 0;
+      if (opening) await adminDb.collection("stockLedger").doc(`opening_${ref.id}`).set({ at: result.data.createdAt || new Date().toISOString(), kind: "opening", entries: [{ productId: ref.id, field: "depot", delta: opening }] });
+      await bumpVersions(["products"]); // product list caches (lib/serverCache.js)
+    }
     return res.status(result.duplicate ? 200 : 201).json({ id: ref.id, ...result.data, duplicate: result.duplicate });
   } catch (err) {
+    reportServerError(err, req, res);
     const status = err.statusCode || 500;
     return res.status(status).json({ error: err.message });
   }

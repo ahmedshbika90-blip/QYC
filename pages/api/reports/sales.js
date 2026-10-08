@@ -3,6 +3,7 @@ const { requireUser } = require("../../../lib/apiAuth");
 const { fetchReportOrders } = require("../../../lib/reportQuery");
 const { orderDiscount, round2 } = require("../../../lib/invoiceDiscount");
 const { marginForOrders } = require("../../../lib/marginCalc");
+const { reportServerError } = require("../../../lib/monitor");
 
 // Builds a sales report from every invoice that ISN'T cancelled — with
 // the active/cancelled-only model, any non-cancelled invoice represents
@@ -108,6 +109,7 @@ export default async function handler(req, res) {
       orderCount: orders.length,
     });
   } catch (err) {
+    reportServerError(err, req, res);
     const status = err.statusCode || 500;
     return res.status(status).json({ error: err.message });
   }

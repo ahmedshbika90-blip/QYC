@@ -47,7 +47,12 @@ const L = {
   viewStock: { href: "/warehouse/view-stock", label: "المخزن الرئيسي", icon: "box" },
   fleet: { href: "/fleet-history", label: "حركة بضاعة السيارات", short: "حركة السيارات", icon: "truck" },
   accounts: { href: "/admin/users", label: "الحسابات والصلاحيات", short: "الحسابات", icon: "users" },
+  stockCheck: { href: "/stock-check", label: "فحص المخزون", short: "فحص المخزون", icon: "check" },
+  security: { href: "/security", label: "التحقق بخطوتين", short: "الأمان", icon: "lock" },
   accInvoices: { href: "/accounting/invoices", label: "الفواتير والمدفوعات", short: "الفواتير", icon: "file" },
+  accAgents: { href: "/accounting/agents", label: "المناديب", short: "المناديب", icon: "users" },
+  accLogs: { href: "/accounting/logs", label: "سجلات الفواتير", short: "السجلات", icon: "inbox" },
+  accReports: { href: "/accounting/reports", label: "التقارير", short: "التقارير", icon: "chart" },
   allStock: { href: "/stock", label: "المخزون", icon: "box" },
   execDash: { href: "/executive", label: "لوحة المتابعة", short: "اللوحة", icon: "chart" },
   execClients: { href: "/executive/customers", label: "قاعدة العملاء", short: "العملاء", icon: "users" },
@@ -84,8 +89,8 @@ function layoutFor(role) {
     case "manager":
       return {
         tabs: [home, L.requests, L.inventory, L.sales],
-        more: [L.invoices, L.margin, L.clients, L.products, L.transfers, L.execCompetitors],
-        desktop: [home, L.invoices, L.requests, L.inventory, L.sales, L.margin, L.clients, L.products, L.transfers, L.execCompetitors],
+        more: [L.invoices, L.margin, L.clients, L.products, L.transfers, L.stockCheck, L.execCompetitors, L.security],
+        desktop: [home, L.invoices, L.requests, L.inventory, L.sales, L.margin, L.clients, L.products, L.transfers, L.stockCheck, L.execCompetitors, L.security],
       };
     case "warehouse_keeper":
       return {
@@ -94,9 +99,13 @@ function layoutFor(role) {
         desktop: [home, L.whInventory, L.whShip, L.whCar1, L.whCar2, L.whTransfers],
       };
     case "admin":
-      return { tabs: [], more: [], desktop: [L.accounts] };
+      return { tabs: [], more: [], desktop: [L.accounts, L.security] };
     case "accountant":
-      return { tabs: [L.accInvoices, L.allStock], more: [], desktop: [L.accInvoices, L.allStock] };
+      return {
+        tabs: [L.accAgents, L.accLogs, L.accReports, L.accInvoices],
+        more: [L.allStock, L.security],
+        desktop: [L.accAgents, L.accLogs, L.accReports, L.accInvoices, L.allStock, L.security],
+      };
     case "executive":
       return { tabs: [L.execDash, L.execClients, L.execCompetitors], more: [], desktop: [L.execDash, L.execClients, L.execCompetitors] };
     case "depot_viewer":
@@ -117,7 +126,7 @@ function Badge({ count, className = "" }) {
   if (!count) return null;
   return (
     <span
-      className={`min-w-[18px] h-[18px] px-1 rounded-full bg-solid-amber text-snow text-[10px] font-bold leading-none flex items-center justify-center num ${className}`}
+      className={`min-w-[18px] h-[18px] px-1 rounded-full bg-solid-amber text-snow text-[0.625rem] font-bold leading-none flex items-center justify-center num ${className}`}
     >
       {count > 9 ? "9+" : count}
       <span className="sr-only"> بحاجة لإجراء</span>
@@ -294,7 +303,7 @@ export default function Nav({ role, logout }) {
                   key={link.href}
                   href={link.href}
                   aria-current={active ? "page" : undefined}
-                  className={`relative flex items-center gap-1.5 whitespace-nowrap h-10 px-2.5 rounded-xl text-[13px] lg:text-sm ${
+                  className={`relative flex items-center gap-1.5 whitespace-nowrap h-10 px-2.5 rounded-xl text-[0.8125rem] lg:text-sm ${
                     active ? "bg-accent-soft text-accent-ink font-semibold" : "text-ink-soft hover:bg-surface-2"
                   }`}
                 >
@@ -307,6 +316,9 @@ export default function Nav({ role, logout }) {
           </nav>
 
           <div className="flex items-center gap-1 shrink-0">
+            <Link href="/accessibility" className={iconBtn} aria-label="سهولة القراءة" title="سهولة القراءة">
+              <span aria-hidden="true" className="font-display font-bold text-[1.05rem] leading-none">أ<span className="text-[0.75rem]">أ</span></span>
+            </Link>
             <LangToggle />
             <button type="button" onClick={toggle} className={iconBtn} aria-label={isDark ? "الوضع الفاتح" : "الوضع الداكن"}>
               <Icon name={isDark ? "sun" : "moon"} />
@@ -339,7 +351,7 @@ export default function Nav({ role, logout }) {
                     key="center"
                     href={c.href}
                     aria-current={isActive(router.pathname, c.href) ? "page" : undefined}
-                    className="flex-1 flex flex-col items-center gap-1 text-[11px] font-semibold text-ink"
+                    className="flex-1 flex flex-col items-center gap-1 text-[0.6875rem] font-semibold text-ink"
                   >
                     <span className="w-14 h-14 -mt-5 rounded-2xl bg-accent text-on-accent flex items-center justify-center shadow-lg">
                       <Icon name={c.icon} size={26} strokeWidth={2.6} />
@@ -356,7 +368,7 @@ export default function Nav({ role, logout }) {
                     onClick={() => setSheetOpen(true)}
                     aria-haspopup="dialog"
                     aria-expanded={sheetOpen}
-                    className={`flex-1 h-14 flex flex-col items-center justify-center gap-1 text-[11px] ${
+                    className={`flex-1 h-14 flex flex-col items-center justify-center gap-1 text-[0.6875rem] ${
                       moreActive ? "text-accent-ink font-semibold" : "text-muted"
                     }`}
                   >
@@ -375,7 +387,7 @@ export default function Nav({ role, logout }) {
                   key={link.href}
                   href={link.href}
                   aria-current={active ? "page" : undefined}
-                  className={`flex-1 h-14 flex flex-col items-center justify-center gap-1 text-[11px] ${
+                  className={`flex-1 h-14 flex flex-col items-center justify-center gap-1 text-[0.6875rem] ${
                     active ? "text-accent-ink font-semibold" : "text-muted"
                   }`}
                 >

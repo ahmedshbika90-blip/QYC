@@ -34,11 +34,13 @@ const TABS = [
 ];
 import { UNIT, GROUP_COLOR, productColor, money, Card, useGet, ErrorBox, PeriodPicker, Kpi, Stat, addDaysYmd } from "../../components/exec/parts";
 
+import { TIME_ZONE } from "../../lib/companyConfig";
 // Tabs 2 and 3 are separate downloads, fetched only when opened — the
 // overview (the tab everyone lands on) doesn't carry their code.
 const tabLoading = () => <SkeletonRows count={6} />;
 const CustomersTab = dynamic(() => import("../../components/exec/CustomersTab"), { loading: tabLoading });
 const InventoryTab = dynamic(() => import("../../components/exec/InventoryTab"), { loading: tabLoading });
+const CompetitorsCard = dynamic(() => import("../../components/exec/CompetitorsCard"), { ssr: false });
 
 /* ── Tab 1: ملخص العمليات ──────────────────────────────────────────────── */
 
@@ -78,7 +80,7 @@ function OverviewTab({ token, range, setRange }) {
           <Section id="x1" title="توزيع المبيعات" hint="بالوحدات المباعة في الفترة المختارة (بدون العينات المجانية والفواتير الملغاة).">
             <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1.4fr)]">
               <Card className="p-6 flex flex-col gap-4">
-                <h3 className="text-[15px] font-bold text-ink">الجملة والتجزئة من إجمالي المبيعات</h3>
+                <h3 className="text-[0.9375rem] font-bold text-ink">الجملة والتجزئة من إجمالي المبيعات</h3>
                 <DonutChart
                   ariaLabel="نسبة مبيعات الجملة والتجزئة"
                   centerValue={fmt(d.totals.units)}
@@ -90,14 +92,14 @@ function OverviewTab({ token, range, setRange }) {
                 />
               </Card>
               <Card className="p-6 flex flex-col gap-4">
-                <h3 className="text-[15px] font-bold text-ink">الوافي وشيبسيانو من الوحدات المباعة</h3>
+                <h3 className="text-[0.9375rem] font-bold text-ink">الوافي وشيبسيانو من الوحدات المباعة</h3>
                 <PieChart
                   ariaLabel="نسبة منتجات الوافي وشيبسيانو"
                   segments={d.groups.map((g) => ({ key: g.id, label: g.label, value: g.units, color: GROUP_COLOR[g.id] }))}
                 />
               </Card>
               <Card className="p-6 flex flex-col gap-4 md:col-span-2 xl:col-span-1">
-                <h3 className="text-[15px] font-bold text-ink">الوحدات المباعة لكل صنف</h3>
+                <h3 className="text-[0.9375rem] font-bold text-ink">الوحدات المباعة لكل صنف</h3>
                 <BarList
                   unit={UNIT}
                   rows={d.products.map((p, i) => ({
@@ -116,7 +118,7 @@ function OverviewTab({ token, range, setRange }) {
           <Section id="x2" title="الفواتير وقيمة المبيعات" hint="قيمة المبيعات محسوبة بتكلفة الأصناف المسجلة في المخزون، وليس بسعر البيع.">
             <div className="grid gap-5 md:grid-cols-2">
               <Card className="p-6 flex flex-col gap-5">
-                <h3 className="text-[15px] font-bold text-ink">الفواتير الصادرة</h3>
+                <h3 className="text-[0.9375rem] font-bold text-ink">الفواتير الصادرة</h3>
                 <div className="flex flex-wrap items-baseline gap-2 min-w-0">
                   <span className="dn font-display fig font-bold text-ink">{fmt(d.totals.invoices)}</span>
                   <span className="text-sm text-muted">فاتورة</span>
@@ -128,7 +130,7 @@ function OverviewTab({ token, range, setRange }) {
                 </div>
               </Card>
               <Card className="p-6 flex flex-col gap-5">
-                <h3 className="text-[15px] font-bold text-ink">قيمة المبيعات (بالتكلفة)</h3>
+                <h3 className="text-[0.9375rem] font-bold text-ink">قيمة المبيعات (بالتكلفة)</h3>
                 <div className="flex flex-wrap items-baseline gap-2 min-w-0">
                   <span className="dn font-display fig font-bold text-ink">{money(d.totals.costValue)}</span>
                   <span className="text-sm text-muted">SDG</span>
@@ -149,6 +151,8 @@ function OverviewTab({ token, range, setRange }) {
           </Section>
         </div>
       )}
+      {/* Competitor prices from the market, under the sales figures. */}
+      <CompetitorsCard token={token} />
     </div>
   );
 }
@@ -173,7 +177,7 @@ function BrandRibbon({ token, range }) {
       <div className="brand-in d1 exec-card sm:col-span-2 lg:col-span-1 p-4 md:p-5 flex items-center gap-4 overflow-hidden">
         <Image src={mahgoubLogo} width={106} height={92} priority alt="محجوب أولاد الغذائية" className="brand-logo-pop h-[76px] md:h-[92px] w-auto shrink-0" />
         <div className="min-w-0 text-ink dark:text-snow">
-          <p className="text-[13px] font-semibold text-muted dark:text-snow/80">إجمالي المبيعات في الفترة</p>
+          <p className="text-[0.8125rem] font-semibold text-muted dark:text-snow/80">إجمالي المبيعات في الفترة</p>
           <Fig value={total} sub="وحدة" />
           <p className="text-xs text-muted dark:text-snow/75 mt-0.5">{data ? `${fmt(data.totals.invoices)} فاتورة` : " "}</p>
         </div>
@@ -220,7 +224,7 @@ function TodayCard() {
   const lang = useLang();
   const now = new Date();
   const loc = lang === "en" ? "en-GB" : "ar-EG";
-  const opts = (o) => new Intl.DateTimeFormat(loc, { timeZone: "Africa/Khartoum", numberingSystem: "latn", ...o }).format(now);
+  const opts = (o) => new Intl.DateTimeFormat(loc, { timeZone: TIME_ZONE, numberingSystem: "latn", ...o }).format(now);
   return (
     <div className="flex md:flex-col items-center md:items-end justify-between gap-3 rounded-2xl bg-snow/10 backdrop-blur px-4 py-3 md:px-5 md:py-4 border border-snow/20 md:min-w-[200px]" data-no-translate>
       <div className="md:text-end">
@@ -281,7 +285,7 @@ export default function ExecutiveDashboard() {
             >
               <Icon name={t.icon} size={18} />
               {/* Full label, wrapping onto two short lines on narrow phones — never cut with "…" */}
-              <span className="text-[12px] sm:text-sm leading-tight text-center whitespace-normal">{t.label}</span>
+              <span className="text-[0.75rem] sm:text-sm leading-tight text-center whitespace-normal">{t.label}</span>
             </button>
           ))}
         </nav>

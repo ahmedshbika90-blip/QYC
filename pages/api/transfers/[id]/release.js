@@ -3,6 +3,7 @@ const { requireUser, requireRole } = require("../../../../lib/apiAuth");
 const { bumpVersions } = require("../../../../lib/versions");
 const { applyStockMovements } = require("../../../../lib/inventory");
 const { businessDay } = require("../../../../lib/businessDay");
+const { reportServerError } = require("../../../../lib/monitor");
 
 // The warehouse keeper hands the goods over: stock leaves the depot NOW,
 // in the same transaction that marks the transfer released. The balance
@@ -67,6 +68,7 @@ export default async function handler(req, res) {
     await bumpVersions(["transfers", "inventory"]);
     return res.status(200).json({ ok: true, inventoryDocId: docRef.id });
   } catch (err) {
+    reportServerError(err, req, res);
     const status = err.statusCode || 500;
     return res.status(status).json({ error: err.message });
   }

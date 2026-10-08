@@ -26,7 +26,7 @@ const ymd = (d) => businessDay(d);
 (async () => {
   const d = generate({ months: 4, seed: 7 });
   const put = async (coll, list) => { for (const { id, data } of list) await db.collection(coll).doc(id).set(data); };
-  for (const [coll, list] of [["products", d.products], ["clients", d.clients], ["orders", d.orders], ["inventoryDocs", d.inventoryDocs], ["dailyStats", d.dailyStats], ["monthlyStats", d.monthlyStats]]) await put(coll, list);
+  for (const [coll, list] of [["products", d.products], ["clients", d.clients], ["orders", d.orders], ["inventoryDocs", d.inventoryDocs], ["dailyStats", d.dailyStats], ["monthlyStats", d.monthlyStats], ["logState", d.logState], ["invoicePayments", d.invoicePayments]]) await put(coll, list);
   // A few old-style lines without a saved unit cost, priced at today's average when read.
   const someOld = d.orders.slice(0, 40).filter((o, i) => i % 3 === 0);
   for (const o of someOld) {

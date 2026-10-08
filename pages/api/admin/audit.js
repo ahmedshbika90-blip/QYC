@@ -1,5 +1,6 @@
 const { requireUser, requireRole, sendError } = require("../../../lib/apiAuth");
 const { recentAudit } = require("../../../lib/adminUsers");
+const { reportServerError } = require("../../../lib/monitor");
 
 // Admin only: the last account changes (who changed what, when).
 export default async function handler(req, res) {
@@ -10,6 +11,7 @@ export default async function handler(req, res) {
     res.setHeader("Cache-Control", "no-store");
     return res.status(200).json({ entries: await recentAudit(30) });
   } catch (err) {
+    reportServerError(err, req, res);
     return sendError(res, err);
   }
 }

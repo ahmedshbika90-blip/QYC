@@ -79,7 +79,7 @@ export default function SupervisorHome() {
         <header className="flex flex-wrap items-end justify-between gap-x-6 gap-y-4">
           <div className="min-w-0">
             <p className="text-sm text-muted m-0">{data ? rangeText(data.period) : " "}</p>
-            <h1 className="font-display text-[28px] md:text-[32px] leading-tight font-bold text-ink mt-1">ملخص العمليات</h1>
+            <h1 className="font-display text-[1.75rem] md:text-[2rem] leading-tight font-bold text-ink mt-1">ملخص العمليات</h1>
           </div>
           <div className="flex flex-wrap items-center gap-3">
             {pending > 0 && (

@@ -83,11 +83,11 @@ export default function PendingBox({ token, pendingMovements = [], toDecide = []
           <Icon name={it.icon} size={20} />
         </span>
         <span className="flex-1 min-w-0">
-          <span className="block text-[15px] font-semibold text-ink leading-snug line-clamp-2">{it.title}</span>
+          <span className="block text-[0.9375rem] font-semibold text-ink leading-snug line-clamp-2">{it.title}</span>
           <span className="block text-xs text-muted truncate mt-0.5">{it.meta}</span>
         </span>
         <span
-          className={`shrink-0 h-7 px-2.5 rounded-lg text-[12px] font-bold flex items-center ${
+          className={`shrink-0 h-7 px-2.5 rounded-lg text-[0.75rem] font-bold flex items-center ${
             mine ? "bg-blue-100 text-blue-700" : "bg-amber-100 text-amber-700"
           }`}
         >

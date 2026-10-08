@@ -1,6 +1,7 @@
 const { adminDb } = require("../../../lib/firebaseAdmin");
 const { requireUser } = require("../../../lib/apiAuth");
 const { cachedByVersions } = require("../../../lib/serverCache");
+const { reportServerError } = require("../../../lib/monitor");
 
 // Everything that can change a product (catalog edits, stock, average cost)
 // bumps one of these counters; see lib/serverCache.js.
@@ -86,6 +87,7 @@ export default async function handler(req, res) {
 
     return res.status(200).json({ products });
   } catch (err) {
+    reportServerError(err, req, res);
     const status = err.statusCode || 500;
     return res.status(status).json({ error: err.message });
   }

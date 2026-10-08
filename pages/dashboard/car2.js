@@ -205,7 +205,7 @@ export default function Car2Dashboard() {
         <div className="grid grid-cols-2 gap-2.5 mb-5">
           <Link
             href="/place-order"
-            className="flex items-center justify-center gap-2 rounded-2xl h-[4.5rem] px-3 text-[15px] font-semibold bg-accent text-on-accent shadow-sm active:bg-accent-strong"
+            className="flex items-center justify-center gap-2 rounded-2xl h-[4.5rem] px-3 text-[0.9375rem] font-semibold bg-accent text-on-accent shadow-sm active:bg-accent-strong"
           >
             <Icon name="plus" size={19} strokeWidth={2.4} />
             فاتورة جديدة

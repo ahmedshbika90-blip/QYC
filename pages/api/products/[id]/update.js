@@ -4,6 +4,8 @@ const { parseDecimal, parseQty } = require("../../../../lib/qty");
 const { PRODUCT_CATEGORIES, PRODUCT_UNITS } = require("../../../../lib/constants");
 const { cleanEnglishName } = require("../../../../lib/englishName");
 const { bumpVersions } = require("../../../../lib/versions");
+const { writeLedger } = require("../../../../lib/inventory");
+const { reportServerError } = require("../../../../lib/monitor");
 
 function fail(message) {
   const err = new Error(message);
@@ -91,10 +93,23 @@ export default async function handler(req, res) {
       updates.minStock = parseWhole(minStock, "حد التنبيه");
     }
 
-    await ref.update(updates);
+    if (updates["stock.depot"] !== undefined) {
+      // A direct depot correction is a stock change too: write it with its
+      // ledger record (lib/stockCheck.js) in one transaction, against the
+      // balance at that moment.
+      await adminDb.runTransaction(async (tx) => {
+        const cur = await tx.get(ref);
+        const before = Number(cur.data()?.stock?.depot) || 0;
+        tx.update(ref, updates);
+        writeLedger(tx, [{ productId: id, field: "depot", delta: updates["stock.depot"] - before }].filter((e) => e.delta), "correction", { by: decoded.uid });
+      });
+    } else {
+      await ref.update(updates);
+    }
     await bumpVersions(["products"]); // product list caches (lib/serverCache.js)
     return res.status(200).json({ ok: true });
   } catch (err) {
+    reportServerError(err, req, res);
     const status = err.statusCode || 500;
     return res.status(status).json({ error: err.message });
   }

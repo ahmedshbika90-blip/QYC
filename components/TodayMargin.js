@@ -28,7 +28,7 @@ export default function TodayMargin({ token, refreshKey }) {
   // The amount gets the full width on its own line (formatNumber adds the
   // currency, so real daily totals are long); the % sits beside the label.
   return (
-    <div className="bg-white rounded-2xl shadow min-h-[4.5rem] px-3.5 py-2.5 flex flex-col justify-center gap-0.5 min-w-0" aria-live="polite">
+    <div data-no-spotlight className="bg-white rounded-2xl shadow min-h-[4.5rem] px-3.5 py-2.5 flex flex-col justify-center gap-0.5 min-w-0" aria-live="polite">
       <p className="text-xs text-muted flex items-center gap-1.5 whitespace-nowrap">
         هامش التشغيل اليوم
         {m && m.marginPct != null && (
@@ -36,7 +36,7 @@ export default function TodayMargin({ token, refreshKey }) {
         )}
       </p>
       <p
-        className={`num text-[17px] leading-tight font-bold tabular-ltr text-start whitespace-nowrap truncate ${
+        className={`num text-[1.0625rem] leading-tight font-bold tabular-ltr text-start whitespace-nowrap truncate ${
           negative ? "text-red-600" : "text-ink"
         }`}
         title={typeof value === "number" ? formatNumber(value) : undefined}

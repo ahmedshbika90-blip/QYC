@@ -5,6 +5,7 @@ const { bumpVersion } = require("../../../lib/versions");
 const { STORE_CLASSES } = require("../../../lib/labels");
 const { isValidRequestId } = require("../../../lib/requestId");
 const { cleanDeliveryRoute, DELIVERY_ROUTE_MAX } = require("../../../lib/clientFields");
+const { reportServerError } = require("../../../lib/monitor");
 
 const COUNTER_DOC = adminDb.collection("meta").doc("clientIdCounter");
 
@@ -133,6 +134,7 @@ export default async function handler(req, res) {
       .status(result.duplicate ? 200 : 201)
       .json({ clientId: result.clientId, ...result.data, duplicate: result.duplicate });
   } catch (err) {
+    reportServerError(err, req, res);
     const status = err.statusCode || 500;
     return res.status(status).json({ error: err.message });
   }

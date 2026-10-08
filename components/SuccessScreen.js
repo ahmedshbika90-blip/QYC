@@ -69,7 +69,7 @@ export default function SuccessScreen({ title, number, hint, primary, secondary,
 }
 
 function Action({ label, href, onClick, variant }) {
-  const cls = `h-14 rounded-2xl text-[15px] font-bold flex items-center justify-center px-3 transition-colors ${
+  const cls = `h-14 rounded-2xl text-[0.9375rem] font-bold flex items-center justify-center px-3 transition-colors ${
     variant === "primary"
       ? "bg-accent text-on-accent active:bg-accent-strong hover:bg-accent-strong"
       : "bg-surface-2 text-ink active:bg-gray-200 hover:bg-gray-200"

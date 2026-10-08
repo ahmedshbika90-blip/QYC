@@ -3,6 +3,7 @@ const { requireUser } = require("../../../../lib/apiAuth");
 const { bumpVersion } = require("../../../../lib/versions");
 const { buildClientUpdates } = require("../../../../lib/clientFields");
 const { isClientEditLocked, CLIENT_EDIT_WINDOW_HOURS } = require("../../../../lib/clientEditLock");
+const { reportServerError } = require("../../../../lib/monitor");
 
 const ROLE_TO_ROUTE = {
   agent_car1: "car1",
@@ -80,6 +81,7 @@ export default async function handler(req, res) {
 
     return res.status(405).json({ error: "طريقة الطلب غير مسموح بها" });
   } catch (err) {
+    reportServerError(err, req, res);
     const status = err.statusCode || 500;
     return res.status(status).json({ error: err.message });
   }

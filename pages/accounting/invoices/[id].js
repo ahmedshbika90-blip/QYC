@@ -10,13 +10,14 @@ import { PageLoading, SkeletonRows, Spinner } from "../../../components/Loading"
 import { apiFetch } from "../../../lib/apiFetch";
 import { invalidate } from "../../../lib/apiCache";
 import { useRequestId } from "../../../lib/useRequestId";
-import { formatDate, formatDateTime, formatNumber, formatQty, shortCode, ROUTE_LABELS_SHORT } from "../../../lib/labels";
+import { formatDate, formatDateTime, formatNumber, formatQty, shortCode, ROUTE_LABELS_SHORT, invoiceNo } from "../../../lib/labels";
 import NumericInput from "../../../components/NumericInput";
 import { BANKS, BANK_LABELS } from "../../../lib/paymentsShared";
 import { clearRefCache } from "../../../lib/refSearchCache";
 
+import { TIME_ZONE } from "../../../lib/companyConfig";
 const field = "h-12 w-full rounded-xl border border-line bg-white px-3 text-base text-ink";
-const todayYmd = () => new Date().toLocaleDateString("en-CA", { timeZone: "Africa/Khartoum" });
+const todayYmd = () => new Date().toLocaleDateString("en-CA", { timeZone: TIME_ZONE });
 const digitsOnly = (v) =>
   String(v)
     .replace(/[٠-٩]/g, (d) => String(d.charCodeAt(0) - 0x0660))
@@ -63,7 +64,7 @@ function SimilarRefsWarning({ ref4, similar, orderId, busy, onReview, onApprove 
               <p className="text-xs text-muted mt-0.5">
                 {m.bankLabel} · <span className="num" dir="ltr">{m.ref.slice(0, -4)}<mark className="bg-amber-100 text-ink rounded px-0.5">{m.ref.slice(-4)}</mark></span> ·{" "}
                 <a href={`/accounting/invoices/${encodeURIComponent(m.orderId)}`} target="_blank" rel="noopener noreferrer" className="underline">
-                  فاتورة <span className="num">{shortCode(m.orderId)}</span>
+                  فاتورة <span className="num">{invoiceNo({ number: m.number, id: m.orderId })}</span>
                 </a>
               </p>
             </div>
@@ -319,7 +320,7 @@ export default function AccountingInvoice() {
             <section className="bg-white rounded-2xl shadow p-5 flex flex-col gap-4">
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
-                  <p className="text-xs text-muted">فاتورة <span className="num">{shortCode(order.id)}</span></p>
+                  <p className="text-xs text-muted">فاتورة <span className="num">{invoiceNo(order)}</span></p>
                   <h1 className="font-display text-xl font-bold text-ink mt-0.5">{client?.name || `عميل ${order.clientId}`}</h1>
                   <p className="text-sm text-muted mt-0.5">
                     {client?.storeName ? `${client.storeName} · ` : ""}

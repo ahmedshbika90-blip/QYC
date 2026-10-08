@@ -170,11 +170,11 @@ export function TrendChart({ trend, kind, onKind, loading }) {
         <div className="flex flex-wrap gap-x-8 gap-y-3">
           <div>
             <div className="text-xs text-muted">مجموع {trend ? trend.span : ""}</div>
-            <div className="mt-0.5"><span className={`${num} font-display text-[28px] font-bold leading-tight text-ink`}>{trend ? trend.total : "—"}</span> <span className="text-sm text-muted">{UNIT}</span></div>
+            <div className="mt-0.5"><span className={`${num} font-display text-[1.75rem] font-bold leading-tight text-ink`}>{trend ? trend.total : "—"}</span> <span className="text-sm text-muted">{UNIT}</span></div>
           </div>
           <div>
             <div className="text-xs text-muted">المتوسط في {trend ? trend.per : ""}</div>
-            <div className="mt-0.5"><span className={`${num} font-display text-[28px] font-bold leading-tight text-ink`}>{trend ? trend.avg : "—"}</span> <span className="text-sm text-muted">{UNIT}</span></div>
+            <div className="mt-0.5"><span className={`${num} font-display text-[1.75rem] font-bold leading-tight text-ink`}>{trend ? trend.avg : "—"}</span> <span className="text-sm text-muted">{UNIT}</span></div>
           </div>
         </div>
         <Segmented label="دقة المنحنى" options={TREND_KINDS} value={kind} onChange={(k) => { setHover(null); onKind(k); }} />
@@ -187,7 +187,7 @@ export function TrendChart({ trend, kind, onKind, loading }) {
             type="button"
             aria-pressed={show[s.key]}
             onClick={() => toggle(s.key)}
-            className={`h-8 px-3 rounded-full border text-[13px] font-semibold inline-flex items-center gap-2 ${show[s.key] ? "border-line bg-white text-ink" : "border-dashed border-line bg-transparent text-muted"}`}
+            className={`h-8 px-3 rounded-full border text-[0.8125rem] font-semibold inline-flex items-center gap-2 ${show[s.key] ? "border-line bg-white text-ink" : "border-dashed border-line bg-transparent text-muted"}`}
           >
             <span className="w-4 rounded-full" style={{ height: s.key === "t" ? 4 : 3, background: show[s.key] ? s.color : "rgb(var(--gray-300))" }} />
             {s.label}
@@ -268,22 +268,22 @@ function Kpis({ kpis }) {
       {kpis.map((k) => (
         <Card key={k.key} className="p-5 flex flex-col gap-5">
           <div className="flex items-center justify-between gap-2">
-            <h3 className="text-[15px] font-bold text-ink">{k.title}</h3>
+            <h3 className="text-[0.9375rem] font-bold text-ink">{k.title}</h3>
             <Delta d={k.delta} />
           </div>
           <div className="flex items-center gap-5">
             <div className="w-[132px] h-[132px] rounded-full shrink-0 flex items-center justify-center" style={{ background: k.ring }}>
               <div className="w-[118px] h-[118px] rounded-full bg-white flex items-center justify-center">
                 <div className="w-[104px] h-[104px] rounded-full flex flex-col items-center justify-center" style={{ background: k.fill, color: k.fillInk }}>
-                  <span className={`${num} font-display text-[30px] font-bold leading-none`}>{k.total}</span>
-                  <span className="text-[11px] mt-1 opacity-90">{UNIT}</span>
+                  <span className={`${num} font-display text-[1.875rem] font-bold leading-none`}>{k.total}</span>
+                  <span className="text-[0.6875rem] mt-1 opacity-90">{UNIT}</span>
                 </div>
               </div>
             </div>
             <div className="flex-1 min-w-0 flex flex-col gap-3">
               {k.sub.map((s) => (
                 <div key={s.label} className="flex items-baseline justify-between gap-2">
-                  <span className="text-[13px] font-semibold" style={{ color: s.color }}>{s.label}</span>
+                  <span className="text-[0.8125rem] font-semibold" style={{ color: s.color }}>{s.label}</span>
                   <span className={`${num} text-lg font-bold text-ink`}>{s.value}</span>
                 </div>
               ))}
@@ -313,19 +313,19 @@ function Money({ money }) {
       {money.map((m) => (
         <Card key={m.title} className="p-6 flex flex-col gap-5">
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <h3 className="text-[15px] font-bold text-ink">{m.title}</h3>
-            {m.pill && <span className="h-7 px-3 rounded-full text-[13px] font-bold inline-flex items-center" style={{ background: V("ws"), color: V("w") }}>{m.pill}</span>}
+            <h3 className="text-[0.9375rem] font-bold text-ink">{m.title}</h3>
+            {m.pill && <span className="h-7 px-3 rounded-full text-[0.8125rem] font-bold inline-flex items-center" style={{ background: V("ws"), color: V("w") }}>{m.pill}</span>}
           </div>
           <div className="flex flex-wrap items-baseline gap-x-2.5 gap-y-2">
             <span className={`${num} font-display fig font-bold text-ink min-w-0`}>{m.total}</span>
-            <span className="text-[15px] font-semibold text-muted">SDG</span>
+            <span className="text-[0.9375rem] font-semibold text-muted">SDG</span>
             <Delta d={m.delta} />
           </div>
           <SplitBar a={m.af} b={m.bf} h={14} />
           <div className="grid gap-3 sm:grid-cols-2">
             {[["جملة", m.ap, m.aAmt, m.aSub, "w", "ws"], ["تجزئة", m.bp, m.bAmt, m.bSub, "r", "rs"]].map(([label, p, amt, sub, c, soft]) => (
               <div key={label} className="rounded-xl px-4 py-3.5" style={{ background: V(soft) }}>
-                <div className="flex items-center justify-between gap-2 text-[13px] font-semibold" style={{ color: V(c) }}>
+                <div className="flex items-center justify-between gap-2 text-[0.8125rem] font-semibold" style={{ color: V(c) }}>
                   <span>{label}</span><span className={num}>{p}</span>
                 </div>
                 <div className="mt-1"><span className={`${num} text-xl font-bold text-ink`}>{amt}</span> <span className="text-xs text-muted">SDG</span></div>
@@ -354,7 +354,7 @@ const ROW = "grid grid-cols-2 lg:grid-cols-[minmax(0,1.25fr)_minmax(0,1fr)_minma
 function Cell({ value, cap, color, unit }) {
   return (
     <div className="min-w-0">
-      <div><span className={`${num} font-display text-[22px] font-bold leading-tight`} style={{ color: color || "inherit" }}>{value}</span>{unit && <span className="text-xs text-muted ms-1.5">{unit}</span>}</div>
+      <div><span className={`${num} font-display text-[1.375rem] font-bold leading-tight`} style={{ color: color || "inherit" }}>{value}</span>{unit && <span className="text-xs text-muted ms-1.5">{unit}</span>}</div>
       <div className="text-xs text-muted mt-0.5">{cap}</div>
     </div>
   );
@@ -379,7 +379,7 @@ function ItemTable({ table }) {
               <div className="text-base font-bold text-ink">{r.name}</div>
               <div className="flex flex-wrap items-center gap-1.5 mt-1">
                 <span className="text-xs text-muted">{r.group}</span>
-                {r.top && <span className="h-5 px-2 rounded-full text-[11px] font-bold inline-flex items-center gap-1" style={{ background: V("ws"), color: V("w") }}><Icon name="star" size={11} strokeWidth={2.4} />الأعلى</span>}
+                {r.top && <span className="h-5 px-2 rounded-full text-[0.6875rem] font-bold inline-flex items-center gap-1" style={{ background: V("ws"), color: V("w") }}><Icon name="star" size={11} strokeWidth={2.4} />الأعلى</span>}
               </div>
             </div>
           </div>
@@ -403,7 +403,7 @@ function ItemTable({ table }) {
         <div className="order-3 lg:order-none"><Cell value={total.w} cap={<span style={{ color: V("toti", 0.75) }}>{total.wCap}</span>} color={V("wx")} /></div>
         <div className="order-4 lg:order-none"><Cell value={total.r} cap={<span style={{ color: V("toti", 0.75) }}>{total.rCap}</span>} color={V("rx")} /></div>
         <div className="order-2 lg:order-none text-end lg:text-start">
-          <div><span className={`${num} font-display text-[22px] font-bold leading-tight`}>{total.total}</span><span className="text-xs ms-1.5" style={{ color: V("toti", 0.75) }}>{unitLabel}</span></div>
+          <div><span className={`${num} font-display text-[1.375rem] font-bold leading-tight`}>{total.total}</span><span className="text-xs ms-1.5" style={{ color: V("toti", 0.75) }}>{unitLabel}</span></div>
           <div className="text-xs mt-0.5" style={{ color: V("toti", 0.75) }}>100%</div>
         </div>
         <div className="order-5 lg:order-none col-span-2 lg:col-span-1 min-w-0">
@@ -430,7 +430,7 @@ function Customers({ invoices, charts }) {
   return (
     <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-[minmax(0,280px)_minmax(0,1fr)_minmax(0,1fr)]">
       <Card className="p-6 flex flex-col gap-5 md:col-span-2 xl:col-span-1">
-        <h3 className="text-[15px] font-bold text-ink">الفواتير الصادرة</h3>
+        <h3 className="text-[0.9375rem] font-bold text-ink">الفواتير الصادرة</h3>
         <div className="flex items-baseline gap-2">
           <span className={`${num} font-display fig font-bold text-ink min-w-0`}>{invoices.total}</span>
           <span className="text-sm text-muted">فاتورة</span>
@@ -439,7 +439,7 @@ function Customers({ invoices, charts }) {
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
           {[["جملة", invoices.w, invoices.wAvg, "w", "ws"], ["تجزئة", invoices.r, invoices.rAvg, "r", "rs"]].map(([label, n, avg, c, soft]) => (
             <div key={label} className="rounded-xl px-4 py-3" style={{ background: V(soft) }}>
-              <div className="flex items-baseline justify-between"><span className="text-[13px] font-semibold" style={{ color: V(c) }}>{label}</span><span className={`${num} text-xl font-bold text-ink`}>{n}</span></div>
+              <div className="flex items-baseline justify-between"><span className="text-[0.8125rem] font-semibold" style={{ color: V(c) }}>{label}</span><span className={`${num} text-xl font-bold text-ink`}>{n}</span></div>
               <div className="text-xs text-muted mt-1">متوسط الفاتورة {avg}</div>
             </div>
           ))}
@@ -451,7 +451,7 @@ function Customers({ invoices, charts }) {
         return (
           <Card key={c.title} className="p-6 flex flex-col gap-4">
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <h3 className="text-[15px] font-bold text-ink">{c.title}</h3>
+              <h3 className="text-[0.9375rem] font-bold text-ink">{c.title}</h3>
               {!c.empty && <span className="h-7 px-2.5 rounded-full text-xs font-bold inline-flex items-center gap-1" style={{ background: lv.bg, color: lv.ink }}><Icon name={lv.icon} size={13} strokeWidth={2.4} />{c.level.label}</span>}
             </div>
             {c.empty ? (
@@ -459,25 +459,25 @@ function Customers({ invoices, charts }) {
             ) : (
               <>
                 <div>
-                  <span className={`${num} font-display text-[32px] font-bold leading-none`} style={{ color }}>{c.top3}</span>
-                  <span className="text-[13px] text-muted ms-2">من المبيعات عند أكبر 3 عملاء</span>
+                  <span className={`${num} font-display text-[2rem] font-bold leading-none`} style={{ color }}>{c.top3}</span>
+                  <span className="text-[0.8125rem] text-muted ms-2">من المبيعات عند أكبر 3 عملاء</span>
                 </div>
                 <div className="flex h-3 rounded-full overflow-hidden gap-0.5" aria-hidden="true">
                   {c.strip.map((s, i) => <div key={i} style={{ flex: `${s.f} 1 0%`, background: s.neutral ? "rgb(var(--gray-300))" : color, opacity: s.op }} />)}
                 </div>
                 <div className="flex flex-col gap-1">
-                  <div className="grid grid-cols-[22px_minmax(0,1fr)_minmax(0,1.2fr)_42px] gap-3 px-2 text-[11px] font-semibold text-muted">
+                  <div className="grid grid-cols-[22px_minmax(0,1fr)_minmax(0,1.2fr)_42px] gap-3 px-2 text-[0.6875rem] font-semibold text-muted">
                     <span /><span>العميل</span><span>حصته من المبيعات</span><span className="text-end">تراكمي</span>
                   </div>
                   {c.rows.map((r, i) => (
                     <div key={i} className="grid grid-cols-[22px_minmax(0,1fr)_minmax(0,1.2fr)_42px] gap-3 items-center min-h-[40px] px-2 rounded-lg" style={{ background: r.band }}>
                       <span className={`${num} text-xs font-bold text-muted`}>{r.rank}</span>
-                      <span className="text-[13px] font-semibold text-ink truncate" title={r.name}>{r.name}</span>
+                      <span className="text-[0.8125rem] font-semibold text-ink truncate" title={r.name}>{r.name}</span>
                       <span className="flex items-center gap-2 min-w-0">
                         <span className="flex-1 h-2 rounded-full bg-surface-2 overflow-hidden flex">
                           <span className="h-full rounded-full" style={{ width: `${r.barW}%`, background: r.neutral ? "rgb(var(--gray-300))" : color, opacity: r.op }} />
                         </span>
-                        <span className={`${num} min-w-[46px] text-[13px] font-bold text-end text-ink`}>{r.pct}</span>
+                        <span className={`${num} min-w-[46px] text-[0.8125rem] font-bold text-end text-ink`}>{r.pct}</span>
                       </span>
                       <span className={`${num} text-xs text-muted text-end`}>{r.cum}</span>
                     </div>
@@ -499,21 +499,21 @@ function Stock({ stock }) {
     <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
       {stock.map((k) => (
         <Card key={k.key} className="p-6 flex flex-col gap-5">
-          <h3 className="text-[15px] font-bold text-ink">{k.title}</h3>
+          <h3 className="text-[0.9375rem] font-bold text-ink">{k.title}</h3>
           <div className="flex flex-col sm:flex-row items-center gap-6">
             <div className="w-[128px] h-[128px] rounded-full shrink-0 flex items-center justify-center" style={{ background: k.donut }}>
               <div className="w-[88px] h-[88px] rounded-full bg-white flex flex-col items-center justify-center">
-                <span className={`${num} font-display text-[24px] font-bold leading-none text-ink`}>{k.total}</span>
-                <span className="text-[11px] text-muted mt-1">{UNIT}</span>
+                <span className={`${num} font-display text-[1.5rem] font-bold leading-none text-ink`}>{k.total}</span>
+                <span className="text-[0.6875rem] text-muted mt-1">{UNIT}</span>
               </div>
             </div>
             <div className="flex-1 min-w-0 w-full flex flex-col gap-3">
               {k.items.map((it) => (
                 <div key={it.id} className="flex flex-col gap-1.5">
                   <div className="flex items-center justify-between gap-2">
-                    <span className="flex items-center gap-2 text-[13px] font-semibold text-ink min-w-0"><span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: it.color }} /><span className="truncate">{it.name}</span></span>
+                    <span className="flex items-center gap-2 text-[0.8125rem] font-semibold text-ink min-w-0"><span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: it.color }} /><span className="truncate">{it.name}</span></span>
                     <span className="flex items-center gap-1.5 shrink-0">
-                      {it.low && <span className="h-5 px-2 rounded-full text-[11px] font-bold inline-flex items-center gap-1" style={{ background: NEUTRAL.bg, color: NEUTRAL.ink }}><Icon name="alert" size={11} strokeWidth={2.4} />منخفض</span>}
+                      {it.low && <span className="h-5 px-2 rounded-full text-[0.6875rem] font-bold inline-flex items-center gap-1" style={{ background: NEUTRAL.bg, color: NEUTRAL.ink }}><Icon name="alert" size={11} strokeWidth={2.4} />منخفض</span>}
                       <span className={`${num} text-sm font-bold text-ink`}>{it.qty}</span>
                     </span>
                   </div>

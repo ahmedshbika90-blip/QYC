@@ -1,6 +1,7 @@
 const { adminDb } = require("../../../../lib/firebaseAdmin");
 const { requireUser, requireRole } = require("../../../../lib/apiAuth");
 const { bumpVersions } = require("../../../../lib/versions");
+const { reportServerError } = require("../../../../lib/monitor");
 
 // Safe to hard-delete: each order stores a snapshot of the product's name,
 // price, and unit at the time it was ordered, so past orders are unaffected.
@@ -24,6 +25,7 @@ export default async function handler(req, res) {
     await bumpVersions(["products"]);
     return res.status(200).json({ ok: true });
   } catch (err) {
+    reportServerError(err, req, res);
     const status = err.statusCode || 500;
     return res.status(status).json({ error: err.message });
   }

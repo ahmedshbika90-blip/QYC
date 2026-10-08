@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useState } from "react";
 import { useAuth } from "../lib/useAuth";
 import Nav from "../components/Nav";
 import Icon from "../components/Icon";
@@ -7,20 +7,15 @@ import SuccessScreen from "../components/SuccessScreen";
 import { PageLoading, Spinner } from "../components/Loading";
 import { normalizePhone } from "../lib/validation";
 import { apiFetch } from "../lib/apiFetch";
-import { invalidateClients, getClients } from "../lib/clientsStore";
+import { invalidateClients } from "../lib/clientsStore";
 import { useRequestId } from "../lib/useRequestId";
 import { STORE_CLASSES } from "../lib/labels";
-import DeliveryRoutePicker, { routesFromClients } from "../components/DeliveryRoutePicker";
+import DeliveryRoutePicker from "../components/DeliveryRoutePicker";
+import SearchCombobox from "../components/SearchCombobox";
+import { usePlaceOptions } from "../lib/usePlaceOptions";
 
 export default function RegisterClient() {
   const { user, role, token, loading, logout } = useAuth();
-  // Known clients (from the device cache) — used to suggest locations
-  // already in use and to warn when a phone number is already registered.
-  const [known, setKnown] = useState([]);
-  useEffect(() => {
-    if (token && user) getClients(apiFetch, token, user.uid).then(setKnown).catch(() => {});
-  }, [token, user]);
-  const locations = useMemo(() => [...new Set(known.map((c) => (c.location || "").trim()).filter(Boolean))].sort(), [known]);
   const [form, setForm] = useState({
     nameFirst: "",
     nameMiddle: "",
@@ -36,7 +31,12 @@ export default function RegisterClient() {
   const [sameAsPhone, setSameAsPhone] = useState(true);
   // Routes already used on this sales type (wholesale / retail).
   const salesRoute = role === "agent_car1" ? "car1" : role === "agent_car2" ? "car2" : form.route;
-  const routeOptions = useMemo(() => routesFromClients(known, salesRoute), [known, salesRoute]);
+  // Routes and locations already in use on this sales type (clients + ones
+  // added on their own). Reloaded after each save, so a route or location
+  // added on this client shows for the next one without a page refresh.
+  const places = usePlaceOptions(token, user, salesRoute);
+  const known = places.clients;
+  const routeOptions = places.routes;
   const [pickerKey, setPickerKey] = useState(0); // remounts the picker after a save
   const [result, setResult] = useState(null);
   const [error, setError] = useState("");
@@ -88,6 +88,7 @@ export default function RegisterClient() {
       setResult(data);
       requestIds.reset();
       invalidateClients();
+      places.reload(); // the new route/location is in the lists for the next client
       setForm({
         nameFirst: "",
         nameMiddle: "",
@@ -192,24 +193,16 @@ export default function RegisterClient() {
             options={routeOptions}
           />
 
-          <div>
-            <label className="block text-sm text-gray-600 mb-1">الموقع</label>
-            <input
-              type="text"
-                enterKeyHint="next"
-              value={form.location}
-              onChange={(e) => setForm({ ...form, location: e.target.value })}
-              className="w-full border rounded-lg px-3 h-12 text-base"
-              placeholder="مثال: العمارات، شارع ١٥"
-              list="known-locations"
-              autoComplete="off"
-              required
-            />
-            <datalist id="known-locations">
-              {locations.map((l) => <option key={l} value={l} />)}
-            </datalist>
-            {locations.length > 0 && <p className="text-xs text-muted mt-1">اكتب أول حرفين لتظهر المواقع المسجلة من قبل.</p>}
-          </div>
+          <SearchCombobox
+            label="الموقع"
+            value={form.location}
+            onChange={(v) => setForm((f) => ({ ...f, location: v }))}
+            options={places.locations}
+            preferred={places.locationsOn(form.deliveryRoute)}
+            placeholder="ابحث أو اكتب موقعًا جديدًا"
+            newHint={(name) => `سيُضاف موقعًا جديدًا: ${name}`}
+            required
+          />
 
           <div>
             <label className="block text-sm text-gray-600 mb-1">رقم الهاتف (للاتصال) — 10 أرقام تبدأ بصفر</label>

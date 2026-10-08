@@ -1,5 +1,6 @@
 const { adminDb } = require("../../../../lib/firebaseAdmin");
 const { requireUser } = require("../../../../lib/apiAuth");
+const { reportServerError } = require("../../../../lib/monitor");
 
 // Supervisor: any request, plus the invoice's CURRENT state (it may have
 // changed since the request was made), so the decision is based on what's
@@ -35,6 +36,7 @@ export default async function handler(req, res) {
 
     return res.status(200).json({ id: snap.id, ...request, order });
   } catch (err) {
+    reportServerError(err, req, res);
     const status = err.statusCode || 500;
     return res.status(status).json({ error: err.message });
   }

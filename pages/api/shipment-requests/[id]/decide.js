@@ -1,6 +1,7 @@
 const { adminDb } = require("../../../../lib/firebaseAdmin");
 const { requireUser, requireRole } = require("../../../../lib/apiAuth");
 const { bumpVersions } = require("../../../../lib/versions");
+const { reportServerError } = require("../../../../lib/monitor");
 
 const MAX_NOTE = 500;
 
@@ -72,6 +73,7 @@ export default async function handler(req, res) {
     if (outcome !== "repeat") await bumpVersions(["shipmentRequests"]);
     return res.status(200).json({ ok: true, status: outcome });
   } catch (err) {
+    reportServerError(err, req, res);
     const status = err.statusCode || 500;
     return res.status(status).json({ error: err.message });
   }

@@ -57,7 +57,7 @@ export default function CustomersTab({ token, range, setRange }) {
         <div className="grid gap-5 md:grid-cols-2">
           {d.routes.map((r) => (
             <Card key={r.route} className="p-6 flex flex-col gap-4">
-              <h3 className="text-[15px] font-bold flex items-center gap-2" style={{ color: V(ROUTE_COLOR[r.route]) }}>
+              <h3 className="text-[0.9375rem] font-bold flex items-center gap-2" style={{ color: V(ROUTE_COLOR[r.route]) }}>
                 <Icon name="truck" size={18} />
                 {ROUTE_LABELS_SHORT[r.route] || r.route}
                 <span className="text-xs font-normal text-muted" dir="ltr">{r.route}</span>

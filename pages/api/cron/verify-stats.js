@@ -1,6 +1,7 @@
 const { adminDb } = require("../../../lib/firebaseAdmin");
 const { rebuildDay, rebuildMonth } = require("../../../lib/salesStats");
 const { businessDay } = require("../../../lib/businessDay");
+const { reportServerError } = require("../../../lib/monitor");
 
 // Nightly check of the daily summaries (Vercel cron, see vercel.json):
 // recomputes YESTERDAY (Khartoum) from the raw invoices, compares it with
@@ -31,6 +32,7 @@ export default async function handler(req, res) {
     }
     return res.status(200).json({ repaired, days: [{ day, invoices: d.invoices, fields: d.diffs.length }], month: { month: m.month, fields: m.diffs.length } });
   } catch (err) {
+    reportServerError(err, req, res);
     console.error(err);
     return res.status(500).json({ error: "verify-stats failed" });
   }

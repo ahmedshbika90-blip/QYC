@@ -1,5 +1,6 @@
 const { adminDb } = require("../../../../lib/firebaseAdmin");
 const { requireUser } = require("../../../../lib/apiAuth");
+const { reportServerError } = require("../../../../lib/monitor");
 
 // Supervisor and the warehouse keeper can read any shipment request.
 // An agent can read their own, and car1 can also read car2's (car1 has
@@ -24,6 +25,7 @@ export default async function handler(req, res) {
 
     return res.status(200).json({ id: snap.id, ...request });
   } catch (err) {
+    reportServerError(err, req, res);
     const status = err.statusCode || 500;
     return res.status(status).json({ error: err.message });
   }

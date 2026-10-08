@@ -15,7 +15,7 @@ import { PageLoading, Spinner } from "../../components/Loading";
 import { apiFetch } from "../../lib/apiFetch";
 import { invalidate } from "../../lib/apiCache";
 import { useLiveRefresh } from "../../lib/useLiveRefresh";
-import { formatDate, formatDateTime, formatNumber, formatQty, shortCode } from "../../lib/labels";
+import { formatDate, formatDateTime, formatNumber, formatQty, shortCode, invoiceNo } from "../../lib/labels";
 import { useRequestId } from "../../lib/useRequestId";
 
 export default function OrderDetail() {
@@ -281,7 +281,7 @@ export default function OrderDetail() {
                 ? "أُرسل طلب تعديل الفاتورة للمدير"
                 : "تم حفظ تعديل الفاتورة"
             }
-            number={shortCode(order.id)}
+            number={invoiceNo(order)}
             hint={requested ? "لن تتغير الفاتورة حتى يوافق المدير. ستصلك رسالة بالقرار." : "تم تحديث الكميات والمخزون."}
             secondary={{ label: "الفواتير", href: role === "manager" ? "/dashboard/supervisor" : `/dashboard/${order.route}` }}
             primary={{ label: "عرض الفاتورة", onClick: () => setDone(null) }}
@@ -303,7 +303,7 @@ export default function OrderDetail() {
             <div>
               <BackButton />
               <h1 className="text-xl font-semibold text-gray-800">
-                فاتورة رقم <span className="tabular-ltr" title={order.id}>{shortCode(order.id)}</span>
+                فاتورة رقم <span className="tabular-ltr" title={order.id}>{invoiceNo(order)}</span>
               </h1>
               <p className="text-sm text-gray-500">
                 العميل <span className="tabular-ltr">#{order.clientId}</span> — {order.client?.name} ({order.client?.storeName})

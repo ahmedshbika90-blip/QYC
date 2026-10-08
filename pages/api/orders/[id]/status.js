@@ -3,6 +3,7 @@ const { requireUser } = require("../../../../lib/apiAuth");
 const { cancelTx } = require("../../../../lib/invoiceChanges");
 const { isLocked } = require("../../../../lib/invoiceLock");
 const { bumpVersions, ordersKey } = require("../../../../lib/versions");
+const { reportServerError } = require("../../../../lib/monitor");
 
 const ROLE_TO_ROUTE = {
   agent_car1: "car1",
@@ -62,6 +63,7 @@ export default async function handler(req, res) {
     await bumpVersions([ordersKey(order.route)]);
     return res.status(200).json({ ok: true });
   } catch (err) {
+    reportServerError(err, req, res);
     const status = err.statusCode || 500;
     return res.status(status).json({ error: err.message });
   }

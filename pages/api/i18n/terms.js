@@ -1,6 +1,7 @@
 const { adminDb } = require("../../../lib/firebaseAdmin");
 const { requireUser, sendError } = require("../../../lib/apiAuth");
 const { cachedByVersions } = require("../../../lib/serverCache");
+const { reportServerError } = require("../../../lib/monitor");
 
 // English names entered by people, for the English interface: product names
 // (manager, products page) and staff names (admin, accounts page).
@@ -28,6 +29,7 @@ export default async function handler(req, res) {
     res.setHeader("Cache-Control", "private, max-age=300");
     return res.status(200).json({ terms });
   } catch (err) {
+    reportServerError(err, req, res);
     return sendError(res, err);
   }
 }

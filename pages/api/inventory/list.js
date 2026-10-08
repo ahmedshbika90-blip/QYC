@@ -1,6 +1,7 @@
 const { adminDb } = require("../../../lib/firebaseAdmin");
 const { requireUser } = require("../../../lib/apiAuth");
 const { ROUTES } = require("../../../lib/roles");
+const { reportServerError } = require("../../../lib/monitor");
 
 const ROLE_TO_ROUTE = {
   agent_car1: "car1",
@@ -119,6 +120,7 @@ export default async function handler(req, res) {
 
     return res.status(200).json({ docs, nextCursor });
   } catch (err) {
+    reportServerError(err, req, res);
     const status = err.statusCode || 500;
     return res.status(status).json({ error: err.message });
   }

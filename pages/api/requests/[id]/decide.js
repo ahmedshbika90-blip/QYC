@@ -4,6 +4,7 @@ const { orderLineToPayload } = require("../../../../lib/linePrice");
 const { editItemsTx, cancelTx } = require("../../../../lib/invoiceChanges");
 const { bumpVersions, ordersKey } = require("../../../../lib/versions");
 const { buildClientUpdates } = require("../../../../lib/clientFields");
+const { reportServerError } = require("../../../../lib/monitor");
 
 const MAX_NOTE = 500;
 
@@ -114,6 +115,7 @@ export default async function handler(req, res) {
     }
     return res.status(200).json({ ok: true, status: outcome });
   } catch (err) {
+    reportServerError(err, req, res);
     const status = err.statusCode || 500;
     return res.status(status).json({ error: err.message });
   }

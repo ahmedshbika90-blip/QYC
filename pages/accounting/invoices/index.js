@@ -13,7 +13,7 @@ import { apiFetch } from "../../../lib/apiFetch";
 import { cachedGet } from "../../../lib/apiCache";
 import { useLiveRefresh } from "../../../lib/useLiveRefresh";
 import { getRefMatches, setRefMatches, clearRefCache } from "../../../lib/refSearchCache";
-import { formatDate, formatDateTime, formatNumber, shortCode, ROUTE_LABELS_SHORT } from "../../../lib/labels";
+import { formatDate, formatDateTime, formatNumber, shortCode, ROUTE_LABELS_SHORT, invoiceNo } from "../../../lib/labels";
 import { ROUTES } from "../../../lib/roles";
 
 const toDigits = (v) =>
@@ -106,7 +106,7 @@ function RefMatches({ token, digits }) {
                 <div className="min-w-0">
                   <p className="font-semibold text-ink truncate">{m.clientName || `عميل ${m.clientId}`}</p>
                   <p className="text-xs text-muted mt-0.5">
-                    {m.bankLabel} · <RefHighlight value={m.ref} part={digits} /> · فاتورة <span className="num">{shortCode(m.orderId)}</span>
+                    {m.bankLabel} · <RefHighlight value={m.ref} part={digits} /> · فاتورة <span className="num">{invoiceNo({ number: m.number, id: m.orderId })}</span>
                   </p>
                   <div className="mt-1.5"><PaymentBadge status={m.payment.status} /></div>
                 </div>
@@ -191,7 +191,7 @@ export default function AccountingInvoices() {
     const s = q.trim().toLowerCase();
     if (!s) return invoices;
     return invoices.filter((i) =>
-      [i.client?.name, i.client?.storeName, String(i.clientId), shortCode(i.id)].some((v) => (v || "").toLowerCase().includes(s))
+      [i.client?.name, i.client?.storeName, String(i.clientId), shortCode(i.id), i.number].some((v) => (v || "").toLowerCase().includes(s))
     );
   }, [invoices, q]);
 
@@ -260,7 +260,7 @@ export default function AccountingInvoices() {
                     <div className="min-w-0">
                       <p className="font-semibold text-ink truncate">{i.client?.name || `عميل ${i.clientId}`}</p>
                       <p className="text-xs text-muted mt-0.5">
-                        <span className="num">{shortCode(i.id)}</span> · {ROUTE_LABELS_SHORT[i.route] || i.route} · {formatDateTime(i.createdAt)}
+                        <span className="num">{invoiceNo(i)}</span> · {ROUTE_LABELS_SHORT[i.route] || i.route} · {formatDateTime(i.createdAt)}
                       </p>
                       <div className="mt-1.5"><PaymentBadge status={i.payment.status} /></div>
                     </div>

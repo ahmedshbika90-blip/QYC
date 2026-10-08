@@ -4,6 +4,7 @@ const { isValidRequestId } = require("../../../lib/requestId");
 const { bumpVersions } = require("../../../lib/versions");
 const { parseQty, isValidQty } = require("../../../lib/qty");
 const { isOpenStatus, SHIPMENT_TYPE_LABELS } = require("../../../lib/shipmentStatus");
+const { reportServerError } = require("../../../lib/monitor");
 
 const ROLE_TO_ROUTE = { agent_car1: "car1", agent_car2: "car2" };
 
@@ -172,6 +173,7 @@ export default async function handler(req, res) {
     if (!result.duplicate) await bumpVersions(["shipmentRequests"]);
     return res.status(result.duplicate ? 200 : 201).json({ id: docRef.id, duplicate: result.duplicate });
   } catch (err) {
+    reportServerError(err, req, res);
     const status = err.statusCode || 500;
     return res.status(status).json({ error: err.message, shortages: err.shortages, openRequestId: err.openRequestId });
   }

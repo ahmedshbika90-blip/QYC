@@ -18,7 +18,7 @@
 const DAY = 24 * 3600 * 1000;
 const TZ_OFFSET_H = 2; // Africa/Khartoum
 
-const { statsDocsFromOrders } = require("../../lib/salesStatsModel");
+const { statsDocsFromOrders, logStatesFromOrders } = require("../../lib/salesStatsModel");
 
 function rng(seed) {
   // mulberry32
@@ -412,6 +412,16 @@ function generate({ months = 4, seed = 2026, now = new Date(), uids = {}, wholes
     }
   });
 
+  // Legal invoice numbers (INV-YYYY-000001…), in creation order per year.
+  const invoiceCounters = {};
+  [...orders]
+    .sort((a, b) => a.data.createdAt.localeCompare(b.data.createdAt))
+    .forEach((o) => {
+      const y = new Date(o.data.createdAt).toLocaleDateString("en-CA", { timeZone: "Africa/Khartoum" }).slice(0, 4);
+      invoiceCounters[y] = (invoiceCounters[y] || 0) + 1;
+      Object.assign(o.data, { number: `INV-${y}-${String(invoiceCounters[y]).padStart(6, "0")}`, numberYear: Number(y), numberSeq: invoiceCounters[y] });
+    });
+
   // Daily / monthly sales summaries, built by the same code the app uses.
   const { dayDocs, monthDocs } = statsDocsFromOrders(orders.map((o) => o.data));
   dayDocs.forEach((d) => (d.data.demo = true));
@@ -431,6 +441,8 @@ function generate({ months = 4, seed = 2026, now = new Date(), uids = {}, wholes
     paymentRefs,
     dailyStats: dayDocs,
     monthlyStats: monthDocs,
+    invoiceCounters,
+    logState: logStatesFromOrders(orders, Object.fromEntries(invoicePayments.map((p) => [p.id, p.data]))).map((d) => ({ ...d, data: { ...d.data, demo: true } })),
   };
 }
 

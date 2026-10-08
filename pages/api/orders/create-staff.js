@@ -6,9 +6,12 @@ const { isValidRequestId } = require("../../../lib/requestId");
 const { stripCost } = require("../../../lib/invoiceLock");
 const { applyInvoiceDiscount } = require("../../../lib/invoiceDiscount");
 const { writeInvoiceStats } = require("../../../lib/salesStats");
+const { prepareInvoiceNumber } = require("../../../lib/invoiceNumbers");
+const { CURRENCY } = require("../../../lib/companyConfig");
 
 const MAX_NOTES = 1000;
 const { bumpVersions, ordersKey } = require("../../../lib/versions");
+const { reportServerError } = require("../../../lib/monitor");
 
 const ROLE_TO_ROUTE = {
   agent_car1: "car1",
@@ -52,6 +55,7 @@ export default async function handler(req, res) {
     const docRef = adminDb.collection("orders").doc(requestId);
     let resolvedItems, total, money;
     let existing = null;
+    let created = null;
 
     // Stock check, stock decrement, and the order write all happen inside
     // one transaction — same reasoning as the public order-creation route.
@@ -61,6 +65,9 @@ export default async function handler(req, res) {
         existing = already.data();
         return; // repeat of a submission that already succeeded
       }
+      const createdAt = new Date().toISOString();
+      // Legal number (INV-2026-000123), reserved before any write.
+      const numbering = await prepareInvoiceNumber(tx, createdAt);
       const built = await buildOrderFromItems(items, client.route, tx);
       resolvedItems = built.resolvedItems;
       money = applyInvoiceDiscount(resolvedItems, discount);
@@ -81,10 +88,14 @@ export default async function handler(req, res) {
         notes: (notes || "").trim(),
         status: "active",
         deliveryDate: deliveryDate ? deliveryDate.toISOString() : null,
-        createdAt: new Date().toISOString(),
+        createdAt,
+        currency: CURRENCY, // company settings (lib/companyConfig.js)
         placedBy: decoded.uid,
+        ...(numbering ? { number: numbering.number, numberYear: numbering.numberYear, numberSeq: numbering.numberSeq } : {}),
       };
       tx.set(docRef, invoice);
+      if (numbering) numbering.commit();
+      created = invoice;
       writeInvoiceStats(tx, null, invoice); // daily summary, same transaction
     });
 
@@ -98,6 +109,7 @@ export default async function handler(req, res) {
     await bumpVersions([ordersKey(client.route)]);
     return res.status(201).json({
       orderId: docRef.id,
+      number: created?.number || null,
       clientId,
       route: client.route,
       items: stripCost(resolvedItems),
@@ -108,6 +120,7 @@ export default async function handler(req, res) {
       deliveryDate: deliveryDate ? deliveryDate.toISOString() : null,
     });
   } catch (err) {
+    reportServerError(err, req, res);
     const status = err.statusCode || 500;
     return res.status(status).json({ error: err.message });
   }

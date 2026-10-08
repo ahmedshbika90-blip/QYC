@@ -3,6 +3,7 @@ const { requireUser, requireRole, sendError } = require("../../../lib/apiAuth");
 const { presentOrder } = require("../../../lib/invoiceLock");
 const { paymentDocsFor, summarize } = require("../../../lib/payments");
 const { ROUTES } = require("../../../lib/roles");
+const { reportServerError } = require("../../../lib/monitor");
 
 const DEFAULT_WINDOW_DAYS = 30;
 const PAGE_SIZE = 100;
@@ -53,6 +54,7 @@ export default async function handler(req, res) {
 
     let invoices = raw.map((o) => ({
       id: o.id,
+      number: o.number || null,
       createdAt: o.createdAt,
       route: o.route,
       status: o.status,
@@ -68,6 +70,7 @@ export default async function handler(req, res) {
 
     return res.status(200).json({ invoices, nextCursor });
   } catch (err) {
+    reportServerError(err, req, res);
     return sendError(res, err);
   }
 }

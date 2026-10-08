@@ -18,7 +18,7 @@ const MGR2 = { role: "manager", uid: "m" };
 const today = new Date().toLocaleDateString("en-CA", { timeZone: "Africa/Khartoum" });
 const rid = (n) => "req-competitor-" + String(n).padStart(6, "0");
 const C = "pages/api/competitors/index.js";
-const entry = (n, extra = {}) => ({ company: "شركة  سيقا", item: "طحنية سادة", sku: "sg-200 g", price: "52000", date: today, requestId: rid(n), ...extra });
+const entry = (n, extra = {}) => ({ date: today, deliveryRoute: "خط  بحري", company: "شركة  سيقا", item: "طحنية سادة", weight: "٤٠٠", weightUnit: "g", price: "52000", requestId: rid(n), ...extra });
 
 (async () => {
   // 1. who can enter
@@ -27,19 +27,22 @@ const entry = (n, extra = {}) => ({ company: "شركة  سيقا", item: "طحن
   assert.strictEqual((await call(C, { ...MGR2, method: "POST", body: entry(1) })).status, 403);
   const a = await call(C, { ...SSUP, method: "POST", body: entry(1) });
   assert.strictEqual(a.status, 201, JSON.stringify(a.json));
-  assert.deepStrictEqual([a.json.entry.company, a.json.entry.sku, a.json.entry.skuKey, a.json.entry.price, a.json.entry.createdByName], ["شركة سيقا", "sg-200 g", "SG-200G", 52000, "عبدالباقي"]);
+  assert.deepStrictEqual([a.json.entry.deliveryRoute, a.json.entry.company, a.json.entry.weight, a.json.entry.weightUnit, a.json.entry.itemKey, a.json.entry.price, a.json.entry.createdByName], ["خط بحري", "شركة سيقا", 400, "g", "طحنيه ساده|400g", 52000, "عبدالباقي"]);
+  assert.ok(a.json.entry.sku === undefined);
+  // a route first typed here joins the route list (places) for every form
+  assert.deepStrictEqual(db._data.places["car1__route__خط بحري"].name, "خط بحري");
   assert.ok(a.json.entry.createdBy === undefined);
   const again = await call(C, { ...SSUP, method: "POST", body: entry(1) });
   assert.ok(again.json.duplicate);
   assert.strictEqual(Object.keys(db._data.competitorPrices).length, 1);
-  ok("only the sales supervisor enters competitor prices; text tidied, SKU grouped; a resend is stored once");
+  ok("only the sales supervisor enters competitor prices; text tidied, grouped by item + weight; a resend is stored once");
 
   // 2. validation
-  for (const bad of [{ company: " " }, { item: "" }, { sku: "" }, { price: "0" }, { price: "abc" }, { date: "2999-01-01" }, { date: "1/2/2026" }, { requestId: "x" }]) {
+  for (const bad of [{ company: " " }, { item: "" }, { deliveryRoute: "" }, { weight: "" }, { weight: "0" }, { weightUnit: "lb" }, { price: "0" }, { price: "abc" }, { date: "2999-01-01" }, { date: "1/2/2026" }, { requestId: "x" }]) {
     const r = await call(C, { ...SSUP, method: "POST", body: entry(9, bad) });
     assert.strictEqual(r.status, 400, JSON.stringify(bad) + " " + JSON.stringify(r.json));
   }
-  ok("company, item, SKU, price > 0 and a non-future date are all required");
+  ok("date, route, company, item, weight (+unit), price > 0 are all required; no SKU");
 
   // 3. who can read; executive sees everything, newest first
   await call(C, { ...SSUP, method: "POST", body: entry(2, { price: "٥٥٠٠٠", date: today }) });
@@ -83,6 +86,34 @@ const entry = (n, extra = {}) => ({ company: "شركة  سيقا", item: "طحن
   const { changedFields, buildClientUpdates } = require("../lib/clientFields");
   assert.deepStrictEqual(changedFields(buildClientUpdates({ deliveryRoute: "خط أم درمان" }, db._data.clients[id]), db._data.clients[id]), { deliveryRoute: "خط أم درمان" });
   ok("route (المسار): required for new clients, tidied, editable, and part of edit requests");
+
+  // 6. routes & locations added without a client (clients screen)
+  const PL = "pages/api/places.js";
+  const R2 = { role: "agent_car2", uid: "younis", salesSupervisor: false };
+  const p1 = await call(PL, { ...SSUP, method: "POST", body: { route: "خط  الكلاكلة", location: "الكلاكلة صنقعت" } });
+  assert.strictEqual(p1.status, 201, JSON.stringify(p1.json));
+  assert.deepStrictEqual(p1.json.added.map((p) => [p.kind, p.name, p.salesRoute, p.deliveryRoute || null]), [["route", "خط الكلاكلة", "car1", null], ["location", "الكلاكلة صنقعت", "car1", "خط الكلاكلة"]]);
+  const again2 = await call(PL, { ...SSUP, method: "POST", body: { route: "خط الكلاكلة" } });
+  assert.strictEqual(again2.status, 200); assert.deepStrictEqual(again2.json.added, []); // stored once
+  assert.strictEqual((await call(PL, { ...MGR2, method: "POST", body: { route: "x" } })).status, 400); // manager must pick the sales type
+  assert.strictEqual((await call(PL, { ...MGR2, method: "POST", body: { route: "خط أمبدة", salesRoute: "car2" } })).status, 201);
+  assert.strictEqual((await call(PL, { ...EXEC, method: "POST", body: { route: "x" } })).status, 403);
+  assert.strictEqual((await call(PL, { ...SSUP, method: "POST", body: {} })).status, 400);
+  const l1 = await call(PL, SSUP);
+  assert.deepStrictEqual(l1.json.routes.map((r) => r.name).sort(), ["خط الكلاكلة", "خط بحري"]); // car1 only (incl. the one from a competitor price)
+  assert.deepStrictEqual(l1.json.locations, [{ name: "الكلاكلة صنقعت", salesRoute: "car1", deliveryRoute: "خط الكلاكلة" }]);
+  assert.deepStrictEqual((await call(PL, R2)).json.routes.map((r) => r.name), ["خط أمبدة"]);
+  assert.strictEqual((await call(PL, MGR2)).json.routes.length, 3);
+  assert.strictEqual((await call(PL, EXEC)).status, 403);
+  ok("routes and locations can be added without a client (sales staff for their type, manager for either); listed per sales type; no duplicates");
+
+  // 7. competitor list window (?days=)
+  await call(C, { ...SSUP, method: "POST", body: entry(20, { date: "2025-01-01" }) });
+  const yr = await call(C, { ...EXEC });
+  const all = await call(C, { ...EXEC, query: { days: "1100" } });
+  assert.ok(!yr.json.entries.some((e) => e.date === "2025-01-01") && all.json.entries.some((e) => e.date === "2025-01-01"));
+  assert.strictEqual((await call(C, { ...EXEC, query: { days: "1" } })).json.entries.every((e) => e.date === today), true);
+  ok("competitor prices are read for a chosen window (default a year)");
 
   console.log("ALL COMPETITORS/ROUTE SCENARIOS PASSED");
 })().catch((e) => { console.error("FAILED:", e); process.exit(1); });

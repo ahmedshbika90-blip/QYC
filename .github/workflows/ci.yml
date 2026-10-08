@@ -1,0 +1,79 @@
+# Runs on every push and pull request:
+#   test      — unit tests (in-memory Firestore), translation check, production build
+#   emulator  — tests against the real Firebase Emulator (Firestore + Auth),
+#               including firestore.rules and real transactions
+#   deploy-rules (main branch only, optional) — deploys firestore.rules and
+#               firestore.indexes.json when the GitHub secrets are set
+name: CI
+
+on:
+  push:
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - name: Unit tests
+        run: npm test
+      - name: Every Arabic string has its English
+        run: node scripts/i18n-check.js
+      - name: Production build
+        run: |
+          cp .env.local.example .env.local
+          npx next build
+
+  emulator:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/firebase/emulators
+          key: firebase-emulators-${{ runner.os }}-v13
+      - run: npm ci
+      - run: npm install --no-save @firebase/rules-unit-testing@3
+      - name: Emulator tests (Firestore + Auth, real rules)
+        run: npm run test:emulator
+
+  deploy-rules:
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    needs: [test, emulator]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+      FIREBASE_PROJECT_ID: ${{ secrets.FIREBASE_PROJECT_ID }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Deploy firestore.rules + indexes
+        run: |
+          if [ -z "$FIREBASE_SERVICE_ACCOUNT" ] || [ -z "$FIREBASE_PROJECT_ID" ]; then
+            echo "Secrets FIREBASE_SERVICE_ACCOUNT / FIREBASE_PROJECT_ID not set — skipping deploy."
+            exit 0
+          fi
+          echo "$FIREBASE_SERVICE_ACCOUNT" > "$RUNNER_TEMP/sa.json"
+          export GOOGLE_APPLICATION_CREDENTIALS="$RUNNER_TEMP/sa.json"
+          # Non-interactive: indexes that exist only in the console are kept (never deleted).
+          npx -y firebase-tools@13 deploy --only firestore:rules,firestore:indexes --project "$FIREBASE_PROJECT_ID" --non-interactive
+          rm -f "$RUNNER_TEMP/sa.json"

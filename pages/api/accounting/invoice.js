@@ -1,6 +1,7 @@
 const { adminDb } = require("../../../lib/firebaseAdmin");
 const { requireUser, requireRole, sendError } = require("../../../lib/apiAuth");
 const { presentOrder } = require("../../../lib/invoiceLock");
+const { reportServerError } = require("../../../lib/monitor");
 
 // One invoice, read-only, for the accountant's invoice page. Payments come
 // separately from /api/payments/:orderId.
@@ -23,6 +24,7 @@ export default async function handler(req, res) {
     const { notes, pendingRequest, lastRequest, ...rest } = order;
     return res.status(200).json({ order: rest, client });
   } catch (err) {
+    reportServerError(err, req, res);
     return sendError(res, err);
   }
 }

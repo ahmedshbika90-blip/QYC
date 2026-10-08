@@ -1,5 +1,6 @@
 const { adminDb } = require("../../../lib/firebaseAdmin");
 const { requireUser, requireRole } = require("../../../lib/apiAuth");
+const { reportServerError } = require("../../../lib/monitor");
 
 // Transfers for the supervisor (who creates them) and the warehouse keeper
 // (who releases them). Newest first; ?status=pending narrows it to the
@@ -17,6 +18,7 @@ export default async function handler(req, res) {
     if (req.query.status) transfers = transfers.filter((t) => t.status === req.query.status);
     return res.status(200).json({ transfers });
   } catch (err) {
+    reportServerError(err, req, res);
     const status = err.statusCode || 500;
     return res.status(status).json({ error: err.message });
   }

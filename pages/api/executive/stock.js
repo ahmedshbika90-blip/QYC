@@ -1,5 +1,6 @@
 const { requireUser, requireRole, sendError } = require("../../../lib/apiAuth");
 const { buildStock, receivedHistory } = require("../../../lib/executiveSummary");
+const { reportServerError } = require("../../../lib/monitor");
 
 // Executive (and manager) — tab 3 of /executive. Quantities only.
 //   GET                                  → { products } current balances
@@ -13,6 +14,7 @@ export default async function handler(req, res) {
     if (view === "received") return res.status(200).json(await receivedHistory({ from, to, cursor }));
     return res.status(200).json(await buildStock());
   } catch (err) {
+    reportServerError(err, req, res);
     return sendError(res, err);
   }
 }

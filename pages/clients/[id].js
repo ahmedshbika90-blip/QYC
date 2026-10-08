@@ -12,8 +12,9 @@ import { useRequestId } from "../../lib/useRequestId";
 import { isClientEditLocked, clientEditDeadline, CLIENT_EDIT_WINDOW_HOURS } from "../../lib/clientEditLock";
 import SuccessScreen from "../../components/SuccessScreen";
 import Icon from "../../components/Icon";
-import DeliveryRoutePicker, { routesFromClients } from "../../components/DeliveryRoutePicker";
-import { getClients } from "../../lib/clientsStore";
+import DeliveryRoutePicker from "../../components/DeliveryRoutePicker";
+import SearchCombobox from "../../components/SearchCombobox";
+import { usePlaceOptions } from "../../lib/usePlaceOptions";
 
 export default function ClientDetail() {
   const { user, role, token, loading, logout } = useAuth();
@@ -28,10 +29,7 @@ export default function ClientDetail() {
   const [done, setDone] = useState(null); // "saved" | "requested"
   const [reason, setReason] = useState("");
   const requestIds = useRequestId();
-  const [known, setKnown] = useState([]);
-  useEffect(() => {
-    if (token && user) getClients(apiFetch, token, user.uid).then(setKnown).catch(() => {});
-  }, [token, user]);
+  const places = usePlaceOptions(token, user, form?.route || null);
 
   useEffect(() => {
     if (!token || !id) return;
@@ -198,20 +196,20 @@ export default function ClientDetail() {
           <DeliveryRoutePicker
             value={form.deliveryRoute}
             onChange={(v) => setForm((f) => ({ ...f, deliveryRoute: v }))}
-            options={routesFromClients(known, form.route)}
+            options={places.routes}
             required={Boolean(client.deliveryRoute)}
           />
 
-          <div>
-            <label className="block text-sm text-gray-600 mb-1">الموقع</label>
-            <input
-              type="text"
-              value={form.location}
-              onChange={(e) => setForm({ ...form, location: e.target.value })}
-              className="w-full border rounded-lg px-3 h-12 text-base"
-              required
-            />
-          </div>
+          <SearchCombobox
+            label="الموقع"
+            value={form.location}
+            onChange={(v) => setForm((f) => ({ ...f, location: v }))}
+            options={places.locations}
+            preferred={places.locationsOn(form.deliveryRoute)}
+            placeholder="ابحث أو اكتب موقعًا جديدًا"
+            newHint={(name) => `سيُضاف موقعًا جديدًا: ${name}`}
+            required
+          />
 
           <div>
             <label className="block text-sm text-gray-600 mb-1">رقم الهاتف (للاتصال) — 10 أرقام تبدأ بصفر</label>

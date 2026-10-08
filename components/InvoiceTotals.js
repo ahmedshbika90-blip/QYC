@@ -33,7 +33,7 @@ export default function InvoiceTotals({ subtotal, discount, onDiscountChange, cl
   return (
     <div className={`rounded-2xl border border-line bg-white overflow-hidden ${className}`}>
       {showDiscount && (
-        <div className="px-4 pt-3.5 pb-3 space-y-2.5 text-[15px] bg-surface-2/60">
+        <div className="px-4 pt-3.5 pb-3 space-y-2.5 text-[0.9375rem] bg-surface-2/60">
           <Row label="المجموع" value={formatNumber(subtotal)} />
           {editable ? (
             <div className="flex items-center justify-between gap-3">

@@ -1,5 +1,6 @@
 const { requireUser, requireRole, sendError } = require("../../../lib/apiAuth");
 const { findByRef, describeRefs, cleanRef } = require("../../../lib/payments");
+const { reportServerError } = require("../../../lib/monitor");
 
 // Accountant: invoices with a payment whose transaction reference (رقم
 // العملية) ends with the typed digits — normally the LAST 4, which (unlike
@@ -17,6 +18,7 @@ export default async function handler(req, res) {
     const hits = await findByRef(typed);
     return res.status(200).json({ matches: await describeRefs(hits, typed) });
   } catch (err) {
+    reportServerError(err, req, res);
     return sendError(res, err);
   }
 }

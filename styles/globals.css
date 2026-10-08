@@ -16,12 +16,14 @@
   --gray-100: 239 234 223;
   --gray-200: 227 220 205;
   --gray-300: 207 199 182;
-  --gray-400: 109 117 111;
-  --gray-500: 90 99 93;
-  --gray-600: 70 80 73;
-  --gray-700: 51 60 55;
-  --gray-800: 34 43 38;
-  --gray-900: 22 33 28;
+  /* Text greys: neutral and dark enough to read in sunlight (staff
+     testing). gray-900 = body text, 600 = secondary, 500 = hints. */
+  --gray-400: 96 102 98;
+  --gray-500: 70 76 72;
+  --gray-600: 48 54 50;
+  --gray-700: 34 38 36;
+  --gray-800: 20 22 21;
+  --gray-900: 8 9 8;
   --green-50: 236 245 240;
   --green-100: 220 237 229;
   --green-200: 186 219 204;
@@ -77,12 +79,13 @@ html.dark {
   --gray-100: 30 40 35;
   --gray-200: 42 54 47;
   --gray-300: 58 71 64;
-  --gray-400: 143 154 147;
-  --gray-500: 156 166 159;
-  --gray-600: 180 189 182;
-  --gray-700: 203 210 204;
-  --gray-800: 223 227 221;
-  --gray-900: 236 231 221;
+  /* Night mode text: true white for body text, clear light greys below. */
+  --gray-400: 170 177 173;
+  --gray-500: 192 199 195;
+  --gray-600: 214 219 216;
+  --gray-700: 232 235 233;
+  --gray-800: 245 246 245;
+  --gray-900: 255 255 255;
   --green-50: 16 38 31;
   --green-100: 20 53 43;
   --green-200: 28 74 60;
@@ -394,3 +397,69 @@ html.dark .exec-watermark-dark { display: block; --wm-opacity: 0.32; mix-blend-m
   html.dark .exec-aurora { opacity: 0.55; }
   .brand-float { animation: none; }
 }
+
+
+/* ─── Reading settings (pages/accessibility.js, lib/a11y.js) ─────────────
+   Per device, chosen by the person using it. Everything is sized in rem,
+   so the text size setting scales text, buttons and spacing together. */
+html.a11y-size-1 { font-size: 112.5%; }
+html.a11y-size-2 { font-size: 125%; }
+html.a11y-size-3 { font-size: 140%; }
+
+/* Bolder text: every weight one step heavier. */
+html.a11y-bold body { font-weight: 500; }
+html.a11y-bold .font-normal { font-weight: 500; }
+html.a11y-bold .font-medium { font-weight: 600; }
+html.a11y-bold .font-semibold { font-weight: 700; }
+html.a11y-bold .font-bold { font-weight: 800; }
+
+/* High contrast: pure white page, pure black text, no faint greys,
+   darker borders and status colours; in night mode the reverse. */
+html.a11y-contrast {
+  --white: 255 255 255;
+  --gray-50: 255 255 255;
+  --gray-100: 240 240 240;
+  --gray-200: 120 120 120;
+  --gray-300: 90 90 90;
+  --gray-400: 0 0 0;
+  --gray-500: 0 0 0;
+  --gray-600: 0 0 0;
+  --gray-700: 0 0 0;
+  --gray-800: 0 0 0;
+  --gray-900: 0 0 0;
+  --green-700: 0 77 58;
+  --green-800: 0 60 45;
+  --red-600: 150 20 10;
+  --red-700: 120 15 8;
+  --amber-700: 100 50 0;
+  --blue-600: 15 60 120;
+  --accent: 0 90 68;
+  --accent-strong: 0 70 52;
+}
+html.dark.a11y-contrast {
+  --white: 0 0 0;
+  --gray-50: 0 0 0;
+  --gray-100: 22 22 22;
+  --gray-200: 150 150 150;
+  --gray-300: 180 180 180;
+  --gray-400: 255 255 255;
+  --gray-500: 255 255 255;
+  --gray-600: 255 255 255;
+  --gray-700: 255 255 255;
+  --gray-800: 255 255 255;
+  --gray-900: 255 255 255;
+  --green-700: 130 240 200;
+  --green-800: 170 250 220;
+  --red-600: 255 160 150;
+  --red-700: 255 185 175;
+  --amber-700: 255 205 120;
+  --blue-600: 170 205 255;
+  --accent: 110 230 190;
+  --accent-strong: 150 245 210;
+}
+html.a11y-contrast input,
+html.a11y-contrast select,
+html.a11y-contrast textarea { border-width: 2px; }
+
+/* Underline every link so it doesn't depend on colour alone. */
+html.a11y-links a:not([class*="bg-"]) { text-decoration: underline; text-underline-offset: 3px; }
