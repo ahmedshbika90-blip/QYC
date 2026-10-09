@@ -463,3 +463,28 @@ html.a11y-contrast textarea { border-width: 2px; }
 
 /* Underline every link so it doesn't depend on colour alone. */
 html.a11y-links a:not([class*="bg-"]) { text-decoration: underline; text-underline-offset: 3px; }
+
+/* Bigger small text: labels, hints, captions, badges and the text inside
+   fields (and their placeholders) — without making headings bigger. */
+html.a11y-small .text-xs,
+html.a11y-small [class*="text-[0.6"],
+html.a11y-small [class*="text-[0.7"] { font-size: 0.9375rem !important; line-height: 1.35; }
+html.a11y-small .text-sm,
+html.a11y-small [class*="text-[0.8"] { font-size: 1.0625rem !important; line-height: 1.45; }
+html.a11y-small label,
+html.a11y-small input,
+html.a11y-small select,
+html.a11y-small textarea { font-size: max(1.0625rem, 1em) !important; }
+html.a11y-small ::placeholder { font-size: 1.0625rem; }
+
+/* Thicker, darker borders on every field, so its edges are easy to see. */
+html.a11y-borders input:not([type="checkbox"]):not([type="radio"]),
+html.a11y-borders select,
+html.a11y-borders textarea {
+  border-width: 3px !important;
+  border-style: solid !important;
+  border-color: rgb(var(--gray-800)) !important;
+}
+html.a11y-borders input:focus,
+html.a11y-borders select:focus,
+html.a11y-borders textarea:focus { outline: 3px solid rgb(var(--accent)); outline-offset: 2px; }

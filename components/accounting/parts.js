@@ -1,22 +1,39 @@
-// Pieces shared by the accountant's screens (agents, logs, reports).
+// Pieces shared by the accountant's screens. The INVOICE LOG (one agent's
+// invoices of one day) is the unit everything is built around.
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import Icon from "../Icon";
 import { apiFetch } from "../../lib/apiFetch";
 import { cachedGet } from "../../lib/apiCache";
 import { useLiveRefresh } from "../../lib/useLiveRefresh";
-import { formatDate, formatNumber } from "../../lib/labels";
-
+import { formatNumber } from "../../lib/labels";
 import { TIME_ZONE } from "../../lib/companyConfig";
+
 export const LIVE_KEYS = ["payments", "orders_car1", "orders_car2"];
 export const money = (n) => formatNumber(Math.round((Number(n) || 0) * 100) / 100);
-export const day = (ymd) => (ymd ? formatDate(`${ymd}T12:00:00Z`) : "—");
 export const ROUTE_LABEL = { car1: "جملة", car2: "تجزئة" };
 export const agentName = (people, route) => (people && people.length ? people.map((p) => p.name).join("، ") : `مندوب ${ROUTE_LABEL[route] || route}`);
 
-const todayYmd = () => new Date().toLocaleDateString("en-CA", { timeZone: TIME_ZONE });
-export const daysAgo = (n) => new Date(Date.now() - n * 864e5).toLocaleDateString("en-CA", { timeZone: TIME_ZONE });
-export const defaultPeriod = () => ({ from: daysAgo(29), to: todayYmd() });
+const ymd = (d) => d.toLocaleDateString("en-CA", { timeZone: TIME_ZONE });
+export const todayYmd = () => ymd(new Date());
+export const daysAgo = (n) => ymd(new Date(Date.now() - n * 864e5));
+const WEEKDAYS = ["الأحد", "الإثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت"];
+export const weekday = (day) => WEEKDAYS[new Date(`${day}T12:00:00Z`).getUTCDay()];
+/** "سجل فواتير 2026-11-09" — the log's name, date included. */
+export const logName = (day) => `سجل فواتير ${day}`;
+
+/** Period presets for the filters. The week starts on Saturday. */
+export function presetPeriod(key) {
+  const today = todayYmd();
+  if (key === "week") {
+    const dow = new Date(`${today}T12:00:00Z`).getUTCDay(); // 6 = Saturday
+    return { from: daysAgo((dow + 1) % 7), to: today };
+  }
+  if (key === "month") return { from: `${today.slice(0, 8)}01`, to: today };
+  if (key === "90") return { from: daysAgo(89), to: today };
+  return { from: daysAgo(29), to: today };
+}
+export const defaultPeriod = () => presetPeriod("30");
 
 /** GET with the shared cache, refreshed live when payments or invoices change. */
 export function useApi(token, url) {
@@ -40,62 +57,84 @@ export function useApi(token, url) {
 }
 
 export const STATUS = {
-  paid: ["مدفوع", "bg-green-100 text-green-700"],
-  partial: ["مدفوع جزئيًا", "bg-blue-100 text-blue-700"],
-  unpaid: ["غير مدفوع", "bg-amber-100 text-amber-700"],
-  empty: ["بدون فواتير", "bg-gray-100 text-gray-600"],
+  paid: ["مدفوع بالكامل", "bg-green-100 text-green-800"],
+  partial: ["مدفوع جزئيًا", "bg-blue-100 text-blue-800"],
+  unpaid: ["غير مدفوع", "bg-amber-100 text-amber-800"],
+  empty: ["بدون فواتير", "bg-gray-100 text-gray-700"],
 };
 export function LogStatus({ status }) {
   const [label, tone] = STATUS[status] || STATUS.unpaid;
-  return <span className={`h-6 px-2.5 rounded-full text-xs font-bold inline-flex items-center whitespace-nowrap ${tone}`}>{label}</span>;
+  return <span className={`h-7 px-3 rounded-full text-sm font-bold inline-flex items-center whitespace-nowrap ${tone}`}>{label}</span>;
 }
 
 export function Money({ value, className = "" }) {
   return <span className={`num ${className}`}>{money(value)}</span>;
 }
 
-/** One log row: day, van/agent, invoices, total, paid, remaining, status → the log page. */
-export function LogRow({ log, people, showAgent = true }) {
-  const pct = log.total ? Math.min(100, Math.round((log.paid / log.total) * 100)) : 0;
+/** Paid / total bar. */
+export function PaidBar({ paid, total }) {
+  const pct = total ? Math.min(100, Math.round((paid / total) * 100)) : 0;
   return (
-    <li>
-      <Link href={`/accounting/logs/${encodeURIComponent(log.id)}`} className="block px-4 py-3.5 active:bg-surface-2 hover:bg-surface-2">
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0">
-            <p className="font-bold text-ink">{day(log.day)}</p>
-            <p className="text-sm text-ink-soft mt-0.5 truncate">
-              {showAgent && <>{agentName(people, log.route)} · </>}
-              <span className="num">{log.invoices}</span> {log.invoices === 1 ? "فاتورة" : "فواتير"}
-            </p>
-          </div>
-          <div className="text-end shrink-0">
-            <p className="font-bold text-ink"><Money value={log.total} /></p>
-            <LogStatus status={log.status} />
-          </div>
+    <div className="h-2.5 rounded-full bg-surface-2 overflow-hidden" role="img" aria-label={`مدفوع ${pct}%`}>
+      <span className={`block h-full rounded-full ${pct >= 100 ? "bg-green-600" : "bg-accent"}`} style={{ width: `${pct}%` }} />
+    </div>
+  );
+}
+
+/** An invoice log as a card: name with the date, agent, value, paid, remaining. */
+export function LogCard({ log, people }) {
+  return (
+    <Link
+      href={`/accounting/logs/${encodeURIComponent(log.id)}`}
+      className="bg-white rounded-3xl shadow p-5 flex flex-col gap-4 min-w-0 hover:shadow-lg active:bg-surface-2 transition-shadow"
+    >
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <div className="min-w-0">
+          <p className="font-display text-lg font-bold text-ink break-words">
+            سجل فواتير <span className="num" dir="ltr">{log.day}</span>
+          </p>
+          <p className="text-ink-soft break-words">
+            {weekday(log.day)} · {agentName(people, log.route)}
+          </p>
         </div>
-        <div className="mt-2.5 h-2 rounded-full bg-surface-2 overflow-hidden" aria-hidden="true">
-          <span className="block h-full rounded-full bg-accent" style={{ width: `${pct}%` }} />
+        <LogStatus status={log.status} />
+      </div>
+      <div>
+        <p className="text-sm text-ink-soft">قيمة السجل</p>
+        <p className="font-display text-3xl font-bold text-ink">
+          <Money value={log.total} />
+        </p>
+        <p className="text-sm text-ink-soft">
+          <span className="num">{log.invoices}</span> {log.invoices === 1 ? "فاتورة" : "فواتير"}
+        </p>
+      </div>
+      <PaidBar paid={log.paid} total={log.total} />
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <p className="text-sm text-ink-soft">المدفوع</p>
+          <p className="text-lg font-bold text-green-700"><Money value={log.paid} /></p>
         </div>
-        <div className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1 text-sm">
-          <span className="text-ink-soft">مدفوع <Money value={log.paid} className="font-semibold text-ink" /></span>
-          {log.remaining > 0 && <span className="text-ink-soft">متبقٍ <Money value={log.remaining} className="font-bold text-red-700" /></span>}
-          {log.toDistribute > 0 && <span className="text-amber-700 font-semibold">بانتظار التوزيع <Money value={log.toDistribute} /></span>}
-          {log.credit > 0 && <span className="text-blue-700 font-semibold">رصيد زائد <Money value={log.credit} /></span>}
-          {typeof log.margin === "number" && (
-            <span className="text-ink-soft">هامش التشغيل <Money value={log.margin} className={`font-semibold ${log.margin < 0 ? "text-red-700" : "text-green-700"}`} />{log.marginPct != null && <span className="num"> ({log.marginPct}%)</span>}</span>
-          )}
+        <div>
+          <p className="text-sm text-ink-soft">المتبقي</p>
+          <p className={`text-lg font-bold ${log.remaining > 0 ? "text-red-700" : "text-ink"}`}><Money value={log.remaining} /></p>
         </div>
-      </Link>
-    </li>
+      </div>
+      {log.toDistribute > 0 && (
+        <p className="rounded-xl bg-amber-50 text-amber-900 font-semibold px-3 py-2.5 flex items-center gap-2">
+          <Icon name="alert" size={18} />
+          دفعة بانتظار التوزيع: <Money value={log.toDistribute} />
+        </p>
+      )}
+    </Link>
   );
 }
 
 export function Stat({ label, value, tone = "text-ink", sub }) {
   return (
     <div className="bg-white rounded-2xl shadow p-4 min-w-0">
-      <p className="text-sm text-ink-soft">{label}</p>
-      <p className={`font-display text-2xl font-bold mt-1 truncate ${tone}`}>{value}</p>
-      {sub && <p className="text-xs text-ink-soft mt-0.5">{sub}</p>}
+      <p className="text-ink-soft">{label}</p>
+      <p className={`font-display text-2xl font-bold mt-1 break-words ${tone}`}>{value}</p>
+      {sub && <p className="text-sm text-ink-soft mt-0.5">{sub}</p>}
     </div>
   );
 }
@@ -106,7 +145,7 @@ export function MarginValue({ t }) {
   return (
     <>
       <Money value={t.margin} />
-      {t.marginPct != null && <span className="text-base font-semibold text-ink-soft num"> {t.marginPct}%</span>}
+      {t.marginPct != null && <span className="text-base font-semibold text-ink-soft num"> ({t.marginPct}%)</span>}
     </>
   );
 }
@@ -114,10 +153,36 @@ export function MarginValue({ t }) {
 export function ErrorLine({ error, onRetry }) {
   if (!error) return null;
   return (
-    <p role="alert" className="text-sm text-red-700 bg-red-50 rounded-xl px-3 py-2.5 flex items-center gap-2">
+    <p role="alert" className="text-red-700 bg-red-50 rounded-xl px-4 py-3 flex flex-wrap items-center gap-2">
       <Icon name="alert" size={18} />
-      <span className="flex-1">{error}</span>
+      <span className="flex-1 min-w-0 break-words">{error}</span>
       {onRetry && <button type="button" onClick={onRetry} className="underline font-semibold">إعادة المحاولة</button>}
     </p>
   );
 }
+
+/** A row of big choice chips (wraps on small screens). */
+export function Choice({ label, value, onChange, options }) {
+  return (
+    <div className="flex flex-col gap-1.5 min-w-0">
+      <p className="text-sm font-semibold text-ink-soft">{label}</p>
+      <div className="flex flex-wrap gap-2" role="radiogroup" aria-label={label}>
+        {options.map(([v, l]) => (
+          <button
+            key={v}
+            type="button"
+            role="radio"
+            aria-checked={value === v}
+            onClick={() => onChange(v)}
+            className={`h-11 px-4 rounded-xl border-2 font-semibold ${value === v ? "border-accent bg-accent text-on-accent" : "border-line bg-white text-ink"}`}
+          >
+            {l}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/** Dates are shown as YYYY-MM-DD across accounting, like the log names. */
+export const day = (ymd) => ymd || "—";

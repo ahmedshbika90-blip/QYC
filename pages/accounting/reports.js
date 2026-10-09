@@ -4,9 +4,8 @@ import { useAuth } from "../../lib/useAuth";
 import Nav from "../../components/Nav";
 import Icon from "../../components/Icon";
 import DateFields from "../../components/DateFields";
-import FilterChips from "../../components/FilterChips";
 import { PageLoading, SkeletonRows } from "../../components/Loading";
-import { useApi, Money, Stat, ErrorLine, MarginValue, LogStatus, agentName, day, defaultPeriod, money, ROUTE_LABEL } from "../../components/accounting/parts";
+import { useApi, Money, Stat, ErrorLine, MarginValue, LogStatus, Choice, agentName, day, defaultPeriod, money, ROUTE_LABEL } from "../../components/accounting/parts";
 
 // التقارير — one agent or all of them, any period: the logs day by day
 // (invoices, total, paid, remaining), the totals, and the payments
@@ -50,16 +49,16 @@ export default function Reports() {
   }
 
   return (
-    <div className="min-h-screen bg-canvas">
+    <div className="min-h-screen bg-canvas overflow-x-hidden">
       <div className="print:hidden"><Nav role={role} logout={logout} /></div>
-      <main className="max-w-4xl mx-auto px-4 sm:px-8 pt-5 pb-10 flex flex-col gap-4">
+      <main className="w-full max-w-5xl mx-auto px-3 sm:px-6 pt-5 pb-10 flex flex-col gap-4">
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div>
             <h1 className="font-display text-2xl font-bold text-ink">التقارير</h1>
             <p className="text-ink-soft mt-1">{title} · {day(p.from)} — {day(p.to)}</p>
           </div>
           {data && (
-            <div className="flex gap-2 print:hidden">
+            <div className="flex flex-wrap gap-2 print:hidden">
               <button type="button" onClick={() => window.print()} className="h-11 px-4 rounded-xl border-2 border-line bg-white text-ink font-semibold flex items-center gap-2">
                 <Icon name="file" size={18} /> طباعة / PDF
               </button>
@@ -71,14 +70,14 @@ export default function Reports() {
         </div>
         <div className="flex flex-col gap-3 print:hidden">
           <DateFields from={p.from} to={p.to} onFrom={(from) => setP((x) => ({ ...x, from }))} onTo={(to) => setP((x) => ({ ...x, to }))} />
-          <FilterChips label="المندوب" value={route === "all" ? "" : route} onChange={(v) => setRoute(v || "all")} options={[["car1", ROUTE_LABEL.car1], ["car2", ROUTE_LABEL.car2]]} />
+          <Choice label="المندوب" value={route} onChange={setRoute} options={[["all", "كل المناديب"], ["car1", ROUTE_LABEL.car1], ["car2", ROUTE_LABEL.car2]]} />
         </div>
         <ErrorLine error={error} onRetry={reload} />
         {!data ? (
           <SkeletonRows count={6} />
         ) : (
           <>
-            <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
               <Stat label="الإجمالي" value={<Money value={t.total} />} sub={`${t.invoices} فاتورة · ${t.logs} سجل`} />
               <Stat label="المدفوع" value={<Money value={t.paid} />} />
               <Stat label="المتبقي" value={<Money value={t.remaining} />} tone={t.remaining > 0 ? "text-red-700" : "text-green-700"} />

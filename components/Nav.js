@@ -102,9 +102,9 @@ function layoutFor(role) {
       return { tabs: [], more: [], desktop: [L.accounts, L.security] };
     case "accountant":
       return {
-        tabs: [L.accAgents, L.accLogs, L.accReports, L.accInvoices],
+        tabs: [L.accLogs, L.accAgents, L.accReports, L.accInvoices],
         more: [L.allStock, L.security],
-        desktop: [L.accAgents, L.accLogs, L.accReports, L.accInvoices, L.allStock, L.security],
+        desktop: [L.accLogs, L.accAgents, L.accReports, L.accInvoices, L.allStock, L.security],
       };
     case "executive":
       return { tabs: [L.execDash, L.execClients, L.execCompetitors], more: [], desktop: [L.execDash, L.execClients, L.execCompetitors] };
@@ -268,8 +268,10 @@ export default function Nav({ role, logout }) {
     return () => window.removeEventListener("keydown", onKey);
   }, [sheetOpen]);
 
+  // Fixed pixel size (not rem): with the larger text settings the icons
+  // must not grow until the top bar overflows on a phone.
   const iconBtn =
-    "w-11 h-11 rounded-xl flex items-center justify-center text-ink-soft hover:bg-surface-2 active:bg-surface-2";
+    "w-[44px] h-[44px] shrink-0 rounded-xl flex items-center justify-center text-ink-soft hover:bg-surface-2 active:bg-surface-2";
 
   return (
     <>
@@ -281,10 +283,10 @@ export default function Nav({ role, logout }) {
 
       {/* ── Top bar ───────────────────────────────────────────────── */}
       <header className="sticky top-0 z-20 bg-canvas/85 backdrop-blur-md border-b border-line">
-        <div className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between gap-3">
+        <div className="max-w-6xl mx-auto px-3 sm:px-4 min-h-[4rem] py-1.5 flex items-center justify-between gap-2 sm:gap-3">
           <Link href={ROLE_HOME[role] || "/"} className="flex items-center gap-2.5 min-w-0">
             <span className="flex flex-col leading-tight min-w-0">
-              <span className="font-display font-bold text-xl text-accent-ink">مباشر</span>
+              <span className="font-display font-bold text-xl text-accent-ink truncate">مباشر</span>
               {role && (
                 <span className="text-xs text-muted truncate md:hidden xl:block">
                   {jobTitle(role, getAuthFlags().salesSupervisor)}
@@ -320,9 +322,7 @@ export default function Nav({ role, logout }) {
               <span aria-hidden="true" className="font-display font-bold text-[1.05rem] leading-none">أ<span className="text-[0.75rem]">أ</span></span>
             </Link>
             <LangToggle />
-            <button type="button" onClick={toggle} className={iconBtn} aria-label={isDark ? "الوضع الفاتح" : "الوضع الداكن"}>
-              <Icon name={isDark ? "sun" : "moon"} />
-            </button>
+            {/* Light/dark lives in سهولة القراءة now. */}
             <button type="button" onClick={() => setConfirmOut(true)} className={iconBtn} aria-label="تسجيل الخروج">
               <Icon name="logout" />
             </button>

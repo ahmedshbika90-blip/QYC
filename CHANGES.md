@@ -686,3 +686,13 @@ Tests: `tests/run13.js`, `tests/run14.js` new; `npm test` (14 files) and `next b
 - Documents (`components/ShipmentRequestsPanel.js`): tabs removed; big "طلب جديد" button → chooser (أمر شحن / مرتجع بضاعة) → form; "طلباتي" shows "بحاجة لإجراء منك" (the shipping items behind the nav badge) above the list.
 - Company settings: `lib/companyConfig.js` (time zone, offset, currency, company name from env, Mahgoub Sons defaults); all hard-coded `Africa/Khartoum` / `+02:00` replaced; `currency` stored on invoices, invoice payments and log payments.
 - Tests: `tests/run19.js`. Remaining Phase 4 item: vans as data.
+
+---
+
+# Accounting redesign + accessibility round 2
+- Accounting is built around the **invoice log**: accountant home is `/accounting/logs` — big cards "سجل فواتير YYYY-MM-DD" (weekday, agent, value, paid bar, paid / remaining, status, payment waiting to be entered), filters as large wrap-around chips (period presets / dates, agent, status).
+- Log page: header with value / paid / remaining / margin; "إضافة دفعة لهذا السجل"; payments as cards; "تسجيل ما دفعه كل عميل" opens a full-height sheet grouped by client — every amount typed by the accountant, nothing filled in automatically (the auto button is gone); clients section with each client's invoices, totals and phone.
+- Agents page simplified (one card per agent → "سجلاته" opens the filtered logs); `/accounting/agents/[route]` redirects there. Reports: wrap-around filters, responsive grid. Dates shown as YYYY-MM-DD in accounting.
+- Server errors now return a short code (e.g. "رمز K3F9Q") that is also in the Vercel log line.
+- Accessibility: new "تكبير النصوص الصغيرة" (labels, hints, text inside fields) and "حدود أسمك للحقول"; the page rebuilt to wrap on the smallest phones; dark mode moved off the top bar into this page; top-bar icons keep a fixed size so larger text never pushes them off screen.
+- `tests/run8.js`: trend assertions no longer fail on Fridays (the daily trend skips Fridays).

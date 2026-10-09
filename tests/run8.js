@@ -127,9 +127,20 @@ eval(header + `
   const tr = (await call("pages/api/dashboard/trend.js", { ...SUP, query: { bucket: "day" } })).json;
   const last = tr.buckets.length - 1;
   assert.strictEqual(tr.buckets.length, 30);
-  assert.deepStrictEqual([tr.buckets[last].w, tr.buckets[last].r], [19, 9]); // today (sample + cancelled excluded)
-  assert.deepStrictEqual([tr.buckets[last - 1].w, tr.buckets[last - 1].r], [5, 3]); // yesterday
-  assert.deepStrictEqual([tr.buckets[last - 2].w, tr.buckets[last - 2].r], [4, 0]); // the day before
+  // today (sample + cancelled excluded) — the daily trend skips Fridays, so
+  // on a Friday today's sales aren't in it at all.
+  const isFriday = new Date(Date.now() + 2 * 3600e3).getUTCDay() === 5;
+  // Today, yesterday and the day before are the last three buckets — unless
+  // one of them is a Friday (no bucket), then the series shifts.
+  const want = [[19, 9], [5, 3], [4, 0]];
+  const dayOfs = [0, 1, 2].map((k) => new Date(Date.now() + 2 * 3600e3 - k * 864e5).getUTCDay());
+  let b = last;
+  dayOfs.forEach((dow, k) => {
+    if (dow === 5) return; // Friday: not in the daily trend
+    assert.deepStrictEqual([tr.buckets[b].w, tr.buckets[b].r], want[k]);
+    b -= 1;
+  });
+  void isFriday;
   const trw = (await call("pages/api/dashboard/trend.js", { ...SUP, query: { bucket: "week" } })).json;
   assert.strictEqual(trw.buckets.length, 12);
   assert.strictEqual(trw.buckets.reduce((a, b) => a + b.w + b.r, 0), 40); // every unit lands in exactly one week
