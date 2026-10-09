@@ -9,6 +9,7 @@ import { useRequestId } from "../lib/useRequestId";
 import { formatNumber, formatQty } from "../lib/labels";
 import NumericInput from "../components/NumericInput";
 import { PRODUCT_CATEGORIES, PRODUCT_UNITS } from "../lib/constants";
+import { vanName } from "../lib/vanNames";
 
 const emptyForm = { name: "", nameEn: "", category: "", unit: "", priceCar1: "", priceCar2: "", depotStock: "", avgCost: "" };
 
@@ -379,7 +380,10 @@ export default function Products() {
                     </p>
                     {isSupervisor && (
                     <p className="text-xs text-gray-400 mt-0.5">
-                      المخزن: {formatQty(p.stock?.depot ?? 0)} · مبيعات جملة: {formatQty(p.stock?.car1 ?? 0)} · مبيعات تجزئة: {formatQty(p.stock?.car2 ?? 0)}
+                      المخزن: {formatQty(p.stock?.depot ?? 0)}
+                      {Object.keys(p.stock || {}).filter((k) => k !== "depot" && k !== "damaged").sort().map((k) => (
+                        <span key={k}> · {vanName(k)}: {formatQty(p.stock[k] ?? 0)}</span>
+                      ))}
                     </p>
                     )}
                     {isSupervisor && (
@@ -422,9 +426,11 @@ export default function Products() {
 // sends him the wholesale van's stock (pages/api/products/list.js).
 function StockSections({ products, role }) {
   // Own van first; a sales supervisor also sees the other vans.
-  const mine = role === "agent_car1" ? "car1" : "car2";
-  const others = getAuthFlags().salesSupervisor ? ROUTES.filter((r) => r !== mine) : [];
-  const places = [[mine, "سيارتي"], ...others.map((r) => [r, r === "car1" ? "سيارة الجملة" : "سيارة التجزئة"]), ["depot", "المخزن الرئيسي"]];
+  const mine = getAuthFlags().route || (role === "agent_car1" ? "car1" : "car2");
+  // every van found in the stock (lib/vans.js), not only the original two
+  const vanKeys = [...new Set(products.flatMap((p) => Object.keys(p.stock || {})))].filter((k) => k !== "depot" && k !== "damaged");
+  const others = getAuthFlags().salesSupervisor ? [...new Set([...ROUTES, ...vanKeys])].filter((r) => r !== mine) : [];
+  const places = [[mine, "سيارتي"], ...others.map((r) => [r, vanName(r)]), ["depot", "المخزن الرئيسي"]];
   return (
     <div className="space-y-3 mb-6">
       {places.map(([field, label]) => {

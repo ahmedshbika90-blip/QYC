@@ -1,6 +1,7 @@
 const { adminDb } = require("../../lib/firebaseAdmin");
 const { requireUser } = require("../../lib/apiAuth");
 const { notifySignature } = require("../../lib/notifySig");
+const { isMineToDecide } = require("../../lib/supervision");
 const { reportServerError } = require("../../lib/monitor");
 
 const ROLE_TO_ROUTE = { agent_car1: "car1", agent_car2: "car2" };
@@ -48,7 +49,7 @@ export default async function handler(req, res) {
         .get();
       count = pendingWarehouse.size;
     } else if (ROLE_TO_ROUTE[role]) {
-      const myRoute = ROLE_TO_ROUTE[role];
+      const myRoute = decoded.route;
       const queries = [
         adminDb.collection("inventoryDocs").where("route", "==", myRoute).where("status", "==", "pending").get(),
       ];
@@ -57,7 +58,7 @@ export default async function handler(req, res) {
       }
       const snaps = await Promise.all(queries);
       // A supervisor's own pending request isn't something for them to decide.
-      count = snaps.reduce((sum, snap) => sum + snap.docs.filter((d) => d.data().requestedBy !== decoded.uid).length, 0);
+      count = snaps.reduce((sum, snap, i) => sum + snap.docs.filter((d) => (i === 0 ? d.data().requestedBy !== decoded.uid : isMineToDecide(d.data(), decoded))).length, 0);
     }
     // Any other role (e.g. depot_viewer): count stays 0.
 

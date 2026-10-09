@@ -10,6 +10,7 @@ import { useRequestId } from "../../lib/useRequestId";
 import { shareElementAsPdf } from "../../lib/sharePdf";
 import { ROUTE_LABELS, formatDate, formatNumber, formatQty } from "../../lib/labels";
 
+import { vanOptions } from "../../lib/vanNames";
 export default function SalesReport() {
   const { role, token, loading, logout } = useAuth();
   // Defaults to today — the everyday use is a daily report, and a one-day
@@ -169,7 +170,7 @@ export default function SalesReport() {
                   label="نوع البيع"
                   value={routeFilter === "all" ? "" : routeFilter}
                   onChange={(v) => setRouteFilter(v || "all")}
-                  options={[["car1", "مبيعات جملة"], ["car2", "مبيعات تجزئة"]]}
+                  options={vanOptions()}
                 />
               </div>
             )}

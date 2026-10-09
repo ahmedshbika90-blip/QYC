@@ -13,6 +13,9 @@ import { STORE_CLASSES } from "../lib/labels";
 import DeliveryRoutePicker from "../components/DeliveryRoutePicker";
 import SearchCombobox from "../components/SearchCombobox";
 import { usePlaceOptions } from "../lib/usePlaceOptions";
+import { useVans, vanTypeOf } from "../lib/useVans";
+import { ROUTE_LABELS } from "../lib/labels";
+import { getAuthFlags } from "../lib/authFlags";
 
 export default function RegisterClient() {
   const { user, role, token, loading, logout } = useAuth();
@@ -30,7 +33,10 @@ export default function RegisterClient() {
   });
   const [sameAsPhone, setSameAsPhone] = useState(true);
   // Routes already used on this sales type (wholesale / retail).
-  const salesRoute = role === "agent_car1" ? "car1" : role === "agent_car2" ? "car2" : form.route;
+  const vans = useVans(token);
+  // Routes/locations lists are per sales TYPE (car1 = wholesale, car2 = retail).
+  const myVan = getAuthFlags().route;
+  const salesRoute = role === "agent_car1" ? "car1" : role === "agent_car2" ? "car2" : vanTypeOf(vans, form.route) === "retail" ? "car2" : "car1";
   // Routes and locations already in use on this sales type (clients + ones
   // added on their own). Reloaded after each save, so a route or location
   // added on this client shows for the next one without a page refresh.
@@ -278,12 +284,13 @@ export default function RegisterClient() {
                 onChange={(e) => setForm({ ...form, route: e.target.value, deliveryRoute: "" })}
                 className="w-full border rounded-lg px-3 h-12 text-base"
               >
-                <option value="car1">مبيعات جملة (حسب الطلب)</option>
-                <option value="car2">مبيعات تجزئة (خط أسبوعي ثابت)</option>
+                {vans.filter((v) => v.active !== false).map((v) => (
+                  <option key={v.id} value={v.id}>{v.id === "car1" || v.id === "car2" ? ROUTE_LABELS[v.id] : `${v.label} — ${v.type === "retail" ? "تجزئة" : "جملة"}`}</option>
+                ))}
               </select>
             ) : (
               <p className="w-full border rounded-lg px-3 h-12 text-base bg-gray-50 text-gray-600 flex items-center">
-                {role === "agent_car1" ? "مبيعات جملة (حسب الطلب)" : "مبيعات تجزئة (خط أسبوعي ثابت)"}
+                {ROUTE_LABELS[myVan] || (role === "agent_car1" ? "مبيعات جملة (حسب الطلب)" : "مبيعات تجزئة (خط أسبوعي ثابت)")}
               </p>
             )}
             {role !== "manager" && (

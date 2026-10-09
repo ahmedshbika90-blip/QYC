@@ -23,7 +23,7 @@ export default async function handler(req, res) {
     const { status, route, type, from, to, cursor } = req.query;
     const coll = adminDb.collection("changeRequests");
 
-    const myRoute = ROLE_TO_ROUTE[decoded.role];
+    const myRoute = decoded.route;
     if (myRoute) {
       let query = coll.where("requestedBy", "==", decoded.uid);
       if (status) query = query.where("status", "==", status);

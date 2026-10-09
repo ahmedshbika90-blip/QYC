@@ -42,7 +42,7 @@ export default async function handler(req, res) {
     }
     const order = snap.data();
 
-    const restrictedRoute = ROLE_TO_ROUTE[decoded.role];
+    const restrictedRoute = decoded.route;
     if (restrictedRoute && order.route !== restrictedRoute) {
       return res.status(403).json({ error: "غير مصرح: هذا خارج مسارك" });
     }

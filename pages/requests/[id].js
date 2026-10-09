@@ -106,6 +106,8 @@ export default function RequestDetail() {
           ? "الموافقة ستغيّر بيانات العميل كما طلب المندوب. متابعة؟"
           : r.type === "cancel"
           ? "الموافقة ستلغي الفاتورة وتعيد كمياتها إلى السيارة. متابعة؟"
+          : r.type === "refund"
+          ? "الموافقة ستسجل المرتجع وتعيد الكميات إلى السيارة (أو التالف). متابعة؟"
           : "الموافقة ستعدّل الفاتورة وتحدّث المخزون. متابعة؟"
         : r.type === "client_edit"
         ? "رفض الطلب؟ تبقى بيانات العميل كما هي."
@@ -178,7 +180,7 @@ export default function RequestDetail() {
           <div>
             <BackButton />
             <h1 className="text-xl font-semibold text-gray-800">
-              {isClientEdit ? "طلب تعديل بيانات عميل" : r.type === "cancel" ? "طلب إلغاء فاتورة" : "طلب تعديل فاتورة"}
+              {isClientEdit ? "طلب تعديل بيانات عميل" : r.type === "cancel" ? "طلب إلغاء فاتورة" : r.type === "refund" ? "طلب مرتجع" : "طلب تعديل فاتورة"}
             </h1>
             <p className="text-sm text-gray-500 mt-1">
               {r.clientName} — {r.route === "car1" ? "مبيعات جملة" : "مبيعات تجزئة"} ·{" "}
@@ -210,6 +212,16 @@ export default function RequestDetail() {
             total={r.status === "pending" && r.order ? r.order.total : r.currentTotal}
             discount={r.status === "pending" && r.order ? Number(r.order.discount) || 0 : Number(r.currentDiscount) || 0}
           />
+          {r.type === "refund" && r.refundPreview && (
+            <div className="rounded-lg border border-purple-200 bg-purple-50 text-purple-900 p-3 text-sm space-y-1">
+              <p className="font-semibold">
+                {r.refundPreview.full ? "مرتجع كامل" : "مرتجع"} بقيمة <span className="num">{formatNumber(r.refundPreview.value)}</span>
+              </p>
+              {r.refundPreview.lines.map((l, i) => (
+                <p key={i}>{l.name} × <span className="num">{l.qty}</span>{l.damaged ? " (تالف)" : " (صالح للبيع)"}</p>
+              ))}
+            </div>
+          )}
           {r.type === "edit" && (
             <ItemsTable
               title="التعديل المطلوب"
@@ -239,6 +251,8 @@ export default function RequestDetail() {
                   ? "عند الموافقة تُحدَّث بيانات العميل بالقيم المطلوبة."
                   : r.type === "edit"
                   ? "عند الموافقة يُطبَّق التعديل بالأسعار الحالية ويُتحقق من كفاية المخزون."
+                  : r.type === "refund"
+                  ? "عند الموافقة يُسجَّل المرتجع: الصالح يعود إلى السيارة والتالف إلى رصيد التالف."
                   : "عند الموافقة تُلغى الفاتورة وتعود كمياتها إلى السيارة."}
               </p>
               <div className="flex gap-2">

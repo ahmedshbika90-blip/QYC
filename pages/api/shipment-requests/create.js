@@ -41,7 +41,7 @@ export default async function handler(req, res) {
     const decoded = await requireUser(req);
     requireRole(decoded, ["agent_car1", "agent_car2"]);
 
-    const route = ROLE_TO_ROUTE[decoded.role];
+    const route = decoded.route;
     const { type, items, note, requestId } = req.body || {};
     if (!isValidRequestId(requestId)) {
       return res.status(400).json({ error: "طلب غير صالح، يرجى تحديث الصفحة والمحاولة مرة أخرى" });
@@ -158,6 +158,8 @@ export default async function handler(req, res) {
         // supervisor's own requests, and every return, go straight to the
         // warehouse keeper.
         status: !decoded.salesSupervisor && type === "loading" ? "pending_car1" : "pending_warehouse",
+        // The agent's own supervisor decides it (lib/supervision.js).
+        supervisorUid: decoded.supervisorUid || null,
         requestedBy: decoded.uid,
         requestedAt: now,
         car1Decision: null,

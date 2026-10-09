@@ -41,7 +41,7 @@ export default function Statement() {
 
   function download() {
     const rows = [["التاريخ", "البيان", "رقم الفاتورة", "مدين", "دائن", "الرصيد"]];
-    data.lines.forEach((l) => rows.push([l.date || ymd(l.at), l.kind === "invoice" ? (l.cancelled ? "فاتورة ملغاة" : "فاتورة") : "دفعة", l.number || "", l.debit || "", l.credit || "", l.balance]));
+    data.lines.forEach((l) => rows.push([l.date || ymd(l.at), l.kind === "invoice" ? (l.cancelled ? "فاتورة ملغاة" : "فاتورة") : l.kind === "return" ? "رد مبلغ" : "دفعة", l.number || "", l.debit || "", l.credit || "", l.balance]));
     csv(rows, `كشف-حساب-${c.id}.csv`);
   }
 
@@ -107,7 +107,7 @@ export default function Statement() {
                       <li key={i} className="px-4 py-3 flex items-start justify-between gap-3">
                         <div className="min-w-0">
                           <p className="font-semibold text-ink break-words">
-                            {l.kind === "invoice" ? (l.cancelled ? "فاتورة ملغاة" : "فاتورة") : "دفعة"} {l.number && <span className="num">{l.number}</span>}
+                            {l.kind === "invoice" ? (l.cancelled ? "فاتورة ملغاة" : "فاتورة") : l.kind === "return" ? "رد مبلغ للعميل" : "دفعة"} {l.number && <span className="num">{l.number}</span>}
                           </p>
                           <p className="text-ink-soft num">{l.date || ymd(l.at)}</p>
                           {l.logId && (
@@ -136,7 +136,7 @@ export default function Statement() {
                           <tr key={i}>
                             <td className="px-4 py-2.5 num whitespace-nowrap">{l.date || ymd(l.at)}</td>
                             <td className="px-4 py-2.5">
-                              {l.kind === "invoice" ? (l.cancelled ? "فاتورة ملغاة" : "فاتورة") : "دفعة"} {l.number && <span className="num">{l.number}</span>}
+                              {l.kind === "invoice" ? (l.cancelled ? "فاتورة ملغاة" : "فاتورة") : l.kind === "return" ? "رد مبلغ للعميل" : "دفعة"} {l.number && <span className="num">{l.number}</span>}
                               {l.logId && (
                                 <Link href={`/accounting/logs/${encodeURIComponent(l.logId)}`} className="text-sm text-accent-ink font-semibold ms-2 print:hidden">سجل <span className="num" dir="ltr">{l.logId.slice(-10)}</span></Link>
                               )}

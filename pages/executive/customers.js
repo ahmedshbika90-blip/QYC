@@ -9,6 +9,7 @@ import { apiFetch } from "../../lib/apiFetch";
 import { getClients } from "../../lib/clientsStore";
 import { formatDate, ROUTE_LABELS_SHORT, STORE_CLASSES } from "../../lib/labels";
 import { ROUTES } from "../../lib/roles";
+import { allVanIds } from "../../lib/vanNames";
 
 // The full customer database, read-only, for the executive. Kept off the
 // dashboard on purpose; the list is cached on the device and only
@@ -65,7 +66,7 @@ export default function ExecutiveCustomers() {
           <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="ابحث بالاسم أو المتجر أو المسار أو الموقع أو الهاتف أو الرقم..." className="h-12 w-full rounded-xl border border-line bg-white ps-10 pe-3 text-base" />
         </div>
         <div className="grid gap-3 sm:grid-cols-3">
-          <FilterChips label="نوع البيع" value={route} onChange={setRoute} options={ROUTES.map((r) => [r, ROUTE_LABELS_SHORT[r] || r])} className="sm:col-span-1" />
+          <FilterChips label="نوع البيع" value={route} onChange={setRoute} options={allVanIds().map((r) => [r, ROUTE_LABELS_SHORT[r] || r])} className="sm:col-span-1" />
           <FilterChips label="التصنيف" value={cls} onChange={setCls} options={STORE_CLASSES.map((c) => [c, c])} className="sm:col-span-1" />
           <FilterChips label="الحالة" value={status} onChange={setStatus} options={[["active", "نشط"], ["inactive", "غير نشط"]]} className="sm:col-span-1" />
         </div>

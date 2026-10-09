@@ -6,7 +6,8 @@ import WarehouseRequestQueue from "./WarehouseRequestQueue";
 import { PageLoading } from "./Loading";
 import { SectionTitle } from "./Today";
 
-const CAR_LABEL = { car1: "مبيعات جملة", car2: "مبيعات تجزئة" };
+import { vanName, vanShort, vanTypeOfId } from "../lib/vanNames";
+const CAR_LABEL = new Proxy({}, { get: (_, id) => vanName(String(id)) }); // any van (lib/vanNames.js)
 
 // One car's section for the warehouse keeper. Requests that came from
 // THIS car and are waiting on him show up here first (a wholesale request

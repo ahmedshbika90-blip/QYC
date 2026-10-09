@@ -26,7 +26,7 @@ export default async function handler(req, res) {
   try {
     const decoded = await requireUser(req);
 
-    const restrictedRoute = ROLE_TO_ROUTE[decoded.role];
+    const restrictedRoute = decoded.route;
     // The executive gets the full customer database, read-only (no client
     // write endpoint accepts that role).
     if (!restrictedRoute && !["manager", "executive"].includes(decoded.role)) {

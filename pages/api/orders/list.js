@@ -27,7 +27,7 @@ export default async function handler(req, res) {
 
     let query = adminDb.collection("orders").orderBy("createdAt", "desc");
 
-    const restrictedRoute = ROLE_TO_ROUTE[decoded.role];
+    const restrictedRoute = decoded.route;
     if (restrictedRoute) {
       query = query.where("route", "==", restrictedRoute);
     } else if (decoded.role !== "manager") {

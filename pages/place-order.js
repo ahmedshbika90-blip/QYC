@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import Icon from "../components/Icon";
 import { useAuth } from "../lib/useAuth";
+import { useVans, priceKeyOf } from "../lib/useVans";
 import Nav from "../components/Nav";
 import BackButton from "../components/BackButton";
 import SuccessScreen from "../components/SuccessScreen";
@@ -42,6 +43,7 @@ function writeJSON(key, value) {
 
 export default function PlaceOrder() {
   const { user, role, token, loading, logout } = useAuth();
+  const vans = useVans(token); // price of the client's van type
 
   const [clients, setClients] = useState([]);
   const [products, setProducts] = useState([]);
@@ -277,7 +279,7 @@ export default function PlaceOrder() {
     .slice(0, 10);
 
   function priceFor(product) {
-    return selectedClient ? product.prices?.[selectedClient.route] : undefined;
+    return selectedClient ? product.prices?.[priceKeyOf(vans, selectedClient.route)] : undefined;
   }
 
   function stockFor(product) {

@@ -15,6 +15,8 @@ import Icon from "../../components/Icon";
 import DeliveryRoutePicker from "../../components/DeliveryRoutePicker";
 import SearchCombobox from "../../components/SearchCombobox";
 import { usePlaceOptions } from "../../lib/usePlaceOptions";
+import { ROUTE_LABELS } from "../../lib/labels";
+import { useVans, vanTypeOf } from "../../lib/useVans";
 
 export default function ClientDetail() {
   const { user, role, token, loading, logout } = useAuth();
@@ -29,7 +31,9 @@ export default function ClientDetail() {
   const [done, setDone] = useState(null); // "saved" | "requested"
   const [reason, setReason] = useState("");
   const requestIds = useRequestId();
-  const places = usePlaceOptions(token, user, form?.route || null);
+  const vans = useVans(token);
+  // routes/locations lists are per sales type
+  const places = usePlaceOptions(token, user, form?.route ? (vanTypeOf(vans, form.route) === "retail" ? "car2" : "car1") : null);
 
   useEffect(() => {
     if (!token || !id) return;
@@ -266,8 +270,9 @@ export default function ClientDetail() {
               disabled={role !== "manager"}
               className="w-full border rounded-lg px-3 h-12 text-base disabled:bg-gray-100 disabled:text-gray-400"
             >
-              <option value="car1">مبيعات جملة (حسب الطلب)</option>
-              <option value="car2">مبيعات تجزئة (خط أسبوعي ثابت)</option>
+              {vans.filter((v) => v.active !== false || v.id === form.route).map((v) => (
+                <option key={v.id} value={v.id}>{v.id === "car1" || v.id === "car2" ? ROUTE_LABELS[v.id] : `${v.label} — ${v.type === "retail" ? "تجزئة" : "جملة"}`}</option>
+              ))}
             </select>
             {role !== "manager" && (
               <p className="text-xs text-gray-400 mt-1">

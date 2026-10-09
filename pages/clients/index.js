@@ -12,6 +12,7 @@ import { PageLoading, SkeletonRows } from "../../components/Loading";
 import { apiFetch } from "../../lib/apiFetch";
 import { getClients } from "../../lib/clientsStore";
 
+import { vanName, vanOptions } from "../../lib/vanNames";
 // Search + filters all run in the browser on the version-cached client
 // list (see lib/clientsStore.js) — typing, filtering, or switching filters
 // costs zero Firestore reads.
@@ -150,7 +151,7 @@ export default function ClientsList() {
           extraActiveCount={routeFilter ? 1 : 0}
         >
           {role === "manager" && (
-            <FilterChips label="نوع البيع" value={routeFilter} onChange={setRouteFilter} options={[["car1", "مبيعات جملة"], ["car2", "مبيعات تجزئة"]]} />
+            <FilterChips label="نوع البيع" value={routeFilter} onChange={setRouteFilter} options={vanOptions()} />
           )}
         </FilterPanel>
 
@@ -211,7 +212,7 @@ export default function ClientsList() {
                     </span>
                   )}
                   {role === "manager" && (
-                    <span className="text-xs text-gray-400">{c.route === "car1" ? "مبيعات جملة" : "مبيعات تجزئة"}</span>
+                    <span className="text-xs text-gray-400">{vanName(c.route)}</span>
                   )}
                 </div>
               </Link>

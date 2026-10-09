@@ -8,6 +8,114 @@ import { apiFetch } from "../../lib/apiFetch";
 import { ROLE_DEFS, ROLE_LABELS, SALES_ROUTES } from "../../lib/roles";
 import PasswordInput from "../../components/PasswordInput";
 import { formatDateTime } from "../../lib/labels";
+import { useVans } from "../../lib/useVans";
+
+const TYPE_OF_ROUTE = { car1: "wholesale", car2: "retail" };
+
+// Van (and, for an agent, his supervisor) of a sales account.
+function Assignment({ route, job, van, supervisorUid, vans, supervisors, onChange, disabled }) {
+  const type = TYPE_OF_ROUTE[route];
+  if (!type) return null;
+  const choices = vans.filter((v) => v.type === type && (v.active !== false || v.id === van));
+  const def = type === "wholesale" ? "car1" : "car2";
+  return (
+    <div className="sm:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-3">
+      <label className="flex flex-col gap-1.5 text-sm font-medium text-ink-soft">
+        العربة
+        <select value={van || def} onChange={(e) => onChange({ van: e.target.value })} disabled={disabled} className="w-full border border-line rounded-xl px-3 h-12 text-base bg-white">
+          {choices.map((v) => <option key={v.id} value={v.id}>{v.label}</option>)}
+        </select>
+      </label>
+      {job === "sales_agent" && (
+        <label className="flex flex-col gap-1.5 text-sm font-medium text-ink-soft">
+          مشرف المبيعات المسؤول عنه
+          <select value={supervisorUid || ""} onChange={(e) => onChange({ supervisorUid: e.target.value })} disabled={disabled} className="w-full border border-line rounded-xl px-3 h-12 text-base bg-white">
+            <option value="">بدون مشرف محدد (أي مشرف)</option>
+            {supervisors.map((s) => <option key={s.uid} value={s.uid}>{s.displayName || s.email}</option>)}
+          </select>
+        </label>
+      )}
+    </div>
+  );
+}
+
+// العربات — the admin adds vans and renames / deactivates them. A van's
+// sales type is fixed once created.
+function VansPanel({ token, vans, onSaved, onError }) {
+  const [adding, setAdding] = useState(false);
+  const [form, setForm] = useState({ label: "", type: "wholesale" });
+  const [edit, setEdit] = useState(null);
+  const [busy, setBusy] = useState(false);
+  async function save(body) {
+    setBusy(true);
+    try {
+      await send(token, "/api/vans", "POST", body);
+      onSaved("تم حفظ العربة");
+      setAdding(false);
+      setEdit(null);
+      setForm({ label: "", type: "wholesale" });
+    } catch (err) {
+      onError(err.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <section className="bg-white rounded-2xl shadow p-4 sm:p-5 flex flex-col gap-3">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h2 className="font-display text-lg font-bold text-ink">العربات</h2>
+        {!adding && (
+          <button type="button" onClick={() => setAdding(true)} className="h-11 px-4 rounded-xl bg-accent text-on-accent font-semibold flex items-center gap-2">
+            <Icon name="plus" size={18} /> إضافة عربة
+          </button>
+        )}
+      </div>
+      {adding && (
+        <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto_auto] gap-2 sm:items-end">
+          <label className="flex flex-col gap-1.5 text-sm font-medium text-ink-soft">اسم العربة
+            <input value={form.label} onChange={(e) => setForm((f) => ({ ...f, label: e.target.value }))} maxLength={40} className="w-full border border-line rounded-xl px-3 h-12 text-base" placeholder="مثال: عربة جملة 2" />
+          </label>
+          <RouteSelect value={form.type === "wholesale" ? "car1" : "car2"} onChange={(r) => setForm((f) => ({ ...f, type: TYPE_OF_ROUTE[r] }))} />
+          <div className="grid grid-cols-2 gap-2">
+            <button type="button" onClick={() => setAdding(false)} className="h-12 px-4 rounded-xl border border-line font-semibold">إلغاء</button>
+            <button type="button" disabled={busy} onClick={() => save(form)} className="h-12 px-4 rounded-xl bg-accent text-on-accent font-semibold">حفظ</button>
+          </div>
+        </div>
+      )}
+      <ul className="divide-y divide-line">
+        {vans.map((v) => (
+          <li key={v.id} className="py-3 flex flex-wrap items-center justify-between gap-2">
+            {edit === v.id ? (
+              <EditVan v={v} busy={busy} onCancel={() => setEdit(null)} onSave={(label, active) => save({ id: v.id, label, type: v.type, active })} />
+            ) : (
+              <>
+                <span className="min-w-0">
+                  <span className="font-semibold text-ink">{v.label}</span>
+                  <span className="text-sm text-ink-soft"> · {v.type === "wholesale" ? "جملة" : "تجزئة"}{v.active === false ? " · موقوفة" : ""}</span>
+                </span>
+                <button type="button" onClick={() => setEdit(v.id)} className="h-10 px-3 rounded-xl border border-line text-sm font-semibold">تعديل</button>
+              </>
+            )}
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+function EditVan({ v, busy, onCancel, onSave }) {
+  const [label, setLabel] = useState(v.label);
+  const [active, setActive] = useState(v.active !== false);
+  return (
+    <div className="w-full grid grid-cols-1 sm:grid-cols-[1fr_auto_auto] gap-2 sm:items-center">
+      <input value={label} onChange={(e) => setLabel(e.target.value)} maxLength={40} className="w-full border border-line rounded-xl px-3 h-12 text-base" />
+      <label className="flex items-center gap-2 text-sm font-semibold text-ink-soft"><input type="checkbox" checked={active} onChange={(e) => setActive(e.target.checked)} className="w-5 h-5" /> نشطة</label>
+      <div className="grid grid-cols-2 gap-2">
+        <button type="button" onClick={onCancel} className="h-11 px-3 rounded-xl border border-line font-semibold">إلغاء</button>
+        <button type="button" disabled={busy} onClick={() => onSave(label, active)} className="h-11 px-3 rounded-xl bg-accent text-on-accent font-semibold">حفظ</button>
+      </div>
+    </div>
+  );
+}
 
 // The admin's only screen: every staff account, who holds which role, and
 // the controls to change it. All changes go through /api/admin/users, which
@@ -56,8 +164,8 @@ function RoleBadge({ role, route }) {
   return <span className={`h-6 px-2.5 rounded-full text-xs font-semibold inline-flex items-center ${tone}`}>{jobLabel(role, route)}</span>;
 }
 
-function NewAccount({ token, onCreated, onCancel }) {
-  const [form, setForm] = useState({ displayName: "", nameEn: "", email: "", password: "", role: "", route: "" });
+function NewAccount({ token, onCreated, onCancel, vans, supervisors }) {
+  const [form, setForm] = useState({ displayName: "", nameEn: "", email: "", password: "", role: "", route: "", van: "", supervisorUid: "" });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
@@ -114,9 +222,10 @@ function NewAccount({ token, onCreated, onCancel }) {
         {isSales(form.role) && (
           <div className="sm:col-span-2 flex flex-col gap-1.5 text-sm font-medium text-ink-soft">
             المسار
-            <RouteSelect value={form.route} onChange={(route) => setForm((f) => ({ ...f, route }))} />
+            <RouteSelect value={form.route} onChange={(route) => setForm((f) => ({ ...f, route, van: "" }))} />
           </div>
         )}
+        {isSales(form.role) && <Assignment route={form.route} job={form.role} van={form.van} supervisorUid={form.supervisorUid} vans={vans} supervisors={supervisors} onChange={(x) => setForm((f) => ({ ...f, ...x }))} />}
       </div>
       <button disabled={busy} className="h-12 rounded-xl bg-accent text-on-accent font-semibold flex items-center justify-center gap-2 disabled:opacity-60">
         {busy && <Spinner className="w-4 h-4" />}
@@ -129,7 +238,7 @@ function NewAccount({ token, onCreated, onCancel }) {
 // One account. Read-only until "تعديل" is pressed: then name (Arabic and
 // English), job and route can be changed and saved together — so nothing
 // changes by an accidental tap on a select box.
-function AccountRow({ u, me, token, onSaved, onError }) {
+function AccountRow({ u, me, token, onSaved, onError, vans, supervisors }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(null);
   const [busy, setBusy] = useState("");
@@ -139,7 +248,7 @@ function AccountRow({ u, me, token, onSaved, onError }) {
   const who = u.displayName || u.email;
 
   function startEdit() {
-    setDraft({ displayName: u.displayName || "", nameEn: u.nameEn || "", role: u.job || "", route: u.route || "" });
+    setDraft({ displayName: u.displayName || "", nameEn: u.nameEn || "", role: u.job || "", route: u.route || "", van: u.van || "", supervisorUid: u.supervisorUid || "" });
     setEditing(true);
     setPwOpen(false);
   }
@@ -164,11 +273,17 @@ function AccountRow({ u, me, token, onSaved, onError }) {
     const body = {};
     if (draft.displayName.trim() !== (u.displayName || "")) body.displayName = draft.displayName;
     if (draft.nameEn.trim() !== (u.nameEn || "")) body.nameEn = draft.nameEn;
-    const roleChanged = (draft.role || null) !== (u.job || null) || (isSales(draft.role) && draft.route !== (u.route || ""));
+    const roleChanged =
+      (draft.role || null) !== (u.job || null) ||
+      (isSales(draft.role) && (draft.route !== (u.route || "") || (draft.van || u.van || "") !== (u.van || "") || (draft.supervisorUid || "") !== (u.supervisorUid || "")));
     if (!isMe && (roleChanged || u.legacyRole)) {
       if (isSales(draft.role) && !draft.route) return onError("اختر المسار: جملة أو تجزئة");
       body.role = draft.role || null;
       body.route = isSales(draft.role) ? draft.route : null;
+      if (isSales(draft.role)) {
+        body.van = draft.van || null;
+        body.supervisorUid = draft.role === "sales_agent" ? draft.supervisorUid || null : null;
+      }
     }
     if (!Object.keys(body).length) return setEditing(false);
     const confirmText = roleChanged && !isMe ? `تغيير صلاحية ${who} إلى «${jobLabel(draft.role, draft.route)}»؟ سيُسجَّل خروجه من كل أجهزته.` : null;
@@ -224,7 +339,8 @@ function AccountRow({ u, me, token, onSaved, onError }) {
               </select>
             </label>
           )}
-          {!isMe && isSales(draft.role) && <RouteSelect value={draft.route} onChange={(route) => setDraft({ ...draft, route })} disabled={!!busy} />}
+          {!isMe && isSales(draft.role) && <RouteSelect value={draft.route} onChange={(route) => setDraft({ ...draft, route, van: "" })} disabled={!!busy} />}
+          {!isMe && isSales(draft.role) && <Assignment route={draft.route} job={draft.role} van={draft.van} supervisorUid={draft.supervisorUid} vans={vans} supervisors={supervisors.filter((x) => x.uid !== u.uid)} onChange={(x) => setDraft({ ...draft, ...x })} disabled={!!busy} />}
           {def && <p className="text-xs text-muted">{def.hint}</p>}
           {isMe && <p className="text-xs text-muted">لا يمكنك تغيير صلاحية حسابك أنت.</p>}
           <div className="grid grid-cols-2 gap-2">
@@ -326,6 +442,8 @@ export default function AdminUsers() {
   const [q, setQ] = useState("");
   const [roleFilter, setRoleFilter] = useState("all");
   const [showAudit, setShowAudit] = useState(false);
+  const vans = useVans(token);
+  const supervisors = useMemo(() => (users || []).filter((x) => x.job === "sales_supervisor" && !x.disabled), [users]);
 
   async function load() {
     setError("");
@@ -386,9 +504,13 @@ export default function AdminUsers() {
           )}
         </header>
 
+        <VansPanel token={token} vans={vans} onSaved={(m) => setToast(m)} onError={(m) => setError(m)} />
+
         {adding && (
           <NewAccount
             token={token}
+            vans={vans}
+            supervisors={supervisors}
             onCancel={() => setAdding(false)}
             onCreated={(u) => {
               setUsers((list) => [u, ...(list || [])]);
@@ -435,7 +557,7 @@ export default function AdminUsers() {
         ) : (
           <ul className="bg-white rounded-2xl shadow divide-y divide-line">
             {shown.map((u) => (
-              <AccountRow key={u.uid} u={u} me={user?.uid} token={token} onSaved={saved} onError={(m) => setError(m)} />
+              <AccountRow key={u.uid} u={u} me={user?.uid} token={token} onSaved={saved} onError={(m) => setError(m)} vans={vans} supervisors={supervisors} />
             ))}
           </ul>
         )}

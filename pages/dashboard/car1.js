@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useAuth } from "../../lib/useAuth";
 import Nav from "../../components/Nav";
 import StatusTabs from "../../components/StatusTabs";
+import { tabCounts, filterByTab } from "../../lib/invoiceTabs";
 import PeriodTabs, { periodStartISO } from "../../components/PeriodTabs";
 import FilterPanel from "../../components/FilterPanel";
 import { routesFromClients } from "../../components/DeliveryRoutePicker";
@@ -138,16 +139,13 @@ export default function Car1Dashboard() {
   const baseFiltered = useMemo(() => orders.filter(matchesFilters), [orders, matchesFilters]);
   const counts = useMemo(
     () => ({
-      active: baseFiltered.filter((o) => o.status !== "cancelled").length,
-      cancelled: baseFiltered.filter((o) => o.status === "cancelled").length,
+      ...tabCounts(baseFiltered), // active / refunded / cancelled (lib/invoiceTabs.js)
     }),
     [baseFiltered]
   );
   const visible = useMemo(
     () =>
-      statusFilter === "cancelled"
-        ? baseFiltered.filter((o) => o.status === "cancelled")
-        : baseFiltered.filter((o) => o.status !== "cancelled"),
+      filterByTab(baseFiltered, statusFilter),
     [baseFiltered, statusFilter]
   );
 

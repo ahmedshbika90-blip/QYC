@@ -3,6 +3,7 @@ import { useAuth } from "../lib/useAuth";
 import Nav from "../components/Nav";
 import FilterChips from "../components/FilterChips";
 import StatusTabs from "../components/StatusTabs";
+import { tabCounts, filterByTab } from "../lib/invoiceTabs";
 import PeriodTabs, { periodStartISO } from "../components/PeriodTabs";
 import FilterPanel from "../components/FilterPanel";
 import { routesFromClients } from "../components/DeliveryRoutePicker";
@@ -18,6 +19,7 @@ import { useLiveRefresh } from "../lib/useLiveRefresh";
 import { getClients } from "../lib/clientsStore";
 import { formatDate, formatNumber } from "../lib/labels";
 
+import { vanName, vanShort, vanOptions } from "../lib/vanNames";
 export default function SupervisorDashboard() {
   const { user, role, token, loading, logout } = useAuth(["manager"]);
   const [orders, setOrders] = useState([]);
@@ -135,16 +137,13 @@ export default function SupervisorDashboard() {
   const baseFiltered = useMemo(() => orders.filter(matchesFilters), [orders, matchesFilters]);
   const counts = useMemo(
     () => ({
-      active: baseFiltered.filter((o) => o.status !== "cancelled").length,
-      cancelled: baseFiltered.filter((o) => o.status === "cancelled").length,
+      ...tabCounts(baseFiltered), // active / refunded / cancelled (lib/invoiceTabs.js)
     }),
     [baseFiltered]
   );
   const visible = useMemo(
     () =>
-      statusFilter === "cancelled"
-        ? baseFiltered.filter((o) => o.status === "cancelled")
-        : baseFiltered.filter((o) => o.status !== "cancelled"),
+      filterByTab(baseFiltered, statusFilter),
     [baseFiltered, statusFilter]
   );
 
@@ -181,13 +180,13 @@ export default function SupervisorDashboard() {
       <main className="max-w-5xl mx-auto px-4 pt-5 pb-8 sm:px-8">
         <TodayHeader
           title="الفواتير"
-          subtitle={routeFilter === "car1" ? "مبيعات جملة" : routeFilter === "car2" ? "مبيعات تجزئة" : "كل المسارات"}
+          subtitle={routeFilter ? vanName(routeFilter) : "كل المسارات"}
           aside={
             <FilterChips
               className="shrink-0"
               value={routeFilter === "all" ? "" : routeFilter}
               onChange={(v) => setRouteFilter(v || "all")}
-              options={[["car1", "جملة"], ["car2", "تجزئة"]]}
+              options={vanOptions(true)}
             />
           }
           stats={[
@@ -278,7 +277,7 @@ export default function SupervisorDashboard() {
                 edited={order.edited}
                 badge={
                   <span className={`shrink-0 text-[0.6875rem] font-semibold rounded-md px-1.5 py-0.5 ${order.route === "car1" ? "bg-accent-soft text-accent-ink" : "bg-blue-100 text-blue-700"}`}>
-                    {order.route === "car1" ? "جملة" : "تجزئة"}
+                    {vanShort(order.route)}
                   </span>
                 }
                 subtitle={order.deliveryDate ? `التسليم: ${formatDate(order.deliveryDate)}` : null}

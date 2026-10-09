@@ -64,6 +64,7 @@ export default function Collections() {
           <>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <Stat label="إجمالي المستلم" value={<Money value={data.total} />} tone="text-green-700" sub={`${data.count} دفعة`} />
+              {data.returnedTotal > 0 && <Stat label="مبالغ مردودة للعملاء" value={<Money value={data.returnedTotal} />} tone="text-red-700" sub={`الصافي ${money(data.net)}`} />}
               {data.byRoute.map((r) => (
                 <Stat key={r.route} label={`مندوب ${ROUTE_LABEL[r.route] || r.route}`} value={<Money value={r.amount} />} />
               ))}
@@ -86,6 +87,22 @@ export default function Collections() {
                     <li key={d.date} className="flex flex-col gap-1">
                       <div className="flex flex-wrap justify-between gap-2"><span className="num">{d.date}</span><Money value={d.amount} className="font-bold" /></div>
                       <div className="h-2.5 rounded-full bg-surface-2 overflow-hidden"><span className="block h-full rounded-full bg-accent" style={{ width: `${(d.amount / max) * 100}%` }} /></div>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            )}
+            {data.returns?.length > 0 && (
+              <section className="flex flex-col gap-3">
+                <h2 className="font-display text-lg font-bold text-ink">مبالغ مردودة للعملاء</h2>
+                <ul className="bg-white rounded-2xl shadow divide-y divide-line">
+                  {data.returns.map((x) => (
+                    <li key={x.id} className="px-4 py-3 flex flex-wrap items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="font-semibold text-ink break-words">{x.method === "cash" ? "نقدًا" : <>{x.bankLabel} · <span className="num" dir="ltr">{x.ref}</span></>}</p>
+                        <p className="text-ink-soft break-words"><span className="num">{x.date}</span> · {ROUTE_LABEL[x.route] || x.route} · {x.clients.join("، ")}</p>
+                      </div>
+                      <span className="num text-lg font-bold text-red-700">− {money(x.amount)}</span>
                     </li>
                   ))}
                 </ul>

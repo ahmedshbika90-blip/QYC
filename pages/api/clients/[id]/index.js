@@ -11,7 +11,7 @@ const ROLE_TO_ROUTE = {
 };
 
 function checkAccess(decoded, clientRoute, res) {
-  const restrictedRoute = ROLE_TO_ROUTE[decoded.role];
+  const restrictedRoute = decoded.route;
   if (restrictedRoute && clientRoute !== restrictedRoute) {
     res.status(403).json({ error: "غير مصرح: هذا خارج مسارك" });
     return false;
@@ -48,7 +48,7 @@ export default async function handler(req, res) {
         return res.status(403).json({ error: "المدير فقط يمكنه تغيير مسار العميل" });
       }
       if (!checkAccess(decoded, client.route, res)) return;
-      if (route !== undefined && !["car1", "car2"].includes(route)) {
+      if (route !== undefined && !(await require("../../../../lib/vans").getVan(String(route || "")))) {
         return res.status(400).json({ error: "المسار يجب أن يكون جملة أو تجزئة" });
       }
 

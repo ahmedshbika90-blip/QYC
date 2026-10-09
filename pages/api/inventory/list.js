@@ -47,7 +47,7 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: "السيارة غير صالحة" });
     }
 
-    const restrictedRoute = fleet ? null : ROLE_TO_ROUTE[decoded.role];
+    const restrictedRoute = fleet ? null : decoded.route;
     if (!fleet && !restrictedRoute && !["manager", "warehouse_keeper"].includes(decoded.role)) {
       return res.status(403).json({ error: "غير مصرح: الصلاحية غير معروفة" });
     }

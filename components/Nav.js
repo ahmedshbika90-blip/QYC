@@ -17,6 +17,7 @@ const NotificationToastStack = dynamic(() => import("./NotificationToast"), { ss
 const NOTIFIED_ROLES = ["manager", "agent_car1", "agent_car2", "warehouse_keeper"];
 import Icon from "./Icon";
 import LangToggle from "./LangToggle";
+import { useVans } from "../lib/useVans";
 
 
 // Every destination, once. `badge` says which notifications light it up:
@@ -52,6 +53,7 @@ const L = {
   accLogs: { href: "/accounting/logs", label: "سجلات الفواتير", short: "السجلات", icon: "inbox" },
   accClients: { href: "/accounting/clients", label: "العملاء", short: "العملاء", icon: "users" },
   accCollections: { href: "/accounting/collections", label: "التحصيل", short: "التحصيل", icon: "tag" },
+  accReturns: { href: "/accounting/returns", label: "رد المبالغ", short: "رد المبالغ", icon: "refresh" },
   accReports: { href: "/accounting/reports", label: "التقارير", short: "التقارير", icon: "chart" },
   allStock: { href: "/stock", label: "المخزون", icon: "box" },
   execDash: { href: "/executive", label: "لوحة المتابعة", short: "اللوحة", icon: "chart" },
@@ -104,8 +106,8 @@ function layoutFor(role) {
       return {
         // The logs cover invoices and agents (search, filter by agent).
         tabs: [L.accLogs, L.accClients, L.accCollections, L.accReports],
-        more: [L.allStock, L.security],
-        desktop: [L.accLogs, L.accClients, L.accCollections, L.accReports, L.allStock, L.security],
+        more: [L.accReturns, L.allStock, L.security],
+        desktop: [L.accLogs, L.accClients, L.accCollections, L.accReturns, L.accReports, L.allStock, L.security],
       };
     case "executive":
       return { tabs: [L.execDash, L.execClients, L.execCompetitors], more: [], desktop: [L.execDash, L.execClients, L.execCompetitors] };
@@ -206,6 +208,7 @@ export default function Nav({ role, logout }) {
   const [auth, setAuth] = useState({ token: null, uid: null });
   const [sheetOpen, setSheetOpen] = useState(false);
   useEffect(() => subscribeAuth(setAuth), []);
+  useVans(auth.token); // van names for every screen (lib/vanNames.js)
   const { items, loaded, refreshSeen, toasts, dismissToast } = useNotifications(
     auth.token,
     role,

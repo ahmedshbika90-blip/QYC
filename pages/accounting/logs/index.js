@@ -108,6 +108,20 @@ const PERIODS = [
 ];
 const field = "w-full border border-line rounded-xl px-3 h-12 text-base bg-white";
 
+/** Money-return requests waiting for the accountant (a link to them). */
+function PendingReturns({ token }) {
+  const { data } = useApi(token, "/api/money-returns?status=pending");
+  const n = data?.requests?.length || 0;
+  if (!n) return null;
+  const total = data.requests.reduce((a, r) => a + r.total, 0);
+  return (
+    <Link href="/accounting/returns" className="rounded-2xl border-2 border-amber-400 bg-amber-50 px-4 py-3 flex flex-wrap items-center justify-between gap-2 font-bold text-amber-900">
+      <span className="flex items-center gap-2"><Icon name="alert" size={20} /> <span className="num">{n}</span> طلب رد مبلغ بانتظارك</span>
+      <span className="num">{money(total)}</span>
+    </Link>
+  );
+}
+
 export default function Logs() {
   const { role, token, loading, logout } = useAuth(["accountant"]);
   const router = useRouter();
@@ -140,6 +154,7 @@ export default function Logs() {
           <p className="text-ink-soft mt-1">كل سجل = فواتير مندوب واحد في يوم واحد. افتح السجل لإضافة دفعة المندوب وتسجيل ما دفعه كل عميل.</p>
         </div>
 
+        <PendingReturns token={token} />
         <RefSearch token={token} />
 
         <div>

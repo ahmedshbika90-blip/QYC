@@ -87,7 +87,7 @@ export default function ShipmentRequestsPanel({ role, token }) {
   const [done, setDone] = useState(null); // { id, type } after a successful send
   const requestIds = useRequestId();
 
-  const myRoute = ROLE_TO_ROUTE[role];
+  const myRoute = getAuthFlags().route || ROLE_TO_ROUTE[role]; // the account's van
   const sourceField = type === "loading" ? "depot" : myRoute;
   const availableOf = (p) => (p ? Number(p.stock?.[sourceField] ?? 0) : 0);
   const sourceLabel = type === "loading" ? "المخزن" : "العربة";
@@ -247,11 +247,16 @@ export default function ShipmentRequestsPanel({ role, token }) {
             {[
               ["loading", "أمر شحن", "بضاعة من المخزن إلى سيارتك", "truck"],
               ["offloading", "مرتجع بضاعة", "تفريغ بضاعة من سيارتك إلى المخزن", "box"],
+              ["moneyReturn", "رد مبلغ لعميل", "مبلغ زائد على فاتورة بعد مرتجع — يرده المحاسب", "tag"],
             ].map(([value, label, sub, icon]) => (
               <button
                 key={value}
                 type="button"
                 onClick={() => {
+                  if (value === "moneyReturn") {
+                    window.location.href = "/money-return";
+                    return;
+                  }
                   changeType(value);
                   setDone(null);
                   setTab("new");

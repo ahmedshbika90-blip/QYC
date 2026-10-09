@@ -8,9 +8,10 @@ import { fmt, V } from "../../lib/dashboardView";
 import { ROUTE_LABELS_SHORT } from "../../lib/labels";
 import { UNIT, Card, useGet, ErrorBox, PeriodPicker, Stat } from "./parts";
 
+import { vanName, vanShort, vanTypeOfId } from "../../lib/vanNames";
 /* ── Tab 2: العملاء والمسارات ───────────────────────────────────────────── */
 
-const ROUTE_COLOR = { car1: "w", car2: "r" };
+const ROUTE_COLOR = new Proxy({}, { get: (_, id) => (vanTypeOfId(String(id)) === "retail" ? "r" : "w") }); // by sales type
 
 export default function CustomersTab({ token, range, setRange }) {
   const { data: d, error, busy, reload } = useGet(token, `/api/executive/customers?from=${range.from}&to=${range.to}`, ["orders_car1", "orders_car2", "clients"]);
@@ -41,7 +42,7 @@ export default function CustomersTab({ token, range, setRange }) {
             {reg.routes.map((r) => (
               <Stat
                 key={r.route}
-                label={ROUTE_LABELS_SHORT[r.route] || r.route}
+                label={vanShort(r.route)}
                 value={fmt(r.total)}
                 color={ROUTE_COLOR[r.route]}
                 sub={`${pctText(r.share)} من الإجمالي${r.inactive ? ` · ${fmt(r.inactive)} غير نشط` : ""}`}
@@ -59,7 +60,7 @@ export default function CustomersTab({ token, range, setRange }) {
             <Card key={r.route} className="p-6 flex flex-col gap-4">
               <h3 className="text-[0.9375rem] font-bold flex items-center gap-2" style={{ color: V(ROUTE_COLOR[r.route]) }}>
                 <Icon name="truck" size={18} />
-                {ROUTE_LABELS_SHORT[r.route] || r.route}
+                {vanShort(r.route)}
                 <span className="text-xs font-normal text-muted" dir="ltr">{r.route}</span>
               </h3>
               <div className="grid grid-cols-2 gap-3">
@@ -94,7 +95,7 @@ export default function CustomersTab({ token, range, setRange }) {
                   <tr key={t.id}>
                     <td className="px-4 py-3 dn font-bold text-muted">{t.rank}</td>
                     <td className="px-4 py-3 font-semibold text-ink">{t.name || `عميل ${t.id}`} <span className="text-xs text-muted dn">#{t.id}</span></td>
-                    <td className="px-4 py-3" style={{ color: V(ROUTE_COLOR[t.route]) }}>{ROUTE_LABELS_SHORT[t.route] || t.route}</td>
+                    <td className="px-4 py-3" style={{ color: V(ROUTE_COLOR[t.route]) }}>{vanShort(t.route)}</td>
                     <td className="px-4 py-3 text-end dn">{fmt(t.invoices)}</td>
                     <td className="px-4 py-3 text-end dn font-bold">{fmt(t.units)}</td>
                     <td className="px-4 py-3">

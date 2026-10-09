@@ -1,6 +1,7 @@
 const { adminDb } = require("../../lib/firebaseAdmin");
 const { requireUser } = require("../../lib/apiAuth");
 const { notifySignature } = require("../../lib/notifySig");
+const { isMineToDecide } = require("../../lib/supervision");
 const { reportServerError } = require("../../lib/monitor");
 
 // Resolved items are "recent history": each history query is bounded by
@@ -20,7 +21,7 @@ async function bounded(fast, slow) {
 const ROLE_TO_ROUTE = { agent_car1: "car1", agent_car2: "car2" };
 const ROUTE_LABEL = { car1: "مبيعات جملة", car2: "مبيعات تجزئة" };
 const RESOLVED_LIMIT = 20; // bounded — just enough recent history to notify on
-const CHANGE_LABEL = { cancel: "طلب إلغاء فاتورة", edit: "طلب تعديل فاتورة", client_edit: "طلب تعديل بيانات عميل" };
+const CHANGE_LABEL = { cancel: "طلب إلغاء فاتورة", edit: "طلب تعديل فاتورة", refund: "طلب مرتجع", client_edit: "طلب تعديل بيانات عميل" };
 const changeLabel = (type) => CHANGE_LABEL[type] || "طلب تعديل";
 
 // Every notification item: { id, bucket, needsAction, requestType, from,
@@ -177,7 +178,7 @@ export default async function handler(req, res) {
           });
         });
     } else if (ROLE_TO_ROUTE[role]) {
-      const myRoute = ROLE_TO_ROUTE[role];
+      const myRoute = decoded.route;
 
       // Modification bucket: purely informational for an agent — they
       // never decide these, only find out the outcome.
@@ -235,7 +236,7 @@ export default async function handler(req, res) {
         const toDecide = await adminDb.collection("shipmentRequests").where("status", "==", "pending_car1").get();
         toDecide.docs.forEach((d) => {
           const r = d.data();
-          if (r.requestedBy === decoded.uid) return;
+          if (!isMineToDecide(r, decoded)) return; // his own agents only
           items.push({
             id: d.id,
             bucket: "shipping",

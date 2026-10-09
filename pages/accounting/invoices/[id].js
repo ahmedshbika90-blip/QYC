@@ -129,14 +129,14 @@ export default function AccountingInvoice() {
                   {received.map((p) => (
                     <li key={p.id} className="px-4 py-3.5 flex flex-wrap items-center justify-between gap-2">
                       <span className="min-w-0">
-                        <span className="block text-ink-soft"><span className="num">{p.date}</span></span>
+                        <span className="block text-ink-soft"><span className="num">{p.date}</span>{p.kind === "return" && " · رد مبلغ للعميل"}</span>
                         {p.logId && (
                           <Link href={`/accounting/logs/${encodeURIComponent(p.logId)}`} className="text-accent-ink font-semibold">
                             من سجل فواتير <span className="num" dir="ltr">{p.logId.split("_").pop()}</span>
                           </Link>
                         )}
                       </span>
-                      <span className="num text-xl font-bold text-ink">{formatNumber(p.amount)}</span>
+                      <span className={`num text-xl font-bold ${p.kind === "return" ? "text-red-700" : "text-ink"}`}>{p.kind === "return" ? `− ${formatNumber(-p.amount)}` : formatNumber(p.amount)}</span>
                     </li>
                   ))}
                 </ul>

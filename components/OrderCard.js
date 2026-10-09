@@ -67,8 +67,13 @@ export default function OrderCard({ order, name, location, deliveryRoute, badge,
             <span className={`block text-sm text-ink-soft truncate mt-0.5 ${isCancelled ? "line-through" : ""}`}>
               {itemsSummary(order.items)}
             </span>
-            {(isEdited || order.pendingRequest || hasDiscount(order) || order.hasFreeSample || order.hasPriceAdjustment) && (
+            {(isEdited || order.pendingRequest || hasDiscount(order) || order.hasFreeSample || order.hasPriceAdjustment || order.refunds?.length > 0) && (
               <span className="flex flex-wrap gap-1.5 mt-1.5">
+                {order.refunds?.length > 0 && (
+                  <span className="text-[0.6875rem] font-semibold text-purple-800 bg-purple-50 rounded-md px-1.5 py-0.5">
+                    {order.refundStatus === "awaitingMoney" ? "مرتجع — بانتظار رد المبلغ" : order.refundStatus === "full" ? "مرتجع بالكامل" : `مرتجع ${formatNumber(order.refunds.reduce((a, r) => a + (Number(r.value) || 0), 0))}`}
+                  </span>
+                )}
                 {order.hasFreeSample && (
                   <span className="inline-flex items-center gap-1 text-[0.6875rem] font-semibold text-accent-ink bg-accent-soft rounded-md px-1.5 py-0.5">
                     <Icon name="gift" size={12} />

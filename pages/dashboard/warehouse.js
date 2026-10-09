@@ -13,6 +13,8 @@ import { cachedGet } from "../../lib/apiCache";
 import { useLiveRefresh } from "../../lib/useLiveRefresh";
 import { formatDateTime } from "../../lib/labels";
 
+import { vanName, vanShort } from "../../lib/vanNames";
+import { useVans } from "../../lib/useVans";
 // Warehouse keeper's main page: shortcuts to the three working sections,
 // a live inbox of requests + documents that need HIS attention (new
 // shipment requests from agents come in here — previously the keeper had
@@ -20,6 +22,7 @@ import { formatDateTime } from "../../lib/labels";
 // filterable movement history.
 export default function WarehouseDashboard() {
   const { role, token, loading, logout } = useAuth(["warehouse_keeper"]);
+  const vans = useVans(token);
   const [pending, setPending] = useState([]);
   const [incomingReqs, setIncomingReqs] = useState([]);
 
@@ -53,7 +56,7 @@ export default function WarehouseDashboard() {
     href: `/warehouse/${r.route}`,
     icon: r.type === "loading" ? "truck" : "box",
     tone: "warn",
-    title: `${r.type === "loading" ? "أمر شحن جديد" : "مرتجع بضاعة جديد"} · ${r.route === "car1" ? "مبيعات جملة" : "مبيعات تجزئة"}`,
+    title: `${r.type === "loading" ? "أمر شحن جديد" : "مرتجع بضاعة جديد"} · ${vanName(r.route)}`,
     meta: `${previewNames(r.items)} · ${formatDateTime(r.requestedAt)}`,
     cta: "نفّذ",
   }));
@@ -63,7 +66,7 @@ export default function WarehouseDashboard() {
     href: `/inventory/${d.id}`,
     icon: d.type === "received" ? "warehouse" : d.type === "offloading" ? "box" : "truck",
     tone: "accent",
-    title: `${TYPE_LABELS[d.type] || d.type}${d.route ? ` · ${d.route === "car1" ? "جملة" : "تجزئة"}` : ""}`,
+    title: `${TYPE_LABELS[d.type] || d.type}${d.route ? ` · ${vanShort(d.route)}` : ""}`,
     meta: `${previewNames(d.items)} · ${d.type === "received" || d.type === "damage" ? "بانتظار اعتماد المدير" : "بانتظار تأكيد المندوب"}`,
   }));
 
@@ -77,8 +80,8 @@ export default function WarehouseDashboard() {
           actions={[
             { href: "/warehouse/shipment-requests", label: "طلبات الشحن", icon: "truck" },
             { href: "/warehouse/inventory", label: "المخزون", icon: "box" },
-            { href: "/warehouse/car1", label: "مبيعات جملة", icon: "warehouse" },
-            { href: "/warehouse/car2", label: "مبيعات تجزئة", icon: "warehouse" },
+            // one per van (lib/vans.js), not only the original two
+            ...vans.filter((v) => v.active !== false).map((v) => ({ href: `/warehouse/${v.id}`, label: vanName(v.id), icon: "warehouse" })),
           ]}
         />
 

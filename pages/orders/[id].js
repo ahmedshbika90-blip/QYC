@@ -3,6 +3,7 @@ import Icon from "../../components/Icon";
 import { useRouter } from "next/router";
 import { useAuth } from "../../lib/useAuth";
 import Nav from "../../components/Nav";
+import RefundSheet, { RefundNotes } from "../../components/RefundSheet";
 import BackButton from "../../components/BackButton";
 import SuccessScreen from "../../components/SuccessScreen";
 import InvoiceTotals from "../../components/InvoiceTotals";
@@ -39,6 +40,7 @@ export default function OrderDetail() {
   // Change requests (for locked invoices — agents only)
   const [reason, setReason] = useState("");
   const [cancelRequestOpen, setCancelRequestOpen] = useState(false);
+  const [refundOpen, setRefundOpen] = useState(false);
   const [editDiscount, setEditDiscount] = useState(""); // invoice-level discount while editing
   const [sendingRequest, setSendingRequest] = useState(false);
   const requestIds = useRequestId();
@@ -335,14 +337,21 @@ export default function OrderDetail() {
             </div>
             {isCancelled ? (
               <span className="text-sm text-red-500 bg-red-50 rounded-lg px-3 h-11 flex items-center self-start">
-                ملغاة
+                {order.refundStatus === "awaitingMoney" ? "مرتجع بالكامل — بانتظار رد المبلغ" : order.refundStatus === "full" ? "ملغاة — مرتجع بالكامل" : "ملغاة"}
               </span>
             ) : order.pendingRequest && role !== "manager" ? (
               <span className="text-sm text-amber-700 bg-amber-50 rounded-lg px-3 py-2 self-start">
-                طلب {order.pendingRequest.type === "cancel" ? "إلغاء" : "تعديل"} بانتظار موافقة المدير
+                طلب {order.pendingRequest.type === "cancel" ? "إلغاء" : order.pendingRequest.type === "refund" ? "مرتجع" : "تعديل"} بانتظار موافقة المدير
               </span>
             ) : !editing && !cancelRequestOpen ? (
-              <div className="flex gap-2 self-start">
+              <div className="flex flex-wrap gap-2 self-start">
+                <button
+                  type="button"
+                  onClick={() => setRefundOpen(true)}
+                  className="text-sm text-purple-800 bg-purple-50 active:bg-purple-100 rounded-lg px-4 h-11 font-semibold"
+                >
+                  {needsRequest ? "طلب مرتجع" : "مرتجع"}
+                </button>
                 <button
                   type="button"
                   onClick={startEditing}
@@ -362,6 +371,19 @@ export default function OrderDetail() {
           </div>
 
           {error && <p className="text-red-600 text-sm mb-4">{error}</p>}
+          <RefundNotes order={order} />
+          {refundOpen && (
+            <RefundSheet
+              token={token}
+              order={order}
+              needsRequest={needsRequest}
+              onClose={() => setRefundOpen(false)}
+              onDone={() => {
+                setRefundOpen(false);
+                fetchOrder();
+              }}
+            />
+          )}
 
           {!isCancelled && (
             <p className={`text-xs mb-3 ${order.locked ? "text-gray-600" : "text-gray-400"}`}>
@@ -380,7 +402,7 @@ export default function OrderDetail() {
               href={`/requests/${order.pendingRequest.id}`}
               className="block text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mb-3"
             >
-              يوجد طلب {order.pendingRequest.type === "cancel" ? "إلغاء" : "تعديل"} بانتظار قرارك ←
+              يوجد طلب {order.pendingRequest.type === "cancel" ? "إلغاء" : order.pendingRequest.type === "refund" ? "مرتجع" : "تعديل"} بانتظار قرارك ←
             </a>
           )}
 
@@ -391,7 +413,7 @@ export default function OrderDetail() {
               }`}
             >
               {order.lastRequest.status === "approved" ? "تمت الموافقة على" : "رُفض"} طلب
-              {order.lastRequest.type === "cancel" ? " الإلغاء" : " التعديل"} — {formatDateTime(order.lastRequest.decidedAt)}
+              {order.lastRequest.type === "cancel" ? " الإلغاء" : order.lastRequest.type === "refund" ? " المرتجع" : " التعديل"} — {formatDateTime(order.lastRequest.decidedAt)}
               {order.lastRequest.note && <span className="block text-xs mt-0.5">ملاحظة المدير: {order.lastRequest.note}</span>}
             </div>
           )}

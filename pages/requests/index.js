@@ -15,6 +15,7 @@ import { apiFetch } from "../../lib/apiFetch";
 import { cachedGet, invalidate } from "../../lib/apiCache";
 import { useLiveRefresh } from "../../lib/useLiveRefresh";
 
+import { vanOptions } from "../../lib/vanNames";
 const SUP_TABS = [
   ["pending", "بانتظار القرار"],
   ["approved", "الموافق عليها"],
@@ -233,7 +234,7 @@ export default function RequestsPage() {
               : {})}
             extraActiveCount={supRoute ? 1 : 0}
           >
-            <FilterChips label="السيارة" value={supRoute} onChange={setSupRoute} options={[["car1", "مبيعات جملة"], ["car2", "مبيعات تجزئة"]]} />
+            <FilterChips label="السيارة" value={supRoute} onChange={setSupRoute} options={vanOptions()} />
           </FilterPanel>
 
           {supError && (

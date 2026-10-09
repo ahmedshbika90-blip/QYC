@@ -2,6 +2,7 @@ const { admin, adminDb } = require("../../../../lib/firebaseAdmin");
 const { requireUser, requireRole } = require("../../../../lib/apiAuth");
 const { orderLineToPayload } = require("../../../../lib/linePrice");
 const { editItemsTx, cancelTx } = require("../../../../lib/invoiceChanges");
+const { refundTx } = require("../../../../lib/refunds");
 const { bumpVersions, ordersKey } = require("../../../../lib/versions");
 const { buildClientUpdates } = require("../../../../lib/clientFields");
 const { reportServerError } = require("../../../../lib/monitor");
@@ -93,6 +94,8 @@ export default async function handler(req, res) {
           await editItemsTx(tx, orderRef, items, decoded.uid, orderUpdate, {
             discount: request.proposedDiscount ?? undefined,
           });
+        } else if (request.type === "refund") {
+          await refundTx(tx, orderRef, request.refundLines, decoded.uid, orderUpdate, { refundId: id });
         } else {
           await cancelTx(tx, orderRef, decoded.uid, orderUpdate);
         }
@@ -111,7 +114,7 @@ export default async function handler(req, res) {
     });
 
     if (outcome !== "repeat") {
-      await bumpVersions(isClientRequest ? ["requests", "clients"] : ["requests", ordersKey(route)]);
+      await bumpVersions(isClientRequest ? ["requests", "clients"] : ["requests", ordersKey(route), "inventory", "payments"]);
     }
     return res.status(200).json({ ok: true, status: outcome });
   } catch (err) {

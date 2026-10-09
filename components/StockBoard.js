@@ -3,17 +3,23 @@ import Icon from "./Icon";
 import { formatQty, ROUTE_LABELS_SHORT } from "../lib/labels";
 import { ROUTES } from "../lib/roles";
 
+import { vanName } from "../lib/vanNames";
+import { useVanNames } from "../lib/useVans";
 // Read-only stock balances by location: main depot, every van, damaged.
 // `products`: [{ id, name, unit, stock: { depot, car1, car2, damaged }, lowStock? }]
 // Phones get one card per product; wide screens get a table.
-const LOCATIONS = [
-  { key: "depot", label: "المخزن الرئيسي" },
-  ...ROUTES.map((r) => ({ key: r, label: ROUTE_LABELS_SHORT[r] || r })),
-  { key: "damaged", label: "تالف" },
-];
+// Depot, then every van found in the products' stock (lib/vans.js — not
+// just the original two), then damaged.
+function locationsOf(products) {
+  const vans = new Set(ROUTES);
+  (products || []).forEach((p) => Object.keys(p.stock || {}).forEach((k) => k !== "depot" && k !== "damaged" && vans.add(k)));
+  return [{ key: "depot", label: "المخزن الرئيسي" }, ...[...vans].filter((k) => (products || []).some((p) => p.stock && k in p.stock) || ROUTES.includes(k)).map((r) => ({ key: r, label: vanName(r) || ROUTE_LABELS_SHORT[r] || r })), { key: "damaged", label: "تالف" }];
+}
 
 export default function StockBoard({ products, showDamaged = true }) {
   const [q, setQ] = useState("");
+  useVanNames();
+  const LOCATIONS = locationsOf(products);
   const locs = showDamaged ? LOCATIONS : LOCATIONS.filter((l) => l.key !== "damaged");
   const rows = useMemo(() => {
     const s = q.trim().toLowerCase();

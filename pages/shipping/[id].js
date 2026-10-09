@@ -15,7 +15,8 @@ import { formatDateTime, formatQty } from "../../lib/labels";
 import { markSeen } from "../../lib/notificationSeen";
 import { SHIPMENT_STATUS_LABELS, SHIPMENT_STATUS_TONE, SHIPMENT_TYPE_LABELS } from "../../lib/shipmentStatus";
 
-const ROUTE_LABEL = { car1: "مبيعات جملة", car2: "مبيعات تجزئة" };
+import { vanName, vanShort, vanTypeOfId } from "../../lib/vanNames";
+const ROUTE_LABEL = new Proxy({}, { get: (_, id) => vanName(String(id)) }); // any van (lib/vanNames.js)
 const RESOLVED = ["rejected", "fulfilled", "cancelled"];
 
 // One shipping order / cargo return. Read-only for everyone: the

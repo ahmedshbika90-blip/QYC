@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { formatDateTime } from "../lib/labels";
 
+import { vanName, vanShort } from "../lib/vanNames";
 // Labels for finalized inventory documents (i.e. AFTER the warehouse
 // keeper has fulfilled the request). At this stage a "loading" doc
 // represents a shipment that has been handed off from the warehouse to
@@ -40,7 +41,7 @@ export default function InventoryDocCard({ doc }) {
             )}
             {doc.route && (
               <span className="text-xs font-normal text-gray-400 ms-2">
-                {doc.route === "car1" ? "مبيعات جملة" : "مبيعات تجزئة"}
+                {vanName(doc.route)}
               </span>
             )}
           </p>

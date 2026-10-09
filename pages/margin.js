@@ -10,6 +10,7 @@ import { apiFetch } from "../lib/apiFetch";
 import { cachedGet } from "../lib/apiCache";
 
 import { formatNumber } from "./../lib/labels";
+import { vanOptions, vanName } from "../lib/vanNames";
 const fmt = (n) => (n == null ? "—" : formatNumber(n));
 const pct = (n) => (n == null ? "—" : `${n}%`);
 
@@ -83,7 +84,7 @@ export default function MarginPage() {
           onDateToChange={setDateTo}
           extraActiveCount={route ? 1 : 0}
         >
-          <FilterChips label="السيارة" value={route} onChange={setRoute} options={[["car1", "مبيعات جملة"], ["car2", "مبيعات تجزئة"]]} />
+          <FilterChips label="السيارة" value={route} onChange={setRoute} options={vanOptions()} />
         </FilterPanel>
 
         {error && (
@@ -107,11 +108,11 @@ export default function MarginPage() {
 
             {!route && Object.keys(data.byRoute).length > 1 && (
               <div className="grid grid-cols-2 gap-2 mb-3">
-                {["car1", "car2"].map(
+                {Object.keys(data.byRoute).sort().map(
                   (k) =>
                     data.byRoute[k] && (
                       <div key={k} className="bg-white rounded-lg shadow p-3">
-                        <p className="text-xs text-gray-500">{k === "car1" ? "مبيعات جملة" : "مبيعات تجزئة"}</p>
+                        <p className="text-xs text-gray-500">{vanName(k)}</p>
                         <p className="text-base font-medium text-gray-800 mt-1">
                           {fmt(data.byRoute[k].margin)} <span className="text-xs text-gray-400">({pct(data.byRoute[k].marginPct)})</span>
                         </p>

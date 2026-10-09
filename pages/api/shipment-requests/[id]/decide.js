@@ -2,6 +2,7 @@ const { adminDb } = require("../../../../lib/firebaseAdmin");
 const { requireUser, requireRole } = require("../../../../lib/apiAuth");
 const { bumpVersions } = require("../../../../lib/versions");
 const { reportServerError } = require("../../../../lib/monitor");
+const { isMineToDecide } = require("../../../../lib/supervision");
 
 const MAX_NOTE = 500;
 
@@ -43,6 +44,11 @@ export default async function handler(req, res) {
       const request = snap.data();
       if (request.requestedBy === decoded.uid) {
         const err = new Error("لا يمكنك اعتماد طلبك أنت");
+        err.statusCode = 403;
+        throw err;
+      }
+      if (!isMineToDecide(request, decoded)) {
+        const err = new Error("هذا الطلب لمشرف آخر — يقرره مشرف هذا المندوب");
         err.statusCode = 403;
         throw err;
       }

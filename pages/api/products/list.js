@@ -1,11 +1,12 @@
 const { adminDb } = require("../../../lib/firebaseAdmin");
 const { requireUser } = require("../../../lib/apiAuth");
 const { cachedByVersions } = require("../../../lib/serverCache");
+const { getVan, priceKeyFor } = require("../../../lib/vans");
 const { reportServerError } = require("../../../lib/monitor");
 
 // Everything that can change a product (catalog edits, stock, average cost)
 // bumps one of these counters; see lib/serverCache.js.
-const PRODUCT_KEYS = ["products", "orders_car1", "orders_car2", "inventory", "transfers", "shipmentRequests"];
+const PRODUCT_KEYS = ["vans", "products", "orders_car1", "orders_car2", "inventory", "transfers", "shipmentRequests"];
 const CACHE_MS = 90 * 1000;
 
 // Every product, read once per change (or per 90 s) on this server instance.
@@ -33,8 +34,8 @@ export default async function handler(req, res) {
     const includeInactive = req.query.all === "1";
 
     const { route } = req.query;
-    if (route && !["car1", "car2"].includes(route)) {
-      return res.status(400).json({ error: 'route يجب أن يكون "car1" أو "car2"' });
+    if (route && !(await getVan(String(route)))) {
+      return res.status(400).json({ error: "العربة غير موجودة" });
     }
 
     // Same set as before: ordered by name, active === true unless ?all=1.
@@ -48,7 +49,8 @@ export default async function handler(req, res) {
     }));
 
     if (route) {
-      products = products.map((p) => ({ ...p, price: p.prices?.[route] ?? null }));
+      const key = await priceKeyFor(String(route)); // price of the van's sales type
+      products = products.map((p) => ({ ...p, price: p.prices?.[key] ?? null }));
     }
 
     // Average supplier cost is supervisor-only.

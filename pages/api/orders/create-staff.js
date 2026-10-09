@@ -43,7 +43,7 @@ export default async function handler(req, res) {
 
     const client = await getActiveClient(clientId);
 
-    const restrictedRoute = ROLE_TO_ROUTE[decoded.role];
+    const restrictedRoute = decoded.route;
     if (client.route !== restrictedRoute) {
       return res.status(403).json({ error: "هذا العميل ليس ضمن مسارك" });
     }

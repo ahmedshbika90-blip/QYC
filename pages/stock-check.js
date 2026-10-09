@@ -9,11 +9,12 @@ import { apiFetch } from "../lib/apiFetch";
 import { useLiveRefresh } from "../lib/useLiveRefresh";
 import { formatDateTime, formatQty } from "../lib/labels";
 
+import { vanName, vanShort, vanTypeOfId } from "../lib/vanNames";
 // فحص المخزون (manager): every night each product's balance is compared
 // with its starting point plus every movement since. Differences are shown
 // here (and as a notification) — never corrected automatically. After
 // counting, "الرصيد صحيح" accepts the current balance as the new start.
-const PLACE = { depot: "المخزن", car1: "عربة الجملة", car2: "عربة التجزئة", damaged: "التالف" };
+const PLACE = new Proxy({ depot: "المخزن", car1: "عربة الجملة", car2: "عربة التجزئة", damaged: "التالف" }, { get: (t, k) => t[k] || vanName(String(k)) });
 
 export default function StockCheck() {
   const { role, token, loading, logout } = useAuth(["manager"]);

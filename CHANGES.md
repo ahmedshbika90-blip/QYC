@@ -728,3 +728,38 @@ Tests: `tests/run13.js`, `tests/run14.js` new; `npm test` (14 files) and `next b
 - Accountant menu: السجلات · العملاء · التحصيل · التقارير (+ المخزون, الأمان).
 - `npm run stats:backfill` also builds client balances. Demo data includes client balances and some two-day transfers.
 - Tests: `tests/run20.js`; `tests/run11.js` checks the demo's client balances against a full recount.
+
+---
+
+# Refunds (مرتجع) and money returns (رد مبلغ)
+- **Refund by lines** (`lib/refunds.js`, `POST /api/orders/:id/refund`): the agent (or manager) picks quantities per line and whether the goods are sellable (back into the van) or damaged (damaged stock). Value from sale prices with the invoice discount scaled to the remaining lines (preview with `preview: true`). One transaction: stock, invoice, daily summary, invoice log, client balance.
+- Within 9 hours the agent applies it; after that it's a change request (type `refund`, reason required) the manager approves on the usual requests screen.
+- Partial refund: the invoice keeps the remaining lines; a purple note lists what came back and its value ("مرتجع … بقيمة …"). Full refund: invoice cancelled with "مرتجع بالكامل"; if money had been paid it stays with the active invoices as "بانتظار رد المبلغ" until the money is returned.
+- Money: the new total applies — a refund on a partly paid invoice only lowers what's owed; credit = paid − new total, only when above zero.
+- **Money returns** (`lib/moneyReturns.js`, `/api/money-returns`): the agent picks invoices holding credit ("طلب جديد" → "رد مبلغ لعميل", page `/money-return`); the accountant approves on **رد المبالغ** (`/accounting/returns`) with bank + reference or cash, or rejects. Approval adds a negative payment ("return") to each invoice, in one transaction with logs and client balances; shown in the statement and in التحصيل as money out (net shown).
+- Invoice lists: new **مرتجع** tab next to نشطة / ملغاة; cards show a refund tag. Request screens show refund requests.
+- Tests: `tests/run21.js`.
+
+---
+
+# Vans as data (part 1) + several supervisors
+- `vans` collection (`lib/vans.js`, `/api/vans`, live key `vans`): id, label, type (wholesale | retail), active. The original vans keep ids `car1` / `car2` — no migration; they exist without being saved.
+- Sales accounts: role still picks the sales type (wholesale / retail) as before; new claims `van` (which van) and `supervisorUid` (agents: which supervisor). Accounts without them keep working on car1 / car2. Admin screen: **العربات** panel (add, rename, deactivate; type fixed) and, on each sales account, its van and (agents) its supervisor.
+- Everything that read the van from the role now reads the account's van (`decoded.route`): invoices, clients, stock, requests, refunds, money returns, documents, reports.
+- Prices are per sales type: a van uses `prices.car1` (wholesale) or `prices.car2` (retail) by its type (server and the new-invoice screen).
+- Dashboards (manager summary/trend, executive overview/customers), invoice logs and accounting cover every van; vans count toward their sales type. Invoice-log ids accept any van id.
+- Shipment requests carry the agent's `supervisorUid`; a supervisor sees / decides only his own agents' requests (`lib/supervision.js`); requests made before assignment stay open to any supervisor.
+- New vans have no fixed delivery day (like car1).
+- Tests: `tests/run22.js`.
+- Not yet: screens that still show exactly two van columns/sections (warehouse per-van sections, stock board, products stock, fleet history, transfers target, some filters) — next round.
+
+---
+
+# Vans as data (part 2) — every screen shows every van
+- `lib/vanNames.js`: van names for all screens (filled by `useVans`, loaded once by the nav); `ROUTE_LABELS` / `ROUTE_LABELS_SHORT` fall back to it, so existing labels work for any van.
+- Filters list every van (invoices, clients, margin, requests, sales report, executive customers, fleet history, warehouse history); invoice/request/document cards and the shipping page name any van; executive customer colours by sales type; margin page shows every van.
+- Stock: the stock board, products page and the agent's stock sections show every van found in the stock.
+- Warehouse keeper: one section per van from the dashboard (`/warehouse/[route]`; car1/car2 keep their pages).
+- Clients: the manager picks any active van when registering/editing a client; routes/locations lists follow the van's sales type. Agent screens use the account's van (`van` claim) instead of the role.
+- A new van's changes refresh the screens of its sales type (`orders_car1` / `orders_car2`).
+- Tests: `tests/run22.js` step 5.

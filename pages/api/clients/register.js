@@ -71,7 +71,7 @@ export default async function handler(req, res) {
     // logged in as. The submitted route (if any) is ignored entirely for
     // agents so a tampered request can never register a client onto the
     // other agent's route. Only the supervisor actually picks a route.
-    const forcedRoute = ROLE_TO_ROUTE[decoded.role];
+    const forcedRoute = decoded.route;
     if (forcedRoute) {
       route = forcedRoute;
     }
@@ -89,7 +89,7 @@ export default async function handler(req, res) {
         error: "اسم المتجر والموقع والمسار ورقم الهاتف كلها مطلوبة",
       });
     }
-    if (!["car1", "car2"].includes(route)) {
+    if (!(await require("../../../lib/vans").getVan(String(route || "")))) {
       return res.status(400).json({ error: 'المسار يجب أن يكون جملة أو تجزئة' });
     }
     const deliveryRoute = cleanDeliveryRoute(req.body?.deliveryRoute);

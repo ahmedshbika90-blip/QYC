@@ -9,9 +9,10 @@ import { useLiveRefresh } from "../../lib/useLiveRefresh";
 import { formatNumber } from "../../lib/labels";
 import { TIME_ZONE } from "../../lib/companyConfig";
 
+import { vanName, vanShort, vanTypeOfId } from "../../lib/vanNames";
 export const LIVE_KEYS = ["payments", "orders_car1", "orders_car2"];
 export const money = (n) => formatNumber(Math.round((Number(n) || 0) * 100) / 100);
-export const ROUTE_LABEL = { car1: "جملة", car2: "تجزئة" };
+export const ROUTE_LABEL = new Proxy({}, { get: (_, id) => vanShort(String(id)) }); // any van (lib/vanNames.js)
 export const agentName = (people, route) => (people && people.length ? people.map((p) => p.name).join("، ") : `مندوب ${ROUTE_LABEL[route] || route}`);
 
 const ymd = (d) => d.toLocaleDateString("en-CA", { timeZone: TIME_ZONE });

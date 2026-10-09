@@ -52,7 +52,7 @@ export default async function handler(req, res) {
     const clientSnap = await clientRef.get();
     if (!clientSnap.exists) fail(404, "العميل غير موجود");
     const client = clientSnap.data();
-    if (client.route !== ROLE_TO_ROUTE[decoded.role]) fail(403, "غير مصرح: هذا خارج مسارك");
+    if (client.route !== decoded.route) fail(403, "غير مصرح: هذا خارج مسارك");
     if (!isClientEditLocked(client)) fail(400, "ما زال بإمكانك تعديل هذا العميل مباشرة");
 
     const proposed = changedFields(buildClientUpdates(fields, client), client);

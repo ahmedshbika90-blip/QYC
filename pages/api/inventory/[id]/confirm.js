@@ -51,7 +51,7 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: "إجراء غير صالح" });
     }
 
-    const requiredRoute = ROLE_TO_ROUTE[decoded.role];
+    const requiredRoute = decoded.route;
     if (!requiredRoute || requiredRoute !== doc.route) {
       return res.status(403).json({ error: "غير مصرح: هذا خارج مسارك" });
     }

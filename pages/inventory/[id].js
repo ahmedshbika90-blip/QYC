@@ -11,6 +11,8 @@ import { shareElementAsPdf } from "../../lib/sharePdf";
 import { formatDateTime } from "../../lib/labels";
 import NumericInput from "../../components/NumericInput";
 
+import { vanName, vanShort } from "../../lib/vanNames";
+import { getAuthFlags } from "../../lib/authFlags";
 const TYPE_LABELS = {
   received: "استلام بضاعة",
   // What the warehouse sends BACK to the agent is a delivery, not an order.
@@ -182,7 +184,7 @@ export default function InventoryDocDetail() {
   const canReviewDamage = role === "manager" && doc.type === "damage" && doc.status === "pending";
   const isMovement = doc.type === "loading" || doc.type === "offloading";
   const canConfirmMovement =
-    isMovement && doc.status === "pending" && ROLE_TO_ROUTE[role] === doc.route;
+    isMovement && doc.status === "pending" && (getAuthFlags().route || ROLE_TO_ROUTE[role]) === doc.route;
   const canCancelMovement =
     role === "manager" && isMovement && ["pending", "disputed"].includes(doc.status);
 
@@ -216,7 +218,7 @@ export default function InventoryDocDetail() {
                 {TYPE_LABELS[doc.type] || doc.type}
                 {doc.route && (
                   <span className="text-sm font-normal text-gray-400 ms-2">
-                    {doc.route === "car1" ? "مبيعات جملة" : "مبيعات تجزئة"}
+                    {vanName(doc.route)}
                   </span>
                 )}
               </h1>

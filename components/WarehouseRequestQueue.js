@@ -9,7 +9,8 @@ import { useLiveRefresh } from "../lib/useLiveRefresh";
 import { formatDateTime, formatQty } from "../lib/labels";
 import { SHIPMENT_TYPE_LABELS } from "../lib/shipmentStatus";
 
-const ROUTE_LABEL = { car1: "مبيعات جملة", car2: "مبيعات تجزئة" };
+import { vanName, vanShort, vanTypeOfId } from "../lib/vanNames";
+const ROUTE_LABEL = new Proxy({}, { get: (_, id) => vanName(String(id)) }); // any van (lib/vanNames.js)
 
 // The warehouse keeper's queue of requests waiting on him. Used on
 // /warehouse/shipment-requests (every car) and inside each car's own

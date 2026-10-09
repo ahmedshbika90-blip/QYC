@@ -55,7 +55,7 @@ export default async function handler(req, res) {
     const orderSnap = await orderRef.get();
     if (!orderSnap.exists) fail(404, "الفاتورة غير موجودة");
     const order = orderSnap.data();
-    if (order.route !== ROLE_TO_ROUTE[decoded.role]) fail(403, "غير مصرح: هذا خارج مسارك");
+    if (order.route !== decoded.route) fail(403, "غير مصرح: هذا خارج مسارك");
     if (order.status === "cancelled") fail(400, "الفاتورة ملغاة بالفعل");
     if (!isLocked(order)) fail(400, "الفاتورة غير مقفلة بعد — يمكنك تعديلها مباشرة");
 

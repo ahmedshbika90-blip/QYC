@@ -2,6 +2,7 @@ import Link from "next/link";
 import { formatDateTime, formatNumber } from "../lib/labels";
 import { FIELD_LABELS } from "../lib/clientFields";
 
+import { vanName, vanShort } from "../lib/vanNames";
 const STATUS = {
   pending: ["بانتظار القرار", "bg-amber-50 text-amber-700"],
   approved: ["موافق عليه", "bg-green-50 text-green-700"],
@@ -15,15 +16,17 @@ export default function RequestCard({ request: r }) {
       <div className="flex justify-between items-start gap-2">
         <div className="min-w-0">
           <p className="font-medium text-gray-800 truncate">
-            {r.type === "cancel" ? "طلب إلغاء" : r.type === "client_edit" ? "تعديل بيانات عميل" : "طلب تعديل"} —{" "}
+            {r.type === "cancel" ? "طلب إلغاء" : r.type === "client_edit" ? "تعديل بيانات عميل" : r.type === "refund" ? "طلب مرتجع" : "طلب تعديل"} —{" "}
             {r.clientName || `#${r.clientId}`}
-            <span className="text-xs font-normal text-gray-400 ms-2">{r.route === "car1" ? "مبيعات جملة" : "مبيعات تجزئة"}</span>
+            <span className="text-xs font-normal text-gray-400 ms-2">{vanName(r.route)}</span>
           </p>
           <p className="text-sm text-gray-500 truncate mt-0.5">
             {r.type === "client_edit"
               ? `تغيير: ${Object.keys(r.proposedClient || {}).map((k) => FIELD_LABELS[k] || k).join("، ")}`
               : r.type === "edit"
               ? `الإجمالي: ${formatNumber(r.currentTotal)} ← ${formatNumber(r.proposedTotal)}`
+              : r.type === "refund"
+              ? `مرتجع بقيمة ${formatNumber(r.refundPreview?.value || 0)}`
               : `إلغاء فاتورة بقيمة ${formatNumber(r.currentTotal)}`}
             {r.reason && ` · ${r.reason}`}
           </p>

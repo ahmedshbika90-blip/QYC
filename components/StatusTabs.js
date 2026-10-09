@@ -1,11 +1,11 @@
 import { STATUS_LABELS } from "../lib/labels";
 
-const TABS = ["active", "cancelled"];
+const TABS = ["active", "refunded", "cancelled"];
 
 // Segmented control — one track, the selected segment lifts out of it.
 export default function StatusTabs({ value, onChange, counts }) {
   return (
-    <div role="tablist" className="inline-flex gap-1 p-1 rounded-xl bg-surface-2">
+    <div role="tablist" className="inline-flex flex-wrap gap-1 p-1 rounded-xl bg-surface-2 max-w-full">
       {TABS.map((tab) => {
         const on = value === tab;
         return (

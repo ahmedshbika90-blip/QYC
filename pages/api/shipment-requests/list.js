@@ -1,6 +1,7 @@
 const { adminDb } = require("../../../lib/firebaseAdmin");
 const { requireUser } = require("../../../lib/apiAuth");
 const { reportServerError } = require("../../../lib/monitor");
+const { isMineToDecide } = require("../../../lib/supervision");
 
 const ROLE_TO_ROUTE = { agent_car1: "car1", agent_car2: "car2" };
 
@@ -31,7 +32,7 @@ export default async function handler(req, res) {
       // never the supervisor's own (filtered below).
       query = coll.where("status", "==", "pending_car1");
     } else if (scope === "own") {
-      const myRoute = ROLE_TO_ROUTE[decoded.role];
+      const myRoute = decoded.route;
       if (!myRoute) return res.status(403).json({ error: "غير مصرح" });
       query = coll.where("requestedBy", "==", decoded.uid);
     } else if (status === "pending_warehouse") {
@@ -51,7 +52,7 @@ export default async function handler(req, res) {
 
     const snap = await query.get();
     let requests = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
-    if (scope === "todecide") requests = requests.filter((r) => r.requestedBy !== decoded.uid);
+    if (scope === "todecide") requests = requests.filter((r) => isMineToDecide(r, decoded)); // his own agents only
     requests.sort((a, b) => b.requestedAt.localeCompare(a.requestedAt));
 
     return res.status(200).json({ requests });
