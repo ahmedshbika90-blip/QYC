@@ -48,7 +48,7 @@ const L = {
   viewStock: { href: "/warehouse/view-stock", label: "المخزن الرئيسي", icon: "box" },
   fleet: { href: "/fleet-history", label: "حركة بضاعة السيارات", short: "حركة السيارات", icon: "truck" },
   accounts: { href: "/admin/users", label: "الحسابات والصلاحيات", short: "الحسابات", icon: "users" },
-  adjustments: { href: "/stock-adjustments", label: "تسويات المخزون", short: "التسويات", icon: "box", badge: "modification" },
+  adjustments: { href: "/stock-adjustments", label: "تسويات المخزون", short: "التسويات", icon: "box", badge: "adjust" },
   accStockMoves: { href: "/accounting/stock-movements", label: "حركة المخزون", short: "حركة المخزون", icon: "box" },
   stockCheck: { href: "/stock-check", label: "فحص المخزون", short: "فحص المخزون", icon: "check" },
   security: { href: "/security", label: "التحقق بخطوتين", short: "الأمان", icon: "lock" },
@@ -93,15 +93,14 @@ function layoutFor(role) {
     case "manager":
       return {
         tabs: [home, L.requests, L.inventory, L.sales],
-        more: [L.invoices, L.margin, L.clients, L.products, L.transfers, L.adjustments, L.stockCheck, L.execCompetitors, L.security],
-        desktop: [home, L.invoices, L.requests, L.inventory, L.sales, L.margin, L.clients, L.products, L.transfers, L.adjustments, L.stockCheck, L.execCompetitors, L.security],
+        more: [L.invoices, L.margin, L.clients, L.products, L.adjustments, L.stockCheck, L.execCompetitors, L.security],
+        desktop: [home, L.invoices, L.requests, L.inventory, L.sales, L.margin, L.clients, L.products, L.adjustments, L.stockCheck, L.execCompetitors, L.security],
       };
     case "warehouse_keeper":
       return {
         tabs: [home, L.whInventory, L.whShip, L.whVans],
-        more: [L.adjustments, L.whTransfers],
-        // desktop: one link per van is added in the Nav (it needs the vans list)
-        desktop: [home, L.whInventory, L.whShip, L.whVans, L.adjustments, L.whTransfers],
+        more: [L.adjustments], // goods transfers are a section of تسويات المخزون
+        desktop: [home, L.whInventory, L.whShip, L.whVans, L.adjustments],
       };
     case "admin":
       return { tabs: [], more: [], desktop: [L.accounts, L.security] };
@@ -211,7 +210,7 @@ export default function Nav({ role, logout }) {
   const [auth, setAuth] = useState({ token: null, uid: null });
   const [sheetOpen, setSheetOpen] = useState(false);
   useEffect(() => subscribeAuth(setAuth), []);
-  const vansList = useVans(auth.token); // van names for every screen (lib/vanNames.js)
+  useVans(auth.token); // van names for every screen (lib/vanNames.js)
   const { items, loaded, refreshSeen, toasts, dismissToast } = useNotifications(
     auth.token,
     role,
@@ -228,10 +227,12 @@ export default function Nav({ role, logout }) {
   // category as `it.bucket` — so the shipping count was always 0 and the
   // المستندات dot never appeared.
   const counts = useMemo(() => {
-    const c = { modification: 0, shipping: 0, "shipping:vans": 0 };
+    const c = { modification: 0, shipping: 0, "shipping:vans": 0, adjust: 0 };
     for (const it of items || []) {
       if (!it?.needsAction) continue;
       if (it.bucket === "modification") c.modification += 1;
+      // تسويات المخزون: write-offs, free samples and goods transfers waiting for you
+      if (it.bucket === "adjust" || it.bucket === "transfer") c.adjust += 1;
       if (it.bucket === "shipping") {
         c.shipping += 1;
         // per van ("shipping:<van id>") and for the vans section as a whole
@@ -245,13 +246,7 @@ export default function Nav({ role, logout }) {
   }, [items]);
 
   const baseLayout = layoutFor(role);
-  // Desktop: under العربات, one link per active van with its own dot.
-  const layout = useMemo(() => {
-    if (!baseLayout.desktop.includes(L.whVans)) return baseLayout;
-    const vanLinks = vansList.filter((v) => v.active !== false).map((v) => ({ href: `/warehouse/${v.id}`, label: v.label, short: v.label, icon: "warehouse", badge: `shipping:${v.id}`, sub: true }));
-    const i = baseLayout.desktop.indexOf(L.whVans);
-    return { ...baseLayout, desktop: [...baseLayout.desktop.slice(0, i + 1), ...vanLinks, ...baseLayout.desktop.slice(i + 1)] };
-  }, [baseLayout, vansList]);
+  const layout = baseLayout; // each van is a sub-section of العربات (/warehouse/vans), not a menu item
   const hasTabbar = layout.tabs.length > 0;
   const countFor = (link) => (link.badge ? counts[link.badge] || 0 : 0);
   const moreCount = layout.more.reduce((n, l) => n + countFor(l), 0);

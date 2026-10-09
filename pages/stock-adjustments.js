@@ -18,7 +18,7 @@ import { useApi, Choice, ErrorLine } from "../components/accounting/parts";
 //   تحويل بضاعة   — the existing goods transfers
 const TABS = [["writeoff", "تسوية تالف"], ["freeSample", "عينات مجانية"], ["transfer", "تحويل بضاعة"]];
 
-function NewRequest({ token, kind, products, onDone, onCancel }) {
+function NewRequest({ token, kind, products, onDone, onCancel, showMargin }) {
   const writeoff = kind === "writeoff";
   const field = writeoff ? "damaged" : "depot";
   const avail = products.filter((p) => (Number(p.stock?.[field]) || 0) > 0);
@@ -53,7 +53,13 @@ function NewRequest({ token, kind, products, onDone, onCancel }) {
         label={writeoff ? "نوع التسوية" : "على حساب"}
         value={mode}
         onChange={setMode}
-        options={writeoff ? [["transfer", "تحويل — بدون قيمة"], ["obsolete", "تقادم — تُخصم التكلفة من الهامش"]] : [["supplier", "المورد — بدون قيمة"], ["company", "الشركة — تُخصم التكلفة من الهامش"]]}
+        options={
+          writeoff
+            ? [["transfer", "مرتجع شركة"], ["obsolete", "غير صالحة"]] // the keeper just names what happened
+            : showMargin
+            ? [["supplier", "المورد — بدون قيمة"], ["company", "الشركة — تُخصم التكلفة من الهامش"]]
+            : [["supplier", "المورد"], ["company", "الشركة"]]
+        }
       />
       <div className="flex flex-col gap-2">
         <p className="text-sm font-semibold text-ink-soft">{writeoff ? "من رصيد التالف" : "من المخزن"}</p>
@@ -92,6 +98,8 @@ export default function StockAdjustments() {
   const [status, setStatus] = useState("");
   const [mode, setMode] = useState("");
   const [adding, setAdding] = useState(false);
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const showMargin = role !== "warehouse_keeper"; // the keeper doesn't deal with the margin
   const [toast, setToast] = useState("");
   const [busy, setBusy] = useState("");
   const list = useApi(token, tab === "transfer" ? null : `/api/stock-adjustments?kind=${tab}${status ? `&status=${status}` : ""}`);
@@ -144,16 +152,29 @@ export default function StockAdjustments() {
               </button>
             )}
             {adding && prods.data && (
-              <NewRequest token={token} kind={tab} products={prods.data.products || []} onCancel={() => setAdding(false)} onDone={(m) => { setAdding(false); setToast(m); invalidate("/api/stock-adjustments"); list.reload(); }} />
+              <NewRequest token={token} kind={tab} showMargin={showMargin} products={prods.data.products || []} onCancel={() => setAdding(false)} onDone={(m) => { setAdding(false); setToast(m); invalidate("/api/stock-adjustments"); list.reload(); }} />
             )}
-            <Choice label="الحالة" value={status} onChange={setStatus} options={[["", "الكل"], ["pending", "بانتظار القرار"], ["approved", "معتمد"], ["rejected", "مرفوض"]]} />
-            <Choice label="النوع" value={mode} onChange={setMode} options={tab === "writeoff" ? [["", "الكل"], ["transfer", "تحويل"], ["obsolete", "تقادم"]] : [["", "الكل"], ["supplier", "على المورد"], ["company", "على الشركة"]]} />
+            <div>
+              <button type="button" onClick={() => setFiltersOpen((v) => !v)} aria-expanded={filtersOpen} className="flex items-center gap-2 text-ink bg-white rounded-xl px-4 h-12 shadow-sm font-semibold">
+                <Icon name="filter" size={18} className="text-ink-soft" />
+                تصفية
+                {(status ? 1 : 0) + (mode ? 1 : 0) > 0 && <span className="bg-accent text-on-accent text-sm rounded-full w-6 h-6 flex items-center justify-center num">{(status ? 1 : 0) + (mode ? 1 : 0)}</span>}
+                <Icon name="chevronDown" size={18} className={`text-ink-soft transition-transform ${filtersOpen ? "rotate-180" : ""}`} />
+              </button>
+              {filtersOpen && (
+                <section className="bg-white rounded-3xl shadow p-4 sm:p-5 mt-2 flex flex-col gap-4">
+                  <Choice label="الحالة" value={status} onChange={setStatus} options={[["", "الكل"], ["pending", "بانتظار القرار"], ["approved", "معتمد"], ["rejected", "مرفوض"]]} />
+                  <Choice label="النوع" value={mode} onChange={setMode} options={tab === "writeoff" ? [["", "الكل"], ["transfer", "مرتجع شركة"], ["obsolete", "غير صالحة"]] : [["", "الكل"], ["supplier", "على المورد"], ["company", "على الشركة"]]} />
+                </section>
+              )}
+            </div>
             <ErrorLine error={list.error} onRetry={list.reload} />
             {!list.data ? (
               <SkeletonRows count={4} />
             ) : (
               <AdjustmentList
                 rows={rows}
+                showMargin={showMargin}
                 actionsFor={(a) =>
                   canDecide(a) && (
                     <div className="grid grid-cols-2 gap-2 pt-1">

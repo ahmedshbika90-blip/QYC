@@ -6,7 +6,7 @@ const { listVans } = require("../../lib/vans");
 
 // Stock adjustments (lib/stockAdjustments.js) as notification items.
 const ADJ_LABEL = { writeoff: "تسوية تالف", freeSample: "عينات مجانية" };
-const ADJ_MODE = { transfer: "تحويل", obsolete: "تقادم", supplier: "على المورد", company: "على الشركة" };
+const ADJ_MODE = { transfer: "مرتجع شركة", obsolete: "غير صالحة", supplier: "على المورد", company: "على الشركة" };
 const ADJ_STATE = { pending: "بانتظار القرار", approved: "اعتُمدت", rejected: "رُفضت" };
 async function adjustmentItems(filter, needsAction) {
   const snap = await adminDb.collection("stockAdjustments").get();
@@ -15,7 +15,7 @@ async function adjustmentItems(filter, needsAction) {
     .filter(filter)
     .map((a) => ({
       id: `adj-${a.id}-${a.status}`,
-      bucket: "modification",
+      bucket: "adjust", // lights تسويات المخزون in the menu
       needsAction: needsAction(a),
       requestType: `${ADJ_LABEL[a.kind]} — ${ADJ_MODE[a.mode] || ""}`,
       from: a.items.map((i) => `${i.name} × ${i.qty}`).join("، "),

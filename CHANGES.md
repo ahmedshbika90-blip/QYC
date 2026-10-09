@@ -794,3 +794,16 @@ Tests: `tests/run13.js`, `tests/run14.js` new; `npm test` (14 files) and `next b
 - **Accountant → حركة المخزون** (`/accounting/stock-movements`): damage reports, write-offs and free samples (pending / approved / rejected), filter by kind, status, period; information-only notifications when one is requested or decided.
 - Notifications: manager for pending write-offs, keeper for pending free samples.
 - Tests: `tests/run23.js`.
+
+---
+
+# Menu tidy-up
+- Warehouse keeper: vans are sub-sections of **العربات** only (no menu item per van); goods transfers are reached from **تسويات المخزون** (no separate menu item). Manager: same — no separate التحويلات item.
+- **تسويات المخزون** has its own dot: write-offs, free samples and goods transfers waiting for you (notification bucket `adjust`); the manager's requests dot no longer counts them.
+
+---
+
+# Adjustments wording
+- Damaged write-off modes renamed: **مرتجع شركة** (company return — leaves with no value) and **غير صالحة** (unusable — cost deducted from the margin).
+- The warehouse keeper sees only the plain names: no margin wording, no costs, no deduction lines. The manager and accountant still see the margin effect.
+- Filters on تسويات المخزون open from a **تصفية** button, like the rest of the system.
