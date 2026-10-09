@@ -696,3 +696,10 @@ Tests: `tests/run13.js`, `tests/run14.js` new; `npm test` (14 files) and `next b
 - Server errors now return a short code (e.g. "رمز K3F9Q") that is also in the Vercel log line.
 - Accessibility: new "تكبير النصوص الصغيرة" (labels, hints, text inside fields) and "حدود أسمك للحقول"; the page rebuilt to wrap on the smallest phones; dark mode moved off the top bar into this page; top-bar icons keep a fixed size so larger text never pushes them off screen.
 - `tests/run8.js`: trend assertions no longer fail on Fridays (the daily trend skips Fridays).
+
+---
+
+# Logs-only accounting + fix for "Server error" when opening a log
+- Opening a log failed on the live database: its invoices were read with a route + date query that needs a composite index (not deployed). Now the day's invoices are read by date only (automatic index) and the van is picked out in code; the same for the logs list filtered by agent and the per-agent report. The two composite indexes added for logs are removed from `firestore.indexes.json` — no index deploy is needed for accounting.
+- Logs page: search by the last 4 digits of the transfer reference (log payments and single-invoice payments; opens the log); filters behind a "تصفية" button with an active-filter count, like the rest of the system, plus "مسح التصفية".
+- Accountant menu: سجلات الفواتير · التقارير · المخزون · الأمان. The invoice list and agents pages now redirect to the logs; an invoice's back button returns to its log.

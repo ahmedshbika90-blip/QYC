@@ -109,34 +109,6 @@
           "order": "DESCENDING"
         }
       ]
-    },
-    {
-      "collectionGroup": "logState",
-      "queryScope": "COLLECTION",
-      "fields": [
-        {
-          "fieldPath": "route",
-          "order": "ASCENDING"
-        },
-        {
-          "fieldPath": "day",
-          "order": "ASCENDING"
-        }
-      ]
-    },
-    {
-      "collectionGroup": "logPayments",
-      "queryScope": "COLLECTION",
-      "fields": [
-        {
-          "fieldPath": "route",
-          "order": "ASCENDING"
-        },
-        {
-          "fieldPath": "day",
-          "order": "ASCENDING"
-        }
-      ]
     }
   ],
   "fieldOverrides": []

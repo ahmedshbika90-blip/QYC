@@ -49,8 +49,6 @@ const L = {
   accounts: { href: "/admin/users", label: "الحسابات والصلاحيات", short: "الحسابات", icon: "users" },
   stockCheck: { href: "/stock-check", label: "فحص المخزون", short: "فحص المخزون", icon: "check" },
   security: { href: "/security", label: "التحقق بخطوتين", short: "الأمان", icon: "lock" },
-  accInvoices: { href: "/accounting/invoices", label: "الفواتير والمدفوعات", short: "الفواتير", icon: "file" },
-  accAgents: { href: "/accounting/agents", label: "المناديب", short: "المناديب", icon: "users" },
   accLogs: { href: "/accounting/logs", label: "سجلات الفواتير", short: "السجلات", icon: "inbox" },
   accReports: { href: "/accounting/reports", label: "التقارير", short: "التقارير", icon: "chart" },
   allStock: { href: "/stock", label: "المخزون", icon: "box" },
@@ -102,9 +100,10 @@ function layoutFor(role) {
       return { tabs: [], more: [], desktop: [L.accounts, L.security] };
     case "accountant":
       return {
-        tabs: [L.accLogs, L.accAgents, L.accReports, L.accInvoices],
-        more: [L.allStock, L.security],
-        desktop: [L.accLogs, L.accAgents, L.accReports, L.accInvoices, L.allStock, L.security],
+        // The logs cover invoices and agents (search, filter by agent).
+        tabs: [L.accLogs, L.accReports, L.allStock, L.security],
+        more: [],
+        desktop: [L.accLogs, L.accReports, L.allStock, L.security],
       };
     case "executive":
       return { tabs: [L.execDash, L.execClients, L.execCompetitors], more: [], desktop: [L.execDash, L.execClients, L.execCompetitors] };

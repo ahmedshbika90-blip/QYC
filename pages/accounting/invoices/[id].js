@@ -14,6 +14,7 @@ import { formatDate, formatDateTime, formatNumber, formatQty, shortCode, ROUTE_L
 import NumericInput from "../../../components/NumericInput";
 import { BANKS, BANK_LABELS } from "../../../lib/paymentsShared";
 import { clearRefCache } from "../../../lib/refSearchCache";
+import { businessDay } from "../../../lib/businessDay";
 
 import { TIME_ZONE } from "../../../lib/companyConfig";
 const field = "h-12 w-full rounded-xl border border-line bg-white px-3 text-base text-ink";
@@ -305,13 +306,15 @@ export default function AccountingInvoice() {
 
   const active = (payments || []).filter((p) => !p.voided);
   const voided = (payments || []).filter((p) => p.voided);
+  // Back goes to the invoice log this invoice belongs to.
+  const logHref = order?.route && order?.createdAt ? `/accounting/logs/${encodeURIComponent(`${order.route}_${businessDay(new Date(order.createdAt))}`)}` : "/accounting/logs";
 
   return (
     <div className="min-h-screen bg-canvas">
       <Nav role={role} logout={logout} />
       {toast && <SuccessToast message={toast} onDone={() => setToast("")} />}
       <main className="max-w-2xl mx-auto px-4 pt-5 pb-8 sm:px-8 flex flex-col gap-5">
-        <BackButton href="/accounting/invoices" />
+        <BackButton href={logHref} />
         {error && <p role="alert" className="text-sm text-red-600 bg-red-50 rounded-xl px-3 py-2">{error}</p>}
         {!order ? (
           error ? null : <SkeletonRows count={5} />
@@ -418,9 +421,9 @@ export default function AccountingInvoice() {
                   تم تسجيل دفعة <span className="num">{formatNumber(justAdded.amount)}</span>
                 </p>
                 <div className="grid gap-2 sm:grid-cols-2">
-                  <button type="button" onClick={() => router.push("/accounting/invoices")} className="h-12 rounded-xl border border-line font-semibold text-ink-soft flex items-center justify-center gap-2">
+                  <button type="button" onClick={() => router.push(logHref)} className="h-12 rounded-xl border border-line font-semibold text-ink-soft flex items-center justify-center gap-2">
                     <Icon name="chevronRight" size={18} />
-                    رجوع إلى الفواتير
+                    رجوع إلى سجل الفواتير
                   </button>
                   <button type="button" onClick={() => router.push("/accounting/invoices?focus=1")} className="h-12 rounded-xl bg-accent text-on-accent font-semibold flex items-center justify-center gap-2">
                     <Icon name="plus" size={18} />
