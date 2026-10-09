@@ -148,10 +148,13 @@ export default function ShipmentRequestsPanel({ role, token }) {
     setError("");
   }
 
+  // Damaged goods in the van (refunds marked تالف): an offload carries all
+  // of them first, as damaged lines — shown, not editable.
+  const vanDamaged = type === "offloading" ? products.map((p) => ({ productId: p.id, name: p.name, unit: p.unit, qty: Number(p.stock?.[`damaged_${myRoute}`]) || 0 })).filter((x) => x.qty > 0) : [];
   async function submit(e) {
     e.preventDefault();
     setError("");
-    if (cart.length === 0) {
+    if (cart.length === 0 && vanDamaged.length === 0) {
       setError("أضف منتجًا واحدًا على الأقل");
       return;
     }
@@ -162,7 +165,7 @@ export default function ShipmentRequestsPanel({ role, token }) {
     }
     setSubmitting(true);
     try {
-      const payload = { type, items: cart.map((it) => ({ productId: it.productId, qty: it.qty })), note };
+      const payload = { type, items: [...vanDamaged.map((d) => ({ productId: d.productId, qty: d.qty, damaged: true })), ...cart.map((it) => ({ productId: it.productId, qty: it.qty }))], note };
       const res = await apiFetch("/api/shipment-requests/create", {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
@@ -329,6 +332,18 @@ export default function ShipmentRequestsPanel({ role, token }) {
                 ? "تظهر فقط البضاعة الموجودة في عربتك الآن، ولا يمكنك إرجاع أكثر مما فيها."
                 : "بعد تنفيذ أمين المخزن، ستحتاج لتأكيد استلامها على السيارة."}
             </p>
+
+            {vanDamaged.length > 0 && (
+              <div className="rounded-2xl border-2 border-red-300 bg-red-50 p-4 flex flex-col gap-2">
+                <p className="font-bold text-red-900">التالف في عربتك — يُفرَّغ أولًا</p>
+                <ul className="text-red-900">
+                  {vanDamaged.map((d) => (
+                    <li key={d.productId}>{d.name} × <span className="num">{d.qty}</span> {d.unit || ""}</li>
+                  ))}
+                </ul>
+                <p className="text-sm text-red-800">يُضاف إلى هذا الطلب تلقائيًا، ويصبح تالفًا في المخزن.</p>
+              </div>
+            )}
 
             <ProductCartPicker
               products={availableProducts}

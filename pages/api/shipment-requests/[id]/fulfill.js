@@ -52,7 +52,7 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: "هذا الطلب ليس جاهزًا للتنفيذ" });
     }
 
-    const finalItems = request.items.map((it) => ({ productId: it.productId, qty: it.qty }));
+    const finalItems = request.items.map((it) => ({ productId: it.productId, qty: it.qty, ...(it.damaged ? { damaged: true } : {}) }));
 
     // Second availability check (the first ran when the agent made the
     // request — stock can move in between). For OFFLOADING the write

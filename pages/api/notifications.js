@@ -3,6 +3,28 @@ const { requireUser } = require("../../lib/apiAuth");
 const { notifySignature } = require("../../lib/notifySig");
 const { isMineToDecide } = require("../../lib/supervision");
 const { listVans } = require("../../lib/vans");
+
+// Stock adjustments (lib/stockAdjustments.js) as notification items.
+const ADJ_LABEL = { writeoff: "تسوية تالف", freeSample: "عينات مجانية" };
+const ADJ_MODE = { transfer: "تحويل", obsolete: "تقادم", supplier: "على المورد", company: "على الشركة" };
+const ADJ_STATE = { pending: "بانتظار القرار", approved: "اعتُمدت", rejected: "رُفضت" };
+async function adjustmentItems(filter, needsAction) {
+  const snap = await adminDb.collection("stockAdjustments").get();
+  return snap.docs
+    .map((d) => ({ id: d.id, ...d.data() }))
+    .filter(filter)
+    .map((a) => ({
+      id: `adj-${a.id}-${a.status}`,
+      bucket: "modification",
+      needsAction: needsAction(a),
+      requestType: `${ADJ_LABEL[a.kind]} — ${ADJ_MODE[a.mode] || ""}`,
+      from: a.items.map((i) => `${i.name} × ${i.qty}`).join("، "),
+      state: needsAction(a) ? "بانتظارك" : ADJ_STATE[a.status],
+      tone: a.status === "rejected" ? "bad" : a.status === "approved" ? "good" : undefined,
+      href: "/stock-adjustments",
+      at: a.decidedAt || a.requestedAt,
+    }));
+}
 const { reportServerError } = require("../../lib/monitor");
 
 // Resolved items are "recent history": each history query is bounded by
@@ -118,7 +140,11 @@ export default async function handler(req, res) {
           at: r.createdAt,
         });
       });
+      // damaged write-offs waiting for the manager
+      items.push(...(await adjustmentItems((a) => a.kind === "writeoff" && a.status === "pending", () => true)));
     } else if (role === "warehouse_keeper") {
+      // free samples the manager asked for, waiting to be executed
+      items.push(...(await adjustmentItems((a) => a.kind === "freeSample" && a.status === "pending", () => true)));
       // Transfers the supervisor created, waiting to be released. Its own
       // bucket, so it doesn't inflate the shipping-requests badge.
       const pendingTransfers = await adminDb.collection("transfers").where("status", "==", "pending").get();
@@ -181,6 +207,11 @@ export default async function handler(req, res) {
             at: r.finalizedAt,
           });
         });
+    } else if (role === "accountant") {
+      // Information only: stock adjustments requested or decided in the last 14 days.
+      const since = new Date(Date.now() - 14 * 864e5).toISOString();
+      const rows = await adjustmentItems((a) => String(a.decidedAt || a.requestedAt) >= since, () => false);
+      items.push(...rows.map((x) => ({ ...x, href: "/accounting/stock-movements" })));
     } else if (ROLE_TO_ROUTE[role]) {
       const myRoute = decoded.route;
 

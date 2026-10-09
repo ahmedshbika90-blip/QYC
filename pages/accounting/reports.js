@@ -84,6 +84,19 @@ export default function Reports() {
               <Stat label="بانتظار التوزيع" value={<Money value={t.toDistribute} />} tone={t.toDistribute > 0 ? "text-amber-700" : "text-ink"} />
               <Stat label="هامش التشغيل" value={<MarginValue t={t} />} tone={t.margin < 0 ? "text-red-700" : "text-green-700"} />
             </div>
+            {data.deductions && data.deductions.total > 0 && (
+              <section className="rounded-2xl bg-red-50 border border-red-200 p-4 flex flex-col gap-1">
+                <p className="font-bold text-red-900">خصومات من الهامش (بتاريخ الاعتماد)</p>
+                {data.deductions.obsolete > 0 && <p className="text-red-900">تالف تقادم: <Money value={data.deductions.obsolete} /></p>}
+                {data.deductions.freeSamples > 0 && <p className="text-red-900">عينات مجانية على الشركة: <Money value={data.deductions.freeSamples} /></p>}
+                {typeof t.margin === "number" && <p className="font-bold text-ink">صافي الهامش بعد الخصومات: <Money value={t.margin - data.deductions.total} /></p>}
+                <ul className="text-sm text-red-900 mt-1">
+                  {data.deductions.items.map((x) => (
+                    <li key={x.id}><span className="num">{x.day}</span> · {x.kind === "writeoff" ? "تقادم" : "عينات"} · {x.items} · <span className="num">{money(x.amount)}</span></li>
+                  ))}
+                </ul>
+              </section>
+            )}
             <section className="bg-white rounded-2xl shadow overflow-x-auto">
               <table className="w-full text-sm min-w-[720px]">
                 <thead>

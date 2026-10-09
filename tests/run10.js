@@ -52,7 +52,7 @@ users.adm = { uid: "adm", email: "a@x.com", customClaims: { role: "admin" } };
   const p1 = await call("pages/api/products/list.js", retailSup);
   assert.deepStrictEqual(p1.json.products[0].stock, { depot: 100, car1: 20, car2: 5 });
   const p2 = await call("pages/api/products/list.js", wholeAgent);
-  assert.deepStrictEqual(p2.json.products[0].stock, { depot: 100, car1: 20 });
+  assert.deepStrictEqual(p2.json.products[0].stock, { depot: 100, car1: 20, damaged_car1: 0 }); // his van + its damaged goods
   ok("a retail sales supervisor sees every van; a wholesale sales agent sees only his van + depot");
 
   // 3. shipping approvals: any agent's request waits for any OTHER sales supervisor

@@ -106,6 +106,15 @@ export default function MarginPage() {
               <Stat label="نسبة الهامش" value={pct(t.marginPct)} strong />
             </div>
 
+            {data.deductions && data.deductions.total > 0 && (
+              <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-3 text-sm">
+                <p className="font-bold text-red-900 mb-1">خصومات من الهامش (بتاريخ الاعتماد)</p>
+                {data.deductions.obsolete > 0 && <p className="text-red-900">تالف تقادم: <span className="num">{fmt(data.deductions.obsolete)}</span></p>}
+                {data.deductions.freeSamples > 0 && <p className="text-red-900">عينات مجانية على الشركة: <span className="num">{fmt(data.deductions.freeSamples)}</span></p>}
+                <p className="font-bold text-ink mt-1">صافي الهامش بعد الخصومات: <span className="num">{fmt(data.netMargin)}</span></p>
+              </div>
+            )}
+
             {!route && Object.keys(data.byRoute).length > 1 && (
               <div className="grid grid-cols-2 gap-2 mb-2">
                 {/* wholesale vs retail as a whole, then each van */}

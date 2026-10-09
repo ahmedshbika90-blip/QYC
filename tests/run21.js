@@ -46,12 +46,12 @@ const R = "pages/api/orders/[id]/refund.js";
   assert.deepStrictEqual([o1.subtotal, o1.status, o1.refundStatus, o1.refunds.length, o1.refunds[0].lines.map((l) => [l.qty, l.damaged])], [9500, "active", "partial", 1, [[2, false], [1, true]]]);
   assert.strictEqual(o1.total + o1.refunds[0].value, 10800); // nothing lost: new total + refund = old total
   const s1 = await stock(); const s1b = await stock("p2");
-  assert.deepStrictEqual([s1.car1, s1b.car1, s1b.damaged], [s0.car1 + 2, s0b.car1, s0b.damaged + 1]); // sellable back to the van, damaged to damaged
+  assert.deepStrictEqual([s1.car1, s1b.car1, s1b.damaged_car1 || 0], [s0.car1 + 2, s0b.car1, (s0b.damaged_car1 || 0) + 1]); // damaged stays in the van, apart // sellable back to the van, damaged to damaged
   assert.strictEqual((await call(R, { ...W, method: "POST", query: { id: a }, body: { requestId: rid(2), lines: [{ index: 0, qty: 2 }] } })).json.duplicate, true);
   assert.strictEqual((await call(R, { ...W, method: "POST", query: { id: a }, body: { requestId: rid(3), lines: [{ index: 0, qty: 9 }] } })).status, 400); // more than on the invoice
   assert.strictEqual((await call(R, { ...W2, method: "POST", query: { id: a }, body: { requestId: rid(4), lines: [{ index: 0, qty: 1 }] } })).status, 403);
   assert.strictEqual((await rebuildDay(today)).diffs.length, 0);
-  ok("partial refund by lines: value from sale prices with the discount scaled; sellable back to the van, damaged to damaged; a note on the invoice; daily figures exact");
+  ok("partial refund by lines: value from sale prices with the discount scaled; sellable back to the van, damaged kept apart in the van; a note on the invoice; daily figures exact");
 
   // ---------- 2. after 9 hours: request → manager ----------
   const b = await inv("1001", [{ productId: "p1", qty: 5 }], 5);

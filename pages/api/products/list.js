@@ -64,7 +64,7 @@ export default async function handler(req, res) {
     if (decoded.route && !decoded.salesSupervisor) {
       products = products.map((p) => {
         if (!p.stock) return p;
-        const stock = { depot: p.stock.depot ?? 0, [decoded.route]: p.stock[decoded.route] ?? 0 };
+        const stock = { depot: p.stock.depot ?? 0, [decoded.route]: p.stock[decoded.route] ?? 0, [`damaged_${decoded.route}`]: p.stock[`damaged_${decoded.route}`] ?? 0 };
         return { ...p, stock };
       });
     }

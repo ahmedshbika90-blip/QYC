@@ -779,3 +779,18 @@ Tests: `tests/run13.js`, `tests/run14.js` new; `npm test` (14 files) and `next b
 - **Filters everywhere take a van OR a whole category:** "كل الجملة", "كل التجزئة", then each van — invoices, clients, margin, sales report, requests, executive customers, fleet / warehouse history. Server side `lib/vanFilter.js` (`type:wholesale` / `type:retail` / van id) in the report query, invoice list, inventory history and shipment requests.
 - Margin page: wholesale vs retail as a whole, then each van.
 - Tests: `tests/run22.js` step 6.
+
+---
+
+# Damaged goods, write-offs, free samples, margin deductions
+- **تالف stays in stock:** a damage report (manager approves) moves goods to the warehouse تالف balance; the stock board shows "تالف (المخزن)" and "تالف في العربات" per product with a "التالف فقط" filter; the products page shows تالف per product.
+- **Refunds marked damaged** stay in the van's own damaged balance (`stock.damaged_<van>`), not sellable. An **offload must carry all of the van's damaged goods first** (server-enforced; the offload form adds them automatically); they become warehouse تالف.
+- **تسويات المخزون** (`/stock-adjustments`, `lib/stockAdjustments.js`, `/api/stock-adjustments`):
+  - **تسوية تالف**: keeper picks transfer or obsolete and items from تالف → manager approves. Transfer: out with no value. Obsolete: COST deducted from the margin.
+  - **عينات مجانية**: manager picks supplier or company and items from the depot → keeper executes. Supplier: out with no value. Company: COST deducted from the margin.
+  - **تحويل بضاعة**: the existing transfers, linked from here.
+  - Cost = average cost at approval; stock moves on approval with the stock ledger; filters by status and type.
+- **Margin deductions** dated on the approval day: shown on the manager's margin page and the accountant's report (with net margin and the list).
+- **Accountant → حركة المخزون** (`/accounting/stock-movements`): damage reports, write-offs and free samples (pending / approved / rejected), filter by kind, status, period; information-only notifications when one is requested or decided.
+- Notifications: manager for pending write-offs, keeper for pending free samples.
+- Tests: `tests/run23.js`.

@@ -14,7 +14,7 @@ import dynamic from "next/dynamic";
 // executive, accountant, admin and depot viewer never do.
 const PendingActionModal = dynamic(() => import("./PendingActionModal"), { ssr: false });
 const NotificationToastStack = dynamic(() => import("./NotificationToast"), { ssr: false });
-const NOTIFIED_ROLES = ["manager", "agent_car1", "agent_car2", "warehouse_keeper"];
+const NOTIFIED_ROLES = ["manager", "agent_car1", "agent_car2", "warehouse_keeper", "accountant"];
 import Icon from "./Icon";
 import LangToggle from "./LangToggle";
 import { useVans } from "../lib/useVans";
@@ -48,6 +48,8 @@ const L = {
   viewStock: { href: "/warehouse/view-stock", label: "المخزن الرئيسي", icon: "box" },
   fleet: { href: "/fleet-history", label: "حركة بضاعة السيارات", short: "حركة السيارات", icon: "truck" },
   accounts: { href: "/admin/users", label: "الحسابات والصلاحيات", short: "الحسابات", icon: "users" },
+  adjustments: { href: "/stock-adjustments", label: "تسويات المخزون", short: "التسويات", icon: "box", badge: "modification" },
+  accStockMoves: { href: "/accounting/stock-movements", label: "حركة المخزون", short: "حركة المخزون", icon: "box" },
   stockCheck: { href: "/stock-check", label: "فحص المخزون", short: "فحص المخزون", icon: "check" },
   security: { href: "/security", label: "التحقق بخطوتين", short: "الأمان", icon: "lock" },
   accLogs: { href: "/accounting/logs", label: "سجلات الفواتير", short: "السجلات", icon: "inbox" },
@@ -91,15 +93,15 @@ function layoutFor(role) {
     case "manager":
       return {
         tabs: [home, L.requests, L.inventory, L.sales],
-        more: [L.invoices, L.margin, L.clients, L.products, L.transfers, L.stockCheck, L.execCompetitors, L.security],
-        desktop: [home, L.invoices, L.requests, L.inventory, L.sales, L.margin, L.clients, L.products, L.transfers, L.stockCheck, L.execCompetitors, L.security],
+        more: [L.invoices, L.margin, L.clients, L.products, L.transfers, L.adjustments, L.stockCheck, L.execCompetitors, L.security],
+        desktop: [home, L.invoices, L.requests, L.inventory, L.sales, L.margin, L.clients, L.products, L.transfers, L.adjustments, L.stockCheck, L.execCompetitors, L.security],
       };
     case "warehouse_keeper":
       return {
         tabs: [home, L.whInventory, L.whShip, L.whVans],
-        more: [L.whTransfers],
+        more: [L.adjustments, L.whTransfers],
         // desktop: one link per van is added in the Nav (it needs the vans list)
-        desktop: [home, L.whInventory, L.whShip, L.whVans, L.whTransfers],
+        desktop: [home, L.whInventory, L.whShip, L.whVans, L.adjustments, L.whTransfers],
       };
     case "admin":
       return { tabs: [], more: [], desktop: [L.accounts, L.security] };
@@ -107,8 +109,8 @@ function layoutFor(role) {
       return {
         // The logs cover invoices and agents (search, filter by agent).
         tabs: [L.accLogs, L.accClients, L.accCollections, L.accReports],
-        more: [L.accReturns, L.allStock, L.security],
-        desktop: [L.accLogs, L.accClients, L.accCollections, L.accReturns, L.accReports, L.allStock, L.security],
+        more: [L.accReturns, L.accStockMoves, L.allStock, L.security],
+        desktop: [L.accLogs, L.accClients, L.accCollections, L.accReturns, L.accReports, L.accStockMoves, L.allStock, L.security],
       };
     case "executive":
       return { tabs: [L.execDash, L.execClients, L.execCompetitors], more: [], desktop: [L.execDash, L.execClients, L.execCompetitors] };

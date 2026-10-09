@@ -47,7 +47,7 @@ const today = businessDay(new Date());
   assert.strictEqual((await call("pages/api/orders/create-staff.js", { ...SUP_A, method: "POST", body: { clientId: cid, items: [{ productId: "p1", qty: 1 }], requestId: "req-vans-order-0002" } })).status, 403); // another van's client
   const pl = await call("pages/api/products/list.js", { ...AG_W, query: { route: "van-w2" } });
   assert.strictEqual(pl.json.products[0].price, 1000); // wholesale price
-  assert.deepStrictEqual(Object.keys(pl.json.products[0].stock).sort(), ["depot", "van-w2"]); // only his own van
+  assert.deepStrictEqual(Object.keys(pl.json.products[0].stock).sort(), ["damaged_van-w2", "depot", "van-w2"]); // only his own van (and its damaged goods)
   ok("a van's agent registers clients on his van, sells at his type's prices and from his van's stock; other vans' clients are off limits");
 
   // ---------- 3. dashboards, logs and accounting count every van ----------

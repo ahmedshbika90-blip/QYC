@@ -4,6 +4,8 @@ const { fetchReportOrders } = require("../../../lib/reportQuery");
 const { isLocked } = require("../../../lib/invoiceLock");
 const { netLines, orderDiscount } = require("../../../lib/invoiceDiscount");
 const { reportServerError } = require("../../../lib/monitor");
+const { businessDay } = require("../../../lib/businessDay");
+const { marginDeductions } = require("../../../lib/stockAdjustments");
 
 const DEFAULT_WINDOW_DAYS = 7;
 const round = (n) => Math.round(n * 100) / 100;
@@ -122,7 +124,15 @@ export default async function handler(req, res) {
       }))
       .sort((a, b) => b.margin - a.margin);
 
+    // Margin deductions (obsolete damaged goods, company-paid free samples),
+    // dated on approval — company-wide, so only without a van filter.
+    const fromDay = businessDay(new Date(from));
+    const toDay = req.query.to ? String(req.query.to).slice(0, 10) : businessDay(new Date());
+    const deductions = route === "all" ? await marginDeductions(fromDay, toDay) : null;
+    const grossMargin = summarize(totals).margin;
     return res.status(200).json({
+      deductions,
+      netMargin: deductions ? round(grossMargin - deductions.total) : null,
       route,
       from,
       to: req.query.to || null,

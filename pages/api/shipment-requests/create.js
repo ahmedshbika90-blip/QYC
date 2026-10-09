@@ -59,10 +59,10 @@ export default async function handler(req, res) {
     }
     const seen = new Set();
     for (const it of items) {
-      if (seen.has(it.productId)) {
+      if (seen.has(`${it.productId}|${it.damaged ? 1 : 0}`)) { // a damaged line and a normal line of one product are separate
         return res.status(400).json({ error: "المنتج مكرر في الطلب — اجمع كميته في سطر واحد" });
       }
-      seen.add(it.productId);
+      seen.add(`${it.productId}|${it.damaged ? 1 : 0}`);
     }
 
     // Fast, friendly refusal before any stock checks. This also covers
@@ -87,7 +87,26 @@ export default async function handler(req, res) {
     // transaction, which is the one that actually protects the balances
     // (stock can move between the two moments).
     const sourceField = type === "loading" ? "depot" : route;
+    const damagedField = `damaged_${route}`; // the van's damaged goods (refunds marked تالف)
     const shortages = [];
+    if (type === "offloading") {
+      // Damaged goods in the van go back first: an offload must carry ALL of
+      // them (as damaged lines) before anything else.
+      const all = await adminDb.collection("products").get();
+      const missing = all.docs
+        .map((d) => ({ id: d.id, name: d.data().name, qty: Number(d.data().stock?.[damagedField]) || 0 }))
+        .filter((p) => p.qty > 0)
+        .filter((p) => items.filter((it) => it.damaged && it.productId === p.id).reduce((a, it) => a + Number(it.qty || 0), 0) !== p.qty);
+      if (missing.length) {
+        const err = new Error(`أفرغ التالف في عربتك أولًا — ${missing.map((p) => `${p.name}: ${p.qty}`).join("، ")}`);
+        err.statusCode = 409;
+        throw err;
+      }
+    } else if (items.some((it) => it.damaged)) {
+      const err = new Error("التالف يُفرَّغ فقط");
+      err.statusCode = 400;
+      throw err;
+    }
 
     const resolvedItems = items.map((it, i) => {
       const snap = productSnaps[i];
@@ -98,11 +117,11 @@ export default async function handler(req, res) {
       }
       const data = snap.data();
       const qty = parseQty(it.qty);
-      const available = data.stock?.[sourceField] ?? 0;
+      const available = data.stock?.[it.damaged ? damagedField : sourceField] ?? 0;
       if (qty > available) {
         shortages.push({ productId: it.productId, name: data.name, requested: qty, available });
       }
-      return { productId: it.productId, name: data.name, unit: data.unit, qty };
+      return { productId: it.productId, name: data.name, unit: data.unit, qty, ...(it.damaged ? { damaged: true } : {}) };
     });
 
     if (shortages.length) {

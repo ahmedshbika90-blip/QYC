@@ -381,7 +381,10 @@ export default function Products() {
                     {isSupervisor && (
                     <p className="text-xs text-gray-400 mt-0.5">
                       المخزن: {formatQty(p.stock?.depot ?? 0)}
-                      {Object.keys(p.stock || {}).filter((k) => k !== "depot" && k !== "damaged").sort().map((k) => (
+                      {(p.stock?.damaged || 0) + Object.entries(p.stock || {}).filter(([k]) => k.startsWith("damaged_")).reduce((a, [, v]) => a + (Number(v) || 0), 0) > 0 && (
+                        <span className="text-red-700 font-semibold"> · تالف: {formatQty((p.stock?.damaged || 0) + Object.entries(p.stock || {}).filter(([k]) => k.startsWith("damaged_")).reduce((a, [, v]) => a + (Number(v) || 0), 0))}</span>
+                      )}
+                      {Object.keys(p.stock || {}).filter((k) => k !== "depot" && k !== "damaged" && !k.startsWith("damaged_")).sort().map((k) => (
                         <span key={k}> · {vanName(k)}: {formatQty(p.stock[k] ?? 0)}</span>
                       ))}
                     </p>

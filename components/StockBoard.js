@@ -12,25 +12,34 @@ import { useVanNames } from "../lib/useVans";
 // just the original two), then damaged.
 function locationsOf(products) {
   const vans = new Set(ROUTES);
-  (products || []).forEach((p) => Object.keys(p.stock || {}).forEach((k) => k !== "depot" && k !== "damaged" && vans.add(k)));
-  return [{ key: "depot", label: "المخزن الرئيسي" }, ...[...vans].filter((k) => (products || []).some((p) => p.stock && k in p.stock) || ROUTES.includes(k)).map((r) => ({ key: r, label: vanName(r) || ROUTE_LABELS_SHORT[r] || r })), { key: "damaged", label: "تالف" }];
+  (products || []).forEach((p) => Object.keys(p.stock || {}).forEach((k) => k !== "depot" && k !== "damaged" && !k.startsWith("damaged_") && vans.add(k)));
+  // تالف = the warehouse's damaged goods + damaged goods still in vans (shown apart)
+  return [
+    { key: "depot", label: "المخزن الرئيسي" },
+    ...[...vans].filter((k) => (products || []).some((p) => p.stock && k in p.stock) || ROUTES.includes(k)).map((r) => ({ key: r, label: vanName(r) || ROUTE_LABELS_SHORT[r] || r })),
+    { key: "damaged", label: "تالف (المخزن)", damaged: true },
+    { key: "damagedVans", label: "تالف في العربات", damaged: true },
+  ];
 }
 
 export default function StockBoard({ products, showDamaged = true }) {
   const [q, setQ] = useState("");
   useVanNames();
   const LOCATIONS = locationsOf(products);
-  const locs = showDamaged ? LOCATIONS : LOCATIONS.filter((l) => l.key !== "damaged");
+  const [onlyDamaged, setOnlyDamaged] = useState(false);
+  const locs = showDamaged ? LOCATIONS : LOCATIONS.filter((l) => !l.damaged);
   const rows = useMemo(() => {
     const s = q.trim().toLowerCase();
     return (products || [])
       .filter((p) => !s || (p.name || "").toLowerCase().includes(s))
       .map((p) => {
-        const by = Object.fromEntries(locs.map((l) => [l.key, Number(p.stock?.[l.key]) || 0]));
-        const total = locs.filter((l) => l.key !== "damaged").reduce((a, l) => a + by[l.key], 0);
-        return { ...p, by, total };
-      });
-  }, [products, q, locs]);
+        const vanDamaged = Object.entries(p.stock || {}).filter(([k]) => k.startsWith("damaged_")).reduce((a, [, v]) => a + (Number(v) || 0), 0);
+        const by = Object.fromEntries(locs.map((l) => [l.key, l.key === "damagedVans" ? vanDamaged : Number(p.stock?.[l.key]) || 0]));
+        const total = locs.filter((l) => !l.damaged).reduce((a, l) => a + by[l.key], 0);
+        return { ...p, by, total, damagedTotal: (by.damaged || 0) + (by.damagedVans || 0) };
+      })
+      .filter((p) => !onlyDamaged || p.damagedTotal > 0);
+  }, [products, q, locs, onlyDamaged]);
   const totals = Object.fromEntries(locs.map((l) => [l.key, rows.reduce((a, r) => a + r.by[l.key], 0)]));
   const grand = rows.reduce((a, r) => a + r.total, 0);
 
@@ -49,6 +58,12 @@ export default function StockBoard({ products, showDamaged = true }) {
         <Icon name="search" size={18} className="absolute top-1/2 -translate-y-1/2 start-3 text-muted" />
         <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="ابحث عن منتج..." className="h-11 w-full rounded-xl border border-line bg-white ps-10 pe-3 text-base" />
       </div>
+      {showDamaged && (
+        <label className="self-start inline-flex items-center gap-2 h-11 px-3 rounded-xl bg-white shadow-sm font-semibold text-ink cursor-pointer">
+          <input type="checkbox" checked={onlyDamaged} onChange={(e) => setOnlyDamaged(e.target.checked)} className="w-5 h-5" />
+          التالف فقط
+        </label>
+      )}
 
       {rows.length === 0 ? (
         <p className="text-muted">لا توجد منتجات.</p>
