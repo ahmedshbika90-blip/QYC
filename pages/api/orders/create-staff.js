@@ -6,6 +6,7 @@ const { isValidRequestId } = require("../../../lib/requestId");
 const { stripCost } = require("../../../lib/invoiceLock");
 const { applyInvoiceDiscount } = require("../../../lib/invoiceDiscount");
 const { writeInvoiceStats } = require("../../../lib/salesStats");
+const { writeClientInvoice } = require("../../../lib/clientLedger");
 const { prepareInvoiceNumber } = require("../../../lib/invoiceNumbers");
 const { CURRENCY } = require("../../../lib/companyConfig");
 
@@ -97,6 +98,7 @@ export default async function handler(req, res) {
       if (numbering) numbering.commit();
       created = invoice;
       writeInvoiceStats(tx, null, invoice); // daily summary, same transaction
+      writeClientInvoice(tx, docRef.id, null, invoice); // client balance
     });
 
     if (existing) {

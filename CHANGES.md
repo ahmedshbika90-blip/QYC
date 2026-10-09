@@ -711,3 +711,20 @@ Tests: `tests/run13.js`, `tests/run14.js` new; `npm test` (14 files) and `next b
 - Re-splitting an existing payment must also use all of it (`allocateLogPayment`). Older partly-split payments show "غير مكتملة — أكمل التوزيع".
 - Invoices carry only amounts: their payment entries are `{ amount, date, logId }` (no reference, bank or note). The invoice page is read-only: total, paid, remaining, and the amounts received with a link to their log. `POST /api/payments/:id` no longer adds payments (409); editing/voiding older direct payments still works.
 - Tests: `tests/run17.js` rewritten for the new flow; library-level payment rules still tested through `directPay` in `tests/run.js`.
+
+---
+
+# New demo data for testing the whole system
+- `scripts/demo/generate.js` / `seed.js`: payments are now recorded on INVOICE LOGS (reference on the log payment, split exactly over that log's invoices; invoices get amounts only). Retail days settle within a day or two (sometimes one client short); wholesale clients pay in one or two rounds; the newest wholesale days stay open — so paid / partial / unpaid logs all exist. Also: legal invoice numbers, daily summaries + log totals, ~200 competitor prices (4 competitors × 5 items with weights and routes, drifting over time), saved routes/locations. Wipes the new collections too (log payments, places, competitor prices, stock ledger/checks); the stock check starts fresh.
+- `tests/run11.js` checks all of it, including a recount of the log totals; `tests/run13.js` loads the log payments.
+- Stock check: a movement saved in the same millisecond as a check is now counted exactly once (`boundary` ids on the checkpoint) — found by a flaky test.
+
+---
+
+# Accounting: one transfer over several days, client statements & ageing, collections
+1. **One payment over several logs** of the same agent: in the payment sheet, "الدفعة تشمل يومًا آخر لنفس المندوب" lists his other unpaid days; each added day's clients appear under it. Stored as `logIds`, `days`, `allocLogs` on the log payment; each log counts (received / paid) the part it got; the payment shows on every log it covers; re-split, void and the nightly recount handle it. Older single-log payments work unchanged.
+2. **Clients (العملاء)** — `clientBalance/{clientId}` kept in the same transactions as invoices and payments (one write per client per transaction): balance, client credit, open invoices, ageing 0–30 / 31–60 / 61–90 / 90+ by invoice age. List with search, filters (agent, debt age, all clients) and an ageing bar; **statement (كشف حساب)** per client: invoices (debit) and amounts received (credit), oldest first, running balance, print/PDF and Excel.
+3. **Collections (التحصيل)** — money received by transfer date: total, per agent, per bank, per day, and every payment with its logs.
+- Accountant menu: السجلات · العملاء · التحصيل · التقارير (+ المخزون, الأمان).
+- `npm run stats:backfill` also builds client balances. Demo data includes client balances and some two-day transfers.
+- Tests: `tests/run20.js`; `tests/run11.js` checks the demo's client balances against a full recount.

@@ -13,8 +13,12 @@
  *          requests, transfers, payments, audit log, counters (and sample
  *          products from an earlier demo run, marked demo: true).
  * KEEPS:   your products and prices, staff accounts, roles, names, photos.
- * WRITES:  ~65 clients, months of invoices, payments, receipts/loadings —
- *          every document marked demo: true.
+ * WRITES:  ~65 clients, months of invoices (with legal numbers), payments
+ *          recorded on invoice logs and split over their invoices, open
+ *          logs for the last days, receipts/loadings, daily summaries,
+ *          competitor prices, saved routes/locations — every document
+ *          marked demo: true. The stock check starts fresh (first run sets
+ *          its starting point).
  *
  * Safety: nothing is written without --run AND --confirm equal to the
  * project id in .env.local, so it can't hit the wrong project by accident.
@@ -30,9 +34,10 @@ const WIPE = [
   "orders", "clients", "inventoryDocs", "shipmentRequests", "changeRequests", "clientRequests",
   "transfers", "invoicePayments", "paymentRefs", "auditLog", "dailyCounters", "sentReports", "rateLimits", "agentOpenShipment",
   "dailyStats", "monthlyStats", "logState", "logPayments", "places",
+  "competitorPrices", "stockLedger", "stockChecks", "statsDrift", "clientBalance",
 ];
 const META_RESET = ["clientIdCounter", "paymentRefsSearch", "paymentRefsSearch2", "invoiceNumbering", "stockCheckpoint", "stockCheck"];
-const VERSION_KEYS = ["orders_car1", "orders_car2", "requests", "inventory", "clients", "shipmentRequests", "payments", "products"];
+const VERSION_KEYS = ["orders_car1", "orders_car2", "requests", "inventory", "clients", "shipmentRequests", "payments", "products", "competitors", "places", "stockCheck"];
 
 const parseArgs = (argv) =>
   Object.fromEntries(
@@ -82,7 +87,7 @@ async function main(argv) {
     process.exit(1);
   }
   const data = generate({ months, seed, uids, catalog: real });
-  const writes = data.clients.length + data.orders.length + data.inventoryDocs.length + data.invoicePayments.length + data.paymentRefs.length + data.dailyStats.length + data.monthlyStats.length + data.logState.length;
+  const writes = data.clients.length + data.orders.length + data.inventoryDocs.length + data.invoicePayments.length + data.paymentRefs.length + data.dailyStats.length + data.monthlyStats.length + data.logState.length + data.logPayments.length + data.places.length + data.competitorPrices.length + data.clientBalance.length;
 
   console.log("Will DELETE:");
   for (const name of WIPE) console.log(`  ${name.padEnd(18)} ${await count(name)} documents`);
@@ -93,7 +98,9 @@ async function main(argv) {
   console.log(args["reset-stock"] ? "  Stock will be SET to where the demo history ends." : "  Stock is left exactly as it is now (use --reset-stock to change it).");
   console.log("\nWill CREATE:");
   console.log(`  clients ${data.clients.length}, invoices ${data.orders.length},`);
-  console.log(`  warehouse documents ${data.inventoryDocs.length}, invoices with payments ${data.invoicePayments.length}`);
+  console.log(`  warehouse documents ${data.inventoryDocs.length}, invoice logs ${data.logState.length}`);
+  console.log(`  payments on logs ${data.logPayments.length} (each split over its invoices), invoices with money received ${data.invoicePayments.length}`);
+  console.log(`  competitor prices ${data.competitorPrices.length}, saved routes/locations ${data.places.length}`);
   console.log(`  period ${data.period.from} → ${data.period.to}  (~${writes} writes)`);
   console.log("\nSales agents / keeper / accountant found:", Object.keys(uids).filter((k) => k !== "accountantEmail").join(", ") || "none (placeholders used)");
 
@@ -125,6 +132,10 @@ async function main(argv) {
   put("dailyStats", data.dailyStats);
   put("monthlyStats", data.monthlyStats);
   put("logState", data.logState);
+  put("logPayments", data.logPayments);
+  put("places", data.places);
+  put("competitorPrices", data.competitorPrices);
+  put("clientBalance", data.clientBalance);
   bw.set(adminDb.collection("meta").doc("clientIdCounter"), { value: data.lastClientId });
   // Demo references already carry the last-4 search field; demo invoices
   // already have their daily summaries.

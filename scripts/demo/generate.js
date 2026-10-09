@@ -19,6 +19,8 @@ const DAY = 24 * 3600 * 1000;
 const TZ_OFFSET_H = 2; // Africa/Khartoum
 
 const { statsDocsFromOrders, logStatesFromOrders } = require("../../lib/salesStatsModel");
+const { normalizeAr } = require("../../lib/arabicSearch");
+const { clientBalancesFrom } = require("../../lib/clientLedgerModel");
 
 function rng(seed) {
   // mulberry32
@@ -367,50 +369,125 @@ function generate({ months = 4, seed = 2026, now = new Date(), uids = {}, wholes
     p.data.stock = { depot: Math.max(0, s.depot), car1: Math.max(0, s.car1), car2: Math.max(0, s.car2), damaged: s.damaged };
   });
 
-  // ── payments (accountant) ──
+  // ── payments (accountant) — recorded on INVOICE LOGS ──
+  // A log = one van's invoices of one day. The agent hands over money for a
+  // day; the accountant records it on the log with its reference and splits
+  // it between the invoices (each split adds up exactly to the payment).
+  // Retail vans settle within a day or two; wholesale clients pay later, in
+  // one or two rounds; the last days are still open, so there's always
+  // something to record when testing.
   const invoicePayments = [];
   const paymentRefs = [];
+  const logPayments = [];
   const usedRefs = new Set();
-  const todayMs = end.getTime();
+  const payDocs = {}; // orderId -> invoicePayments doc
+  const lastDayIdx = totalDays - 1;
+  const byLog = new Map();
   orders.forEach((o) => {
-    const d = o.data;
-    if (d.status === "cancelled") return;
-    const ageDays = Math.floor((todayMs - new Date(d.createdAt).getTime()) / DAY);
-    const total = d.total;
-    let plan; // list of fractions + delays (days after invoice)
-    if (d.route === "car2") {
-      const roll = r();
-      plan = roll < (ageDays > 7 ? 0.86 : 0.55) ? [[1, int(0, 3)]] : roll < 0.95 ? [[0.5, int(0, 2)]] : [];
-    } else {
-      const due = int(7, 40);
-      if (ageDays > due) plan = chance(0.85) ? (chance(0.35) ? [[0.5, int(3, 10)], [0.5, due]] : [[1, due]]) : chance(0.6) ? [[0.4, int(5, 20)]] : [];
-      else plan = chance(0.25) ? [[0.3, int(0, Math.max(0, ageDays))]] : [];
-    }
-    const payments = [];
-    let paid = 0;
-    plan.forEach(([frac, delay], k) => {
-      const dayIdx = o.day + delay;
-      if (dayIdx >= totalDays) return;
-      const amount = k === plan.length - 1 && frac === 1 ? total - paid : Math.min(total - paid, Math.round((total * frac) / 1000) * 1000);
-      if (amount <= 0) return;
-      const bank = weighted(BANKS);
-      let ref;
-      do ref = String(int(10000000, 99999999999));
-      while (usedRefs.has(`${bank}__${ref}`));
-      usedRefs.add(`${bank}__${ref}`);
-      const id = `demo-pay-${o.id.slice(9)}-${k + 1}`;
-      const createdAt = notFuture(at(dayIdx, 11 + r() * 5));
-      payments.push({ id, ref, bank, amount, date: ymdOf(dayIdx), note: null, createdAt, createdBy: U.accountant, createdByEmail: U.accountantEmail });
-      paymentRefs.push({ id: `${bank}__${ref}`, data: { orderId: o.id, paymentId: id, createdAt, bank, ref, refRev: [...ref].reverse().join(""), last4: ref.slice(-4), amount, date: ymdOf(dayIdx), clientId: d.clientId ? String(d.clientId) : null, route: d.route || null, demo: true } });
-      paid += amount;
-    });
-    if (payments.length) {
-      invoicePayments.push({
-        id: o.id,
-        data: { orderId: o.id, route: d.route, clientId: d.clientId, payments, paidTotal: paid, count: payments.length, updatedAt: payments[payments.length - 1].createdAt, demo: true },
-      });
-    }
+    if (o.data.status === "cancelled") return;
+    const key = `${o.data.route}_${o.day}`;
+    if (!byLog.has(key)) byLog.set(key, { route: o.data.route, dayIdx: o.day, invoices: [] });
+    byLog.get(key).invoices.push(o);
   });
+  let payN = 0;
+  function recordPayment(log, dayIdx, shares, extraLogs = []) {
+    const allocations = {};
+    let amount = 0;
+    shares.forEach(([o, amt]) => {
+      if (amt > 0) {
+        allocations[o.id] = amt;
+        amount += amt;
+      }
+    });
+    if (!amount || dayIdx > lastDayIdx) return;
+    const bank = weighted(BANKS);
+    let ref;
+    do ref = String(int(10000000, 99999999999));
+    while (usedRefs.has(`${bank}__${ref}`));
+    usedRefs.add(`${bank}__${ref}`);
+    const id = `demo-logpay-${String(++payN).padStart(5, "0")}`;
+    const day = ymdOf(log.dayIdx);
+    const logId = `${log.route}_${day}`;
+    const logsOf = [log, ...extraLogs];
+    const logIds = logsOf.map((l) => `${l.route}_${ymdOf(l.dayIdx)}`);
+    const allocLogs = Object.fromEntries(Object.keys(allocations).map((oid) => {
+      const o = orders.find((x) => x.id === oid);
+      return [oid, `${o.data.route}_${ymdOf(o.day)}`];
+    }));
+    // Same-day settlement happens in the evening, after the day's invoices.
+    const createdAt = notFuture(at(dayIdx, dayIdx === log.dayIdx ? 19 + r() * 2 : 10 + r() * 7));
+    const date = ymdOf(dayIdx);
+    logPayments.push({ id, data: { logId, logIds, days: logIds.map((x) => x.slice(-10)).sort(), allocLogs, route: log.route, day, ref, bank, amount, date, note: null, currency: "SDG", status: "active", allocations, allocatedTotal: amount, createdAt, createdBy: U.accountant, createdByEmail: U.accountantEmail, demo: true } });
+    paymentRefs.push({ id: `${bank}__${ref}`, data: { logId, logIds, logPaymentId: id, route: log.route, day, createdAt, amount, date, bank, ref, refRev: [...ref].reverse().join(""), last4: ref.slice(-4), demo: true } });
+    for (const [orderId, amt] of Object.entries(allocations)) {
+      const o = orders.find((x) => x.id === orderId);
+      const doc = (payDocs[orderId] = payDocs[orderId] || { orderId, route: o.data.route, clientId: o.data.clientId, payments: [], paidTotal: 0, count: 0, demo: true });
+      doc.payments.push({ id: `${id}:${orderId}`, viaLog: id, logId: allocLogs[orderId], amount: amt, date, createdAt, createdBy: U.accountant });
+      doc.paidTotal += amt;
+      doc.count += 1;
+      doc.updatedAt = createdAt;
+    }
+  }
+  const owed = (o) => o.data.total - (payDocs[o.id]?.paidTotal || 0);
+  const round1000 = (n) => Math.max(0, Math.floor(n / 1000) * 1000);
+  const sortedLogs = [...byLog.values()].sort((a, b) => a.dayIdx - b.dayIdx);
+  const settled = new Set();
+  for (const log of sortedLogs) {
+    const age = lastDayIdx - log.dayIdx;
+    if (settled.has(log)) continue;
+    if (log.route === "car2" && age > 3 && chance(0.15)) {
+      // one transfer for this day and the next one of the same van
+      const next = sortedLogs.find((l) => l.route === "car2" && l.dayIdx > log.dayIdx && !settled.has(l));
+      if (next && next.dayIdx - log.dayIdx <= 2) {
+        settled.add(next);
+        recordPayment(log, next.dayIdx + int(0, 1), [...log.invoices, ...next.invoices].map((o) => [o, o.data.total]), [next]);
+        continue;
+      }
+    }
+    if (log.route === "car2") {
+      if (!chance(age > 2 ? 0.92 : age > 0 ? 0.6 : 0.2)) continue;
+      // one client sometimes pays only part
+      const short = chance(0.12) ? pick(log.invoices) : null;
+      recordPayment(log, log.dayIdx + int(0, Math.min(2, age)), log.invoices.map((o) => [o, o === short ? round1000(o.data.total / 2) : o.data.total]));
+    } else {
+      if (age < 3) continue; // the newest wholesale days are still open
+      const first = log.invoices.filter(() => chance(age > 14 ? 0.65 : 0.4));
+      if (first.length) recordPayment(log, log.dayIdx + int(1, Math.min(6, age)), first.map((o) => [o, chance(0.2) ? round1000(o.data.total * 0.6) : o.data.total]));
+      if (age > 14 && chance(0.85)) {
+        const rest = log.invoices.filter((o) => owed(o) > 0 && chance(0.8));
+        if (rest.length) recordPayment(log, log.dayIdx + int(8, Math.min(20, age)), rest.map((o) => [o, owed(o)]));
+      }
+    }
+  }
+  Object.entries(payDocs).forEach(([id, data]) => invoicePayments.push({ id, data }));
+
+  // ── competitor prices (sales supervisor) and saved routes / locations ──
+  const routeNames = [...new Set(clients.map((c) => c.data.deliveryRoute).filter(Boolean))];
+  const places = [];
+  ["car1", "car2"].forEach((sales) => {
+    routeNames.forEach((name) => places.push({ id: `${sales}__route__${name}`, data: { kind: "route", name, salesRoute: sales, createdBy: U.car1, createdAt: at(0, 9), demo: true } }));
+  });
+  [["الكلاكلة صنقعت", "خط الخرطوم"], ["أم درمان — المهدية", "خط أم درمان"], ["بحري — المزاد", "خط بحري"]].forEach(([name, route]) =>
+    ["car1", "car2"].forEach((sales) => places.push({ id: `${sales}__location__${name}`, data: { kind: "location", name, deliveryRoute: route, salesRoute: sales, createdBy: U.car1, createdAt: at(0, 9), demo: true } }))
+  );
+  const RIVALS = ["سيقا", "الأمل للأغذية", "دال للأغذية", "حلويات الشرق"];
+  const RIVAL_ITEMS = [["طحنية سادة", 400, "g", 2100], ["طحنية سادة", 800, "g", 3900], ["طحنية بالشوكولاتة", 400, "g", 2600], ["شيبس", 25, "g", 250], ["شيبس عائلي", 150, "g", 1200]];
+  const competitorPrices = [];
+  let cpN = 0;
+  for (let dIdx = 0; dIdx < totalDays; dIdx += int(5, 9)) {
+    RIVAL_ITEMS.forEach(([item, weight, unit, base]) => {
+      RIVALS.forEach((company, ci) => {
+        if (!chance(0.55)) return;
+        const drift = 1 + (dIdx / totalDays) * 0.08 + (r() - 0.5) * 0.06 + ci * 0.03;
+        const price = Math.round((base * drift) / 50) * 50;
+        const id = `demo-cp-${String(++cpN).padStart(4, "0")}`;
+        competitorPrices.push({
+          id,
+          data: { date: ymdOf(dIdx), deliveryRoute: pick(routeNames) || "خط الخرطوم", company, item, weight, weightUnit: unit, itemKey: `${normalizeAr(item)}|${weight}${unit}`, price, createdAt: at(dIdx, 13), createdBy: U.car1, createdByName: "مشرف المبيعات", route: "car1", demo: true },
+        });
+      });
+    });
+  }
 
   // Legal invoice numbers (INV-YYYY-000001…), in creation order per year.
   const invoiceCounters = {};
@@ -442,7 +519,11 @@ function generate({ months = 4, seed = 2026, now = new Date(), uids = {}, wholes
     dailyStats: dayDocs,
     monthlyStats: monthDocs,
     invoiceCounters,
-    logState: logStatesFromOrders(orders, Object.fromEntries(invoicePayments.map((p) => [p.id, p.data]))).map((d) => ({ ...d, data: { ...d.data, demo: true } })),
+    logPayments,
+    places,
+    competitorPrices,
+    clientBalance: Object.entries(clientBalancesFrom(orders, Object.fromEntries(invoicePayments.map((p) => [p.id, p.data])))).map(([id, data]) => ({ id, data: { ...data, demo: true } })),
+    logState: logStatesFromOrders(orders, Object.fromEntries(invoicePayments.map((p) => [p.id, p.data])), logPayments.map((p) => p.data)).map((d) => ({ ...d, data: { ...d.data, demo: true } })),
   };
 }
 

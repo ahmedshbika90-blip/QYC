@@ -17,7 +17,7 @@ const { generate } = require("../scripts/demo/generate");
   const d = generate({ months: 3, seed: 7 });
   const again = generate({ months: 3, seed: 7 });
   assert.strictEqual(JSON.stringify(d.orders.slice(0, 5)), JSON.stringify(again.orders.slice(0, 5)));
-  for (const [coll, list] of [["products", d.products], ["clients", d.clients], ["orders", d.orders], ["inventoryDocs", d.inventoryDocs], ["invoicePayments", d.invoicePayments], ["paymentRefs", d.paymentRefs]]) {
+  for (const [coll, list] of [["products", d.products], ["clients", d.clients], ["orders", d.orders], ["inventoryDocs", d.inventoryDocs], ["invoicePayments", d.invoicePayments], ["paymentRefs", d.paymentRefs], ["logPayments", d.logPayments], ["logState", d.logState], ["dailyStats", d.dailyStats], ["competitorPrices", d.competitorPrices], ["places", d.places], ["clientBalance", d.clientBalance]]) {
     for (const { id, data } of list) await db.collection(coll).doc(id).set(data);
   }
   ok("generator is repeatable (same seed → same data) and loads " + d.orders.length + " invoices");
@@ -32,11 +32,26 @@ const { generate } = require("../scripts/demo/generate");
   for (const p of d.invoicePayments) {
     const o = d.orders.find((x) => x.id === p.id).data;
     assert.ok(p.data.paidTotal <= o.total, "overpaid " + p.id);
-    assert.ok(p.data.payments.every((x) => /^\\d{1,11}$/.test(x.ref)));
+    // invoices only carry amounts and the log they came from
+    assert.ok(p.data.payments.every((x) => x.viaLog && x.logId && x.amount > 0 && x.ref === undefined));
   }
+  // every log payment: valid reference, split exactly over invoices of its own log
+  for (const lp of d.logPayments) {
+    assert.ok(/^\\d{1,11}$/.test(lp.data.ref));
+    const shares = Object.entries(lp.data.allocations);
+    assert.strictEqual(shares.reduce((a, [, v]) => a + v, 0), lp.data.amount);
+    assert.ok(lp.data.logIds.every((l) => l.startsWith(lp.data.route + "_")));
+    for (const [oid] of shares) {
+      const o = d.orders.find((x) => x.id === oid).data;
+      const own = o.route + "_" + new Date(o.createdAt).toLocaleDateString("en-CA", { timeZone: "Africa/Khartoum" });
+      assert.ok(lp.data.logIds.includes(own) && lp.data.allocLogs[oid] === own); // one of the payment's logs, same agent
+    }
+  }
+  assert.ok(d.orders.every((o) => /^INV-\\d{4}-\\d{6}$/.test(o.data.number)));
+  assert.ok(d.competitorPrices.length > 50 && d.competitorPrices.every((c) => c.data.weight > 0 && c.data.deliveryRoute && !c.data.sku));
   assert.ok(d.products.every((p) => Object.values(p.data.stock).every((v) => v >= 0)));
   assert.ok(d.orders.every((o) => o.data.createdAt <= new Date().toISOString()));
-  ok("totals add up, no overpayment, valid references, no negative stock, nothing in the future");
+  ok("totals add up; payments are on invoice logs, each split exactly over its own log's invoices; invoices carry amounts only; numbers, competitor prices; no negative stock, nothing in the future");
 
   const from = d.period.from, to = d.period.to;
   const ex = await call("pages/api/executive/overview.js", { role: "executive", uid: "e", query: { from, to } });
@@ -59,13 +74,25 @@ const { generate } = require("../scripts/demo/generate");
   assert.ok(rc.json.docs.length >= 10);
   ok("executive overview, customers, receipts, manager summary and trend all work on demo data");
 
-  const acc = await call("pages/api/accounting/invoices.js", { role: "accountant", uid: "a", query: { from } });
-  const statuses = new Set(acc.json.invoices.map((i) => i.payment.status));
-  assert.ok(statuses.has("paid") && statuses.has("unpaid"));
+  const acc = await call("pages/api/accounting/logs/index.js", { role: "accountant", uid: "a", query: { from } });
+  assert.strictEqual(acc.status, 200, JSON.stringify(acc.json));
+  const statuses = new Set(acc.json.logs.map((l) => l.status));
+  assert.ok(statuses.has("paid") && statuses.has("unpaid") && statuses.has("partial"), [...statuses].join());
+  const someLog = acc.json.logs.find((l) => l.status === "partial");
+  const opened = await call("pages/api/accounting/logs/[id].js", { role: "accountant", uid: "a", query: { id: someLog.id } });
+  assert.strictEqual(opened.status, 200, JSON.stringify(opened.json));
+  assert.ok(opened.json.invoices.length > 0 && opened.json.payments.length > 0);
+  // the stored log totals match a fresh recount for every day
+  await db.collection("meta").doc("statsState").set({ ready: true });
+  const { rebuildDay } = require("../lib/salesStats");
+  for (const day of [...new Set(d.logState.map((l) => l.data.day))].slice(-20)) assert.strictEqual((await rebuildDay(day)).diffs.length, 0, day);
+  assert.strictEqual((await require("../lib/clientLedger").rebuildClientBalances()).changed, 0); // demo client balances = a full recount
+  const cl = await call("pages/api/accounting/clients/index.js", { role: "accountant", uid: "a" });
+  assert.ok(cl.json.clients.length > 5 && cl.json.totals.balance > 0);
   const someRef = d.paymentRefs[0].data.ref;
   const fr = await call("pages/api/accounting/find-ref.js", { role: "accountant", uid: "a", query: { ref: someRef.slice(-4) } });
   assert.ok(fr.json.matches.some((m) => m.ref === someRef));
-  ok("accountant sees paid / partial / unpaid invoices and can find a demo payment by its first digits");
+  ok("accountant sees paid / partial / unpaid invoice logs, opens one, and finds a demo payment by its last 4 digits; log totals match a recount");
 
   // 5. the real seeding script, with the company's OWN products
   for (const name of Object.keys(db._data)) delete db._data[name];
@@ -100,6 +127,9 @@ const { generate } = require("../scripts/demo/generate");
   const l1 = lines2.find((l) => l.productId === "p-real-1" && !l.freeSample);
   assert.ok([61000, 64500].includes(l1.price) && l1.unitCost === 52000);
   assert.ok(lines.some((t) => t.includes("منتج بدون سعر تجزئة"))); // reported as skipped
+  assert.ok(d.logPayments.some((p) => p.data.logIds.length > 1)); // some transfers cover two days
+  for (const coll of ["logPayments", "logState", "competitorPrices", "places", "dailyStats", "clientBalance"]) assert.ok(Object.keys(db._data[coll] || {}).length > 0, coll + " written");
+  assert.ok(db._data.meta.invoiceNumbering.enabled);
   console.log = () => {};
   await main(["--run", "--confirm=demo-proj", "--months=2", "--reset-stock"]);
   console.log = log;

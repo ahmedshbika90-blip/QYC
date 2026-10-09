@@ -56,7 +56,46 @@ function byClient(invoices) {
  * the amount each invoice received, typed by the accountant. "حفظ" works
  * only when the amounts use the whole payment — until then nothing is saved.
  */
-function PaymentSheet({ token, logId, payment, clients, onSaved, onClose }) {
+function PaymentSheet({ token, logId, route, payment, clients: ownClients, onSaved, onClose }) {
+  // Other days of the same agent this payment also covers (one transfer for
+  // several days). An existing payment brings its own extra days.
+  const [extra, setExtra] = useState([]); // [{ logId, day, clients }]
+  const [picking, setPicking] = useState(false);
+  const [openLogs, setOpenLogs] = useState(null);
+  const [loadingLog, setLoadingLog] = useState("");
+  async function addLog(otherId) {
+    setLoadingLog(otherId);
+    try {
+      const res = await apiFetch(`/api/accounting/logs/${encodeURIComponent(otherId)}`, { headers: { Authorization: `Bearer ${token}` } });
+      const d = await res.json();
+      if (!res.ok) throw new Error(d.error);
+      setExtra((x) => (x.some((g) => g.logId === otherId) ? x : [...x, { logId: otherId, day: d.log.day, clients: byClient(d.invoices) }]));
+      setPicking(false);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoadingLog("");
+    }
+  }
+  useEffect(() => {
+    (payment?.logIds || []).filter((x) => x !== logId).forEach((x) => addLog(x));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  async function showOpenLogs() {
+    setPicking(true);
+    if (openLogs) return;
+    try {
+      const from = new Date(Date.now() - 90 * 864e5).toISOString().slice(0, 10);
+      const res = await apiFetch(`/api/accounting/logs?route=${route}&from=${from}&to=${todayYmd()}`, { headers: { Authorization: `Bearer ${token}` } });
+      const d = await res.json();
+      if (!res.ok) throw new Error(d.error);
+      setOpenLogs(d.logs.filter((l) => l.id !== logId && l.remaining > 0));
+    } catch (err) {
+      setError(err.message);
+    }
+  }
+  const groups = [{ logId, day: logId.slice(-10), clients: ownClients }, ...extra];
+  const clients = groups.flatMap((g) => g.clients);
   const isNew = !payment;
   const [f, setF] = useState({ ref: "", bank: BANKS[0].id, amount: "", date: todayYmd(), note: "" });
   const [alloc, setAlloc] = useState(() => Object.fromEntries(Object.entries(payment?.allocations || {}).map(([k, v]) => [k, String(v)])));
@@ -92,7 +131,7 @@ function PaymentSheet({ token, logId, payment, clients, onSaved, onClose }) {
     setBusy(true);
     try {
       const body = isNew
-        ? { action: "pay", ...f, allocations: alloc, requestId: rid.idFor({ ...f, alloc }), ...(confirmSimilar ? { confirmSimilar: true } : {}) }
+        ? { action: "pay", ...f, allocations: alloc, logIds: groups.map((g) => g.logId), requestId: rid.idFor({ ...f, alloc }), ...(confirmSimilar ? { confirmSimilar: true } : {}) }
         : { action: "allocate", paymentId: payment.id, allocations: alloc };
       const data = await post(token, logId, body);
       if (isNew) rid.reset();
@@ -161,36 +200,80 @@ function PaymentSheet({ token, logId, payment, clients, onSaved, onClose }) {
           <section className="flex flex-col gap-3">
             <h3 className="font-bold text-ink text-lg px-1">{isNew ? "٢. ما دفعه كل عميل" : "ما دفعه كل عميل"}</h3>
             <p className="text-ink-soft px-1">اكتب المبلغ الذي دفعه كل عميل من هذه الدفعة. لا تُحفظ الدفعة حتى يُوزَّع مبلغها كاملًا.</p>
-            {clients.map((c) => (
+            {groups.map((g) => (
+              <div key={g.logId} className="flex flex-col gap-3">
+                {groups.length > 1 && (
+                  <p className="font-display font-bold text-ink px-1 pt-1 flex items-center justify-between gap-2">
+                    <span>سجل فواتير <span className="num" dir="ltr">{g.day}</span></span>
+                    {g.logId !== logId && isNew && (
+                      <button type="button" onClick={() => { setExtra((x) => x.filter((y) => y.logId !== g.logId)); setAlloc((a) => Object.fromEntries(Object.entries(a).filter(([k]) => !g.clients.some((c) => c.invoices.some((i) => i.id === k))))); }} className="h-10 px-3 rounded-xl text-sm font-semibold text-red-700 hover:bg-red-50">
+                        إزالة هذا اليوم
+                      </button>
+                    )}
+                  </p>
+                )}
+                {g.clients.map((c) => (
               <div key={c.id} className="bg-white rounded-2xl shadow-sm p-4 flex flex-col gap-3">
-                <div className="min-w-0">
-                  <p className="font-bold text-ink text-lg break-words">{c.name}</p>
-                  {c.storeName && <p className="text-ink-soft break-words">{c.storeName}</p>}
-                </div>
-                {c.invoices.map((i) => {
-                  const cancelled = i.status === "cancelled" || i.status === "cancelledPaid";
-                  const tooMuch = (Number(alloc[i.id]) || 0) > room(i) + 1e-9;
-                  return (
-                    <div key={i.id} className="grid grid-cols-1 sm:grid-cols-[1fr_11rem] gap-2 sm:items-center border-t border-line pt-3">
-                      <div className="min-w-0">
-                        <p className="font-semibold text-ink break-words">فاتورة <span className="num">{invoiceNo(i)}</span></p>
-                        <p className={`text-sm ${tooMuch ? "text-red-700 font-bold" : "text-ink-soft"}`}>
-                          {cancelled ? "فاتورة ملغاة" : <>المتبقي عليها <Money value={room(i)} className="font-bold" /></>}
-                        </p>
-                      </div>
-                      <NumericInput
-                        value={alloc[i.id] || ""}
-                        onChange={(v) => setAlloc((a) => ({ ...a, [i.id]: v }))}
-                        disabled={cancelled && !alloc[i.id]}
-                        placeholder="0"
-                        className={`${field} text-end text-lg font-bold ${tooMuch ? "border-red-600" : ""}`}
-                        aria-label={`ما دفعه ${c.name} — فاتورة ${invoiceNo(i)}`}
-                      />
+                    <div className="min-w-0">
+                      <p className="font-bold text-ink text-lg break-words">{c.name}</p>
+                      {c.storeName && <p className="text-ink-soft break-words">{c.storeName}</p>}
                     </div>
-                  );
-                })}
+                    {c.invoices.map((i) => {
+                      const cancelled = i.status === "cancelled" || i.status === "cancelledPaid";
+                      const tooMuch = (Number(alloc[i.id]) || 0) > room(i) + 1e-9;
+                      return (
+                        <div key={i.id} className="grid grid-cols-1 sm:grid-cols-[1fr_11rem] gap-2 sm:items-center border-t border-line pt-3">
+                          <div className="min-w-0">
+                            <p className="font-semibold text-ink break-words">فاتورة <span className="num">{invoiceNo(i)}</span></p>
+                            <p className={`text-sm ${tooMuch ? "text-red-700 font-bold" : "text-ink-soft"}`}>
+                              {cancelled ? "فاتورة ملغاة" : <>المتبقي عليها <Money value={room(i)} className="font-bold" /></>}
+                            </p>
+                          </div>
+                          <NumericInput
+                            value={alloc[i.id] || ""}
+                            onChange={(v) => setAlloc((a) => ({ ...a, [i.id]: v }))}
+                            disabled={cancelled && !alloc[i.id]}
+                            placeholder="0"
+                            className={`${field} text-end text-lg font-bold ${tooMuch ? "border-red-600" : ""}`}
+                            aria-label={`ما دفعه ${c.name} — فاتورة ${invoiceNo(i)}`}
+                          />
+                        </div>
+                      );
+                    })}
+                  </div>
+                ))}
               </div>
             ))}
+            {isNew && (
+              picking ? (
+                <div className="bg-white rounded-2xl shadow-sm p-4 flex flex-col gap-2">
+                  <p className="font-bold text-ink">أيام أخرى لنفس المندوب لم تُسدَّد بالكامل</p>
+                  {!openLogs ? (
+                    <Spinner className="w-5 h-5" />
+                  ) : openLogs.filter((l) => !groups.some((g) => g.logId === l.id)).length === 0 ? (
+                    <p className="text-ink-soft">لا توجد أيام أخرى غير مسددة.</p>
+                  ) : (
+                    openLogs
+                      .filter((l) => !groups.some((g) => g.logId === l.id))
+                      .map((l) => (
+                        <button key={l.id} type="button" disabled={!!loadingLog} onClick={() => addLog(l.id)} className="w-full text-start rounded-xl border-2 border-line px-3 py-3 flex flex-wrap items-center justify-between gap-2 hover:border-accent">
+                          <span className="font-semibold text-ink">سجل فواتير <span className="num" dir="ltr">{l.day}</span></span>
+                          <span className="text-ink-soft">
+                            المتبقي <Money value={l.remaining} className="font-bold text-ink" />
+                            {loadingLog === l.id && <Spinner className="w-4 h-4 inline-block ms-2" />}
+                          </span>
+                        </button>
+                      ))
+                  )}
+                  <button type="button" onClick={() => setPicking(false)} className="self-start h-10 px-3 rounded-xl text-ink-soft font-semibold">إغلاق</button>
+                </div>
+              ) : (
+                <button type="button" onClick={showOpenLogs} className="h-12 rounded-xl border-2 border-dashed border-accent text-accent-ink font-bold flex items-center justify-center gap-2">
+                  <Icon name="plus" size={20} />
+                  الدفعة تشمل يومًا آخر لنفس المندوب
+                </button>
+              )
+            )}
           </section>
         </div>
 
@@ -269,6 +352,7 @@ export default function LogPage() {
         <PaymentSheet
           token={token}
           logId={id}
+          route={data.log.route}
           payment={editing}
           clients={clients}
           onClose={() => setSheet(null)}
@@ -328,6 +412,13 @@ export default function LogPage() {
                             {p.bankLabel} · <span className="num" dir="ltr">{p.ref}</span> · <span className="num">{p.date}</span>
                           </p>
                           {p.note && <p className="text-ink-soft break-words">{p.note}</p>}
+                          {p.logIds && p.logIds.length > 1 && (
+                            <p className="text-ink-soft break-words">
+                              تشمل أيام: {p.logIds.map((x) => (
+                                <Link key={x} href={`/accounting/logs/${encodeURIComponent(x)}`} className="num text-accent-ink font-semibold me-2" dir="ltr">{x.slice(-10)}</Link>
+                              ))}
+                            </p>
+                          )}
                         </div>
                         {left > 0 ? (
                           <span className="rounded-full bg-amber-100 text-amber-900 font-bold px-3 py-1">غير مكتملة — أكمل التوزيع</span>

@@ -1,6 +1,7 @@
 /**
- * Builds the daily sales summaries (dailyStats / monthlyStats) from the
- * existing invoices, then switches the dashboards over to them.
+ * Builds the daily sales summaries (dailyStats / monthlyStats), the invoice
+ * log totals and the client balances from the existing invoices and
+ * payments, then switches the dashboards over to them.
  *
  *   node scripts/stats/backfill.js                                → dry run: counts and differences, writes nothing
  *   node scripts/stats/backfill.js --run --confirm=<project-id>   → build every day and month, then mark ready
@@ -28,6 +29,7 @@ const args = Object.fromEntries(
 async function main() {
   const { adminDb } = require("../../lib/firebaseAdmin");
   const { rebuildRange, firstInvoiceDay, markReady } = require("../../lib/salesStats");
+  const { rebuildClientBalances } = require("../../lib/clientLedger");
   const { businessDay } = require("../../lib/businessDay");
   const project = process.env.FIREBASE_PROJECT_ID;
   const write = Boolean(args.run);
@@ -55,6 +57,9 @@ async function main() {
     },
   });
   console.log(`\n${result.days} days, ${result.invoices} invoices.`);
+  // Client balances (statements, ageing) from all invoices and payments.
+  const cb = await rebuildClientBalances({ write });
+  console.log(`Client balances: ${cb.clients} clients, ${cb.changed} ${write ? "written" : "would be written"}.`);
   console.log(`${result.daysWithDrift.length} day(s) and ${result.monthsWithDrift.length} month(s) ${write ? "written" : "would be written"}.`);
   if (write && !args.from && !args.to) {
     await markReady({ source: "backfill", from: first, to: last, invoices: result.invoices });

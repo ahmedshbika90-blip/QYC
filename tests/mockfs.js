@@ -67,6 +67,7 @@ function makeDb() {
             const x = val(d, f);
             if (op === "==") return x === v;
             if (op === "in") return v.includes(x);
+            if (op === "array-contains") return Array.isArray(x) && x.includes(v);
             if (x == null) return false;
             if (op === ">=") return x >= v;
             if (op === "<=") return x <= v;
