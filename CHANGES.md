@@ -703,3 +703,11 @@ Tests: `tests/run13.js`, `tests/run14.js` new; `npm test` (14 files) and `next b
 - Opening a log failed on the live database: its invoices were read with a route + date query that needs a composite index (not deployed). Now the day's invoices are read by date only (automatic index) and the van is picked out in code; the same for the logs list filtered by agent and the per-agent report. The two composite indexes added for logs are removed from `firestore.indexes.json` — no index deploy is needed for accounting.
 - Logs page: search by the last 4 digits of the transfer reference (log payments and single-invoice payments; opens the log); filters behind a "تصفية" button with an active-filter count, like the rest of the system, plus "مسح التصفية".
 - Accountant menu: سجلات الفواتير · التقارير · المخزون · الأمان. The invoice list and agents pages now redirect to the logs; an invoice's back button returns to its log.
+
+---
+
+# Payments only on the invoice log, fully split before saving
+- A payment (reference, bank, amount, date, note) is entered on the log in ONE sheet together with the amount each invoice received; "حفظ الدفعة" stays disabled — and the server refuses — until the amounts add up to the payment exactly and none exceeds what an invoice owes. Saved in one transaction (`addLogPayment` with `allocations`); nothing half-saved.
+- Re-splitting an existing payment must also use all of it (`allocateLogPayment`). Older partly-split payments show "غير مكتملة — أكمل التوزيع".
+- Invoices carry only amounts: their payment entries are `{ amount, date, logId }` (no reference, bank or note). The invoice page is read-only: total, paid, remaining, and the amounts received with a link to their log. `POST /api/payments/:id` no longer adds payments (409); editing/voiding older direct payments still works.
+- Tests: `tests/run17.js` rewritten for the new flow; library-level payment rules still tested through `directPay` in `tests/run.js`.

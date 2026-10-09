@@ -50,45 +50,48 @@ const rid = (n) => "req-log-0000000" + String(n).padStart(3, "0");
   assert.deepStrictEqual(d1.json.invoices.map((i) => [i.id, i.clientName, i.total, i.remaining]), [[o1, "عميل 1000", 3000, 3000], [o2, "عميل 1001", 5000, 5000], [o3, "عميل 1000", 2000, 2000]]);
   ok("the accountant lists logs (van, day, invoices, total, paid, remaining) and opens one with its invoices");
 
-  // 1. record the agent's transfer against the log
-  const pay = (n, extra = {}) => call(LA, { ...AC, method: "POST", query: { id: LOG }, body: { action: "pay", ref: "88001234", bank: "bok", amount: "7000", date: today, requestId: rid(n), ...extra } });
-  const p1 = await pay(10);
+  // 1. the agent's transfer, recorded on the log WITH what each invoice got
+  const pay = (n, allocations, extra = {}) => call(LA, { ...AC, method: "POST", query: { id: LOG }, body: { action: "pay", ref: "88001234", bank: "bok", amount: "7000", date: today, requestId: rid(n), allocations, ...extra } });
+  assert.strictEqual((await pay(10, {})).status, 400);                              // nothing split → not saved
+  const short = await pay(10, { [o1]: "3000", [o2]: "3000" });                       // 6,000 of 7,000
+  assert.strictEqual(short.status, 400); assert.ok(/باقٍ 1000/.test(short.json.error));
+  assert.strictEqual((await pay(10, { [o1]: "3000", [o2]: "5000" })).status, 400);   // 8,000 > 7,000
+  assert.strictEqual((await pay(10, { [o1]: "3500", [o2]: "3500" })).status, 400);   // more than invoice o1 owes
+  assert.ok(!db._data.logPayments?.[rid(10)] && !db._data.paymentRefs?.["bok__88001234"]);      // nothing half-saved
+  const p1 = await pay(10, { [o1]: "3000", [o2]: "4000", [o3]: "" });
   assert.strictEqual(p1.status, 201, JSON.stringify(p1.json));
-  assert.deepStrictEqual([p1.json.log.received, p1.json.log.toDistribute, p1.json.log.paid], [7000, 7000, 0]);
-  assert.strictEqual((await pay(10)).json.duplicate, true); // resend
-  assert.strictEqual((await pay(11)).status, 409);          // same bank + reference
-  const near = await pay(12, { ref: "55501234", bank: "faisal", amount: "100" });
+  assert.deepStrictEqual([p1.json.log.received, p1.json.log.toDistribute, p1.json.log.paid, p1.json.log.remaining, p1.json.log.status], [7000, 0, 7000, 3000, "partial"]);
+  assert.deepStrictEqual(p1.json.invoices.map((i) => [i.paid, i.status]), [[3000, "paid"], [4000, "partial"], [0, "unpaid"]]);
+  assert.strictEqual((await pay(10, { [o1]: "3000", [o2]: "4000" })).json.duplicate, true); // resend
+  assert.strictEqual((await pay(11, { [o1]: "3000", [o2]: "4000" })).status, 409);          // same bank + reference
+  const near = await pay(12, { [o3]: "100" }, { ref: "55501234", bank: "faisal", amount: "100" });
   assert.ok(near.status === 409 && near.json.needsConfirm && near.json.similar[0].kind === "log");
-  ok("a payment is recorded against the log; same reference refused; same last 4 asks for approval");
-
-  // 2. distribute who paid what
+  // the invoice only records the amount it received, and from which log
   const pid = rid(10);
-  const alloc = (allocations) => call(LA, { ...AC, method: "POST", query: { id: LOG }, body: { action: "allocate", paymentId: pid, allocations } });
-  assert.strictEqual((await alloc({ [o1]: "3000", [o2]: "5000" })).status, 400); // 8,000 > 7,000
-  assert.strictEqual((await alloc({ [o1]: "3500" })).status, 400);              // > invoice remaining
-  const a1 = await alloc({ [o1]: "3000", [o2]: "4000", [o3]: "" });
-  assert.strictEqual(a1.status, 200, JSON.stringify(a1.json));
-  assert.deepStrictEqual(a1.json.invoices.map((i) => [i.paid, i.status]), [[3000, "paid"], [4000, "partial"], [0, "unpaid"]]);
-  assert.deepStrictEqual([a1.json.log.paid, a1.json.log.remaining, a1.json.log.toDistribute, a1.json.log.status], [7000, 3000, 0, "partial"]);
   const ip2 = (await db.collection("invoicePayments").doc(o2).get()).data();
-  assert.deepStrictEqual([ip2.paidTotal, ip2.payments[0].viaLog, ip2.payments[0].ref], [4000, pid, "88001234"]);
-  // a share can't be edited or voided from the invoice — only from the log
+  assert.deepStrictEqual(Object.keys(ip2.payments[0]).sort(), ["amount", "createdAt", "createdBy", "date", "id", "logId", "viaLog"]);
+  assert.deepStrictEqual([ip2.paidTotal, ip2.payments[0].viaLog, ip2.payments[0].logId], [4000, pid, LOG]);
+  ok("a payment is saved on the log only together with a split that uses all of it; invoices get only amounts; same reference refused; same last 4 asks first");
+
+  // 2. changing the split: again only one that uses the whole payment
+  const alloc = (allocations) => call(LA, { ...AC, method: "POST", query: { id: LOG }, body: { action: "allocate", paymentId: pid, allocations } });
+  assert.strictEqual((await alloc({ [o1]: "3000", [o2]: "2000" })).status, 400); // 5,000 of 7,000
   assert.strictEqual((await call("pages/api/payments/[orderId].js", { ...AC, method: "POST", query: { orderId: o2 }, body: { action: "void", paymentId: ip2.payments[0].id, reason: "x" } })).status, 409);
-  // move money between invoices
   const a2 = await alloc({ [o1]: "3000", [o2]: "2000", [o3]: "2000" });
+  assert.strictEqual(a2.status, 200, JSON.stringify(a2.json));
   assert.deepStrictEqual(a2.json.invoices.map((i) => i.paid), [3000, 2000, 2000]);
   assert.strictEqual(a2.json.log.paid, 7000);
-  ok("the payment is split between the clients' invoices (never more than the payment or an invoice), and can be re-split");
+  ok("the split can be changed, never leaving part of the payment unassigned; shares can't be touched from the invoice");
 
-  // a direct single-invoice payment also counts on the log
-  const direct = await call("pages/api/payments/[orderId].js", { ...AC, method: "POST", query: { orderId: o2 }, body: { ref: "4455", bank: "nile", amount: 3000, date: today, requestId: rid(20) } });
+  // the invoice page can't take a payment any more; an older direct payment still counts on the log
+  assert.strictEqual((await call("pages/api/payments/[orderId].js", { ...AC, method: "POST", query: { orderId: o2 }, body: { ref: "4455", bank: "nile", amount: 1000, date: today, requestId: rid(20) } })).status, 409);
+  const direct = await directPay(AC, o2, { ref: "4455", bank: "nile", amount: 3000, date: today, requestId: rid(20) });
   assert.strictEqual(direct.status, 201, JSON.stringify(direct.json));
   let s = await state();
   assert.deepStrictEqual([s.paidC, s.receivedC, s.allocatedC], [1000000, 700000, 700000]);
-  // search by last 4 finds the log payment
   const fr = await call("pages/api/accounting/find-ref.js", { ...AC, query: { ref: "1234" } });
   assert.ok(fr.json.matches.some((m) => m.kind === "log" && m.logId === LOG));
-  ok("direct invoice payments count on the log too; reference search finds log payments");
+  ok("payments can no longer be added on an invoice; older direct ones still count on the log; reference search finds log payments");
 
   // agents and report
   const ag = await call("pages/api/accounting/agents.js", AC);

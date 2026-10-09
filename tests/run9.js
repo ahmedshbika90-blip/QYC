@@ -118,7 +118,7 @@ users.old = { uid: "old", email: "boss@x.com", displayName: "Boss", disabled: fa
 
   // 6. accountant payments
   const ACC = { role: "accountant", uid: "acc1", email: "acc@x.com" };
-  const pay = (body, who = ACC) => call("pages/api/payments/[orderId].js", { ...who, method: "POST", query: { orderId: "o1" }, body });
+  const pay = (body, who = ACC) => directPay(who, "o1", body);
   const rid = (n) => "req-payment-" + String(n).padStart(8, "0");
   for (const r of ["manager", "executive", "agent_car1", "warehouse_keeper"]) {
     assert.strictEqual((await call("pages/api/payments/[orderId].js", { role: r, uid: "x", query: { orderId: "o1" } })).status, 403);
@@ -156,7 +156,9 @@ users.old = { uid: "old", email: "boss@x.com", displayName: "Boss", disabled: fa
   const full = await call("pages/api/payments/[orderId].js", { ...ACC, query: { orderId: "o1" } });
   assert.strictEqual(full.json.summary.status, "paid");
   assert.strictEqual(full.json.payments.filter((p) => p.voided).length, 1);
-  assert.strictEqual((await call("pages/api/payments/[orderId].js", { ...ACC, method: "POST", query: { orderId: "o3" }, body: { ref: "1", bank: "onb", amount: 1, date: today, requestId: rid(6) } })).status, 400);
+  assert.strictEqual((await directPay(ACC, "o3", { ref: "1", bank: "onb", amount: 1, date: today, requestId: rid(6) })).status, 400);
+  // the API itself no longer takes new single-invoice payments
+  assert.strictEqual((await call("pages/api/payments/[orderId].js", { ...ACC, method: "POST", query: { orderId: "o1" }, body: { ref: "77", bank: "onb", amount: 1, date: today, requestId: rid(7) } })).status, 409);
   const mgrView = await call("pages/api/orders/[id]/index.js", { role: "manager", uid: "m", query: { id: "o1" } });
   assert.ok(!JSON.stringify(mgrView.json).includes("12345"));
   const accList = await call("pages/api/accounting/invoices.js", { ...ACC, query: {} });

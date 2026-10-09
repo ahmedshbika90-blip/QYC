@@ -78,7 +78,7 @@ users.adm = { uid: "adm", email: "a@x.com", customClaims: { role: "admin" } };
   await db.collection("orders").doc("o2").set({ route: "car1", clientId: "2001", status: "active", createdAt: new Date().toISOString(), total: 500, subtotal: 500, discount: 0, items: [] });
   const ACC = { role: "accountant", uid: "acc" };
   const today = new Date().toLocaleDateString("en-CA", { timeZone: "Africa/Khartoum" });
-  const pay = (o, body) => call("pages/api/payments/[orderId].js", { ...ACC, method: "POST", query: { orderId: o }, body });
+  const pay = (o, body) => directPay(ACC, o, body);
   const prid = (n) => "req-payment-" + String(n).padStart(8, "0");
   await pay("o1", { ref: "111", bank: "bok", amount: 300, date: today, requestId: prid(1) });
   await pay("o1", { ref: "222", bank: "bok", amount: 200, date: today, requestId: prid(2) });

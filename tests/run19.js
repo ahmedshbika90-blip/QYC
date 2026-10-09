@@ -33,7 +33,7 @@ const read = (f) => fs.readFileSync(path.join(ROOT, f), "utf8");
   const scattered = ["pages", "components", "lib"].flatMap((d) => require("child_process").execSync("grep -rl 'Africa/Khartoum\\\\|+02:00' " + d + " || true", { cwd: ROOT }).toString().split("\\n").filter(Boolean)).filter((f) => !/companyConfig|i18nDict/.test(f));
   assert.deepStrictEqual(scattered, []);
   assert.strictEqual((await db.collection("orders").doc("req-neg-000000001").get()).data().currency, "SDG");
-  const pay = await call("pages/api/payments/[orderId].js", { role: "accountant", uid: "c", method: "POST", query: { orderId: "req-neg-000000001" }, body: { ref: "9001", bank: "bok", amount: 100, date: new Date().toISOString().slice(0, 10), requestId: "req-neg-pay-00001" } });
+  const pay = await directPay({ role: "accountant", uid: "c" }, "req-neg-000000001", { ref: "9001", bank: "bok", amount: 100, date: new Date().toISOString().slice(0, 10), requestId: "req-neg-pay-00001" });
   assert.strictEqual(pay.status, 201, JSON.stringify(pay.json));
   assert.strictEqual(pay.json.payment.currency, "SDG");
   ok("company settings (time zone, currency, name) come from lib/companyConfig.js only; invoices and payments store their currency");

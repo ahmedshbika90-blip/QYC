@@ -43,6 +43,23 @@ const hoursAgo = (h) => new Date(Date.now() - h * 3600e3).toISOString();
 let passed = 0;
 const ok = (msg) => { passed++; console.log("PASS", passed + ":", msg); };
 
+// Single-invoice payments are no longer offered by the API — payments are
+// recorded on invoice logs. The payment rules themselves (references, last
+// 4 digits, amounts) are still tested through the library, answering the
+// way the API used to. Edits / voids (action) still go through the API.
+async function directPay(claims, orderId, body) {
+  if (body && body.action) return call("pages/api/payments/[orderId].js", { ...claims, method: "POST", query: { orderId }, body });
+  const P = require(path.join(ROOT, "lib/payments.js"));
+  try {
+    const r = await P.addPayment({ uid: claims.uid, role: claims.role, email: claims.email || null }, orderId, body || {});
+    if (r.needsConfirm) return { status: 409, json: { error: "last-4 match", needsConfirm: true, similar: r.similar } };
+    if (!r.duplicate) await require(path.join(ROOT, "lib/versions.js")).bumpVersions(["payments"]);
+    return { status: r.duplicate ? 200 : 201, json: r };
+  } catch (e) {
+    return { status: e.statusCode || 500, json: { error: e.message } };
+  }
+}
+
 (async () => {
   // ---------- setup ----------
   await db.collection("products").doc("p1").set({ name: "Tahini", unit: "ctn", active: true, prices: { car1: 10, car2: 12 }, stock: { depot: 50, car1: 20, car2: 0 }, avgCost: 6 });

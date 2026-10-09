@@ -1,5 +1,5 @@
 const { requireUser, requireRole, sendError } = require("../../../lib/apiAuth");
-const { addPayment, voidPayment, editPayment, summarize } = require("../../../lib/payments");
+const { voidPayment, editPayment, summarize } = require("../../../lib/payments");
 const { adminDb } = require("../../../lib/firebaseAdmin");
 const { bumpVersions } = require("../../../lib/versions");
 const { reportServerError } = require("../../../lib/monitor");
@@ -30,7 +30,14 @@ export default async function handler(req, res) {
 
     if (req.method === "POST") {
       const body = req.body || {};
-      const run = { void: voidPayment, edit: editPayment }[body.action] || addPayment;
+      // New payments are recorded on the invoice LOG and split between its
+      // invoices there (lib/logPayments.js); an invoice only shows amounts.
+      // Editing / voiding stays for payments recorded before that.
+      if (!body.action) {
+        return res.status(409).json({ error: "تُسجَّل الدفعات على سجل الفواتير ثم يُوزَّع المبلغ على الفواتير" });
+      }
+      const run = { void: voidPayment, edit: editPayment }[body.action];
+      if (!run) return res.status(400).json({ error: "إجراء غير معروف" });
       const result = await run(decoded, orderId, body);
       if (result.needsConfirm) {
         return res.status(409).json({
