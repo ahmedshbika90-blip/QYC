@@ -98,6 +98,23 @@ const today = businessDay(new Date());
   assert.ok(!joined.includes('["car1", "مبيعات جملة"], ["car2"'));
   ok("screens name and list every van (filters, labels, stock, warehouse sections); a new van refreshes its sales type's screens");
 
+  // ---------- 6. wholesale / retail are categories over vans ----------
+  const fl = require("../lib/vanFilter");
+  assert.deepStrictEqual(await fl.resolveVanFilter("type:wholesale"), ["car1", "van-w2"]);
+  assert.deepStrictEqual(await fl.resolveVanFilter("type:retail"), ["car2"]);
+  assert.deepStrictEqual(await fl.resolveVanFilter("van-w2"), ["van-w2"]);
+  assert.strictEqual(await fl.resolveVanFilter(""), null);
+  await assert.rejects(fl.resolveVanFilter("nope"));
+  const mW = await call("pages/api/reports/margin.js", { ...M, query: { route: "type:wholesale" } });
+  assert.strictEqual(mW.status, 200, JSON.stringify(mW.json));
+  const mV = await call("pages/api/reports/margin.js", { ...M, query: { route: "van-w2" } });
+  const mR = await call("pages/api/reports/margin.js", { ...M, query: { route: "type:retail" } });
+  assert.ok(mW.json.totals.revenue >= mV.json.totals.revenue && mV.json.totals.revenue === 3000 && mR.json.totals.revenue === 0);
+  const ol = await call("pages/api/orders/list.js", { ...M, query: { route: "type:wholesale" } });
+  assert.ok(ol.json.orders.length >= 1 && ol.json.orders.every((o) => ["car1", "van-w2"].includes(o.route)));
+  assert.ok(N.matchesVanFilter("type:wholesale", "van-w2") && !N.matchesVanFilter("type:retail", "van-w2") && N.matchesVanFilter("van-w2", "van-w2"));
+  ok("filters take a whole category (all wholesale / all retail) or one van — margin, invoices, history, requests");
+
   console.log("ALL VANS SCENARIOS PASSED");
 })().catch((e) => { console.error("FAILED:", e); process.exit(1); });
 `);

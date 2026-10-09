@@ -10,7 +10,7 @@ import { apiFetch } from "../lib/apiFetch";
 import { cachedGet } from "../lib/apiCache";
 
 import { formatNumber } from "./../lib/labels";
-import { vanOptions, vanName } from "../lib/vanNames";
+import { vanFilterOptions, vanName, vanTypeOfId } from "../lib/vanNames";
 const fmt = (n) => (n == null ? "—" : formatNumber(n));
 const pct = (n) => (n == null ? "—" : `${n}%`);
 
@@ -84,7 +84,7 @@ export default function MarginPage() {
           onDateToChange={setDateTo}
           extraActiveCount={route ? 1 : 0}
         >
-          <FilterChips label="السيارة" value={route} onChange={setRoute} options={vanOptions()} />
+          <FilterChips label="العربة أو الفئة" value={route} onChange={setRoute} options={vanFilterOptions()} />
         </FilterPanel>
 
         {error && (
@@ -106,6 +106,25 @@ export default function MarginPage() {
               <Stat label="نسبة الهامش" value={pct(t.marginPct)} strong />
             </div>
 
+            {!route && Object.keys(data.byRoute).length > 1 && (
+              <div className="grid grid-cols-2 gap-2 mb-2">
+                {/* wholesale vs retail as a whole, then each van */}
+                {["wholesale", "retail"].map((type) => {
+                  const vs = Object.entries(data.byRoute).filter(([k, v]) => v && vanTypeOfId(k) === type).map(([, v]) => v);
+                  if (!vs.length) return null;
+                  const margin = vs.reduce((a, v) => a + (Number(v.margin) || 0), 0);
+                  const costed = vs.reduce((a, v) => a + (Number(v.costedRevenue) || 0), 0);
+                  return (
+                    <div key={type} className="bg-accent-soft rounded-lg shadow p-3">
+                      <p className="text-xs font-semibold text-accent-ink">{type === "wholesale" ? "كل الجملة" : "كل التجزئة"}</p>
+                      <p className="text-base font-bold text-gray-800 mt-1">
+                        {fmt(margin)} <span className="text-xs text-gray-500">({pct(costed ? Math.round((margin / costed) * 10000) / 100 : null)})</span>
+                      </p>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
             {!route && Object.keys(data.byRoute).length > 1 && (
               <div className="grid grid-cols-2 gap-2 mb-3">
                 {Object.keys(data.byRoute).sort().map(

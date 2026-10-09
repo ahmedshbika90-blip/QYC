@@ -3,6 +3,7 @@ const { requireUser } = require("../../../lib/apiAuth");
 const { presentOrder } = require("../../../lib/invoiceLock");
 const { paymentDocsFor, publicPayment } = require("../../../lib/payments");
 const { reportServerError } = require("../../../lib/monitor");
+const { resolveVanFilter, whereVans } = require("../../../lib/vanFilter");
 
 const ROLE_TO_ROUTE = {
   agent_car1: "car1",
@@ -44,10 +45,8 @@ export default async function handler(req, res) {
     // Supervisor can narrow to one route server-side, so "30 invoices"
     // means 30 of that route — not 30 mixed, then filtered down.
     if (!restrictedRoute && route) {
-      if (!["car1", "car2"].includes(route)) {
-        return res.status(400).json({ error: "المسار غير صالح" });
-      }
-      query = query.where("route", "==", route);
+      // one van, or a whole category ("type:wholesale" / "type:retail")
+      query = whereVans(query, await resolveVanFilter(String(route)));
     }
 
     const effectiveFrom = from

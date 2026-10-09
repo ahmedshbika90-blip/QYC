@@ -2,6 +2,7 @@ const { adminDb } = require("../../../lib/firebaseAdmin");
 const { requireUser } = require("../../../lib/apiAuth");
 const { ROUTES } = require("../../../lib/roles");
 const { reportServerError } = require("../../../lib/monitor");
+const { resolveVanFilter, whereVans } = require("../../../lib/vanFilter");
 
 const ROLE_TO_ROUTE = {
   agent_car1: "car1",
@@ -43,9 +44,8 @@ export default async function handler(req, res) {
     if (fleet && !(decoded.salesSupervisor || decoded.role === "manager")) {
       return res.status(403).json({ error: "غير مصرح" });
     }
-    if (fleet && route && !ROUTES.includes(route)) {
-      return res.status(400).json({ error: "السيارة غير صالحة" });
-    }
+    // fleet view: one van, a whole category ("type:wholesale" / "type:retail"), or all
+    const fleetVans = fleet ? await resolveVanFilter(route ? String(route) : "") : null;
 
     const restrictedRoute = fleet ? null : decoded.route;
     if (!fleet && !restrictedRoute && !["manager", "warehouse_keeper"].includes(decoded.role)) {
@@ -58,8 +58,7 @@ export default async function handler(req, res) {
 
     if (fleet) {
       // route + createdAt uses the existing (route ASC, createdAt DESC) index.
-      let query = coll.orderBy("createdAt", "desc");
-      if (route) query = query.where("route", "==", route);
+      let query = whereVans(coll.orderBy("createdAt", "desc"), fleetVans);
       const effectiveFrom =
         from || new Date(Date.now() - DEFAULT_WINDOW_DAYS * 24 * 60 * 60 * 1000).toISOString();
       query = query.where("createdAt", ">=", effectiveFrom);
@@ -73,7 +72,7 @@ export default async function handler(req, res) {
       const snap = await query.get();
       const raw = snap.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
       nextCursor = raw.length === PAGE_SIZE ? raw[raw.length - 1].createdAt : null;
-      docs = raw.filter((d) => d.status === "confirmed" && ROUTES.includes(d.route));
+      docs = raw.filter((d) => d.status === "confirmed" && !!d.route && (!fleetVans || fleetVans.includes(d.route))); // every van
     } else if (status === "pending") {
       let query = coll.where("status", "==", "pending");
       if (restrictedRoute) query = query.where("route", "==", restrictedRoute);
@@ -111,7 +110,10 @@ export default async function handler(req, res) {
     }
 
     if (type) docs = docs.filter((d) => d.type === type);
-    if (route && !restrictedRoute) docs = docs.filter((d) => d.route === route);
+    if (route && !restrictedRoute && !fleet) {
+      const ids = await resolveVanFilter(String(route)); // a van or a category
+      if (ids) docs = docs.filter((d) => ids.includes(d.route));
+    }
 
     // Supplier price is supervisor-only — never sent to anyone else.
     if (decoded.role !== "manager") {

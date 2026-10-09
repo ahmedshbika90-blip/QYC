@@ -763,3 +763,19 @@ Tests: `tests/run13.js`, `tests/run14.js` new; `npm test` (14 files) and `next b
 - Clients: the manager picks any active van when registering/editing a client; routes/locations lists follow the van's sales type. Agent screens use the account's van (`van` claim) instead of the role.
 - A new van's changes refresh the screens of its sales type (`orders_car1` / `orders_car2`).
 - Tests: `tests/run22.js` step 5.
+
+---
+
+# Staging support
+- Every script reads `ENV_FILE` (default `.env.local`) so it can target the test Firebase project; `.env.staging` / `.env*.local` ignored by git.
+- `scripts/vans/save-defaults.js`: optional — writes car1 / car2 into `vans` so they're visible in Firestore.
+
+---
+
+# Vans first; wholesale / retail as categories
+- **Warehouse keeper:** menu section **العربات** (`/warehouse/vans`): one card per van with its name, its type, the people assigned to it (supervisor first) and a red count of what needs the keeper on that van. On desktop each van is its own menu link with its own dot; on phones the العربات tab carries the total. Each van opens its section (requests to execute, movements, filters) — `/warehouse/[route]`, with the assigned people under the van's name.
+- Notifications: per-van counts (`shipping:<van>`) for any van; item "from" lines name the van.
+- `/api/vans` returns each van with its assigned people (`lib/vanPeople.js`, refreshed when accounts or vans change).
+- **Filters everywhere take a van OR a whole category:** "كل الجملة", "كل التجزئة", then each van — invoices, clients, margin, sales report, requests, executive customers, fleet / warehouse history. Server side `lib/vanFilter.js` (`type:wholesale` / `type:retail` / van id) in the report query, invoice list, inventory history and shipment requests.
+- Margin page: wholesale vs retail as a whole, then each van.
+- Tests: `tests/run22.js` step 6.

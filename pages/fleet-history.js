@@ -7,7 +7,7 @@ import BackButton from "../components/BackButton";
 import InventoryHistory from "../components/InventoryHistory";
 import { PageLoading } from "../components/Loading";
 import Icon from "../components/Icon";
-import { allVanIds } from "../lib/vanNames";
+import { vanFilterOptions } from "../lib/vanNames";
 
 // Sales supervisor (car1): every van's cargo movements — deliveries from
 // the warehouse, returns, damage — the way the manager sees them, but only
@@ -36,7 +36,7 @@ export default function FleetHistory() {
           المستندات المعتمدة فقط، لكل السيارات.
         </p>
         <div role="group" aria-label="السيارة" className="flex gap-2 overflow-x-auto no-scrollbar pb-1 mb-4">
-          {[["", "كل السيارات"], ...allVanIds().map((r) => [r, `${r} · ${ROUTE_LABELS_SHORT[r] || r}`])].map(([id, label]) => (
+          {[["", "كل العربات"], ...vanFilterOptions()].map(([id, label]) => (
             <button
               key={id || "all"}
               type="button"

@@ -43,8 +43,8 @@ const L = {
   margin: { href: "/margin", label: "هامش التشغيل", icon: "percent" },
   whInventory: { href: "/warehouse/inventory", label: "المخزون", icon: "box" },
   whShip: { href: "/warehouse/shipment-requests", label: "طلبات الشحن", short: "شحن", icon: "truck", badge: "shipping" },
-  whCar1: { href: "/warehouse/car1", label: "مبيعات جملة", short: "جملة", icon: "warehouse", badge: "shipping:car1" },
-  whCar2: { href: "/warehouse/car2", label: "مبيعات تجزئة", short: "تجزئة", icon: "warehouse", badge: "shipping:car2" },
+  // العربات: every van (lib/vans.js); the dot counts what needs the keeper on any van
+  whVans: { href: "/warehouse/vans", label: "العربات", short: "العربات", icon: "truck", badge: "shipping:vans" },
   viewStock: { href: "/warehouse/view-stock", label: "المخزن الرئيسي", icon: "box" },
   fleet: { href: "/fleet-history", label: "حركة بضاعة السيارات", short: "حركة السيارات", icon: "truck" },
   accounts: { href: "/admin/users", label: "الحسابات والصلاحيات", short: "الحسابات", icon: "users" },
@@ -96,9 +96,10 @@ function layoutFor(role) {
       };
     case "warehouse_keeper":
       return {
-        tabs: [home, L.whInventory, L.whShip, L.whCar1, L.whCar2],
-        more: [],
-        desktop: [home, L.whInventory, L.whShip, L.whCar1, L.whCar2, L.whTransfers],
+        tabs: [home, L.whInventory, L.whShip, L.whVans],
+        more: [L.whTransfers],
+        // desktop: one link per van is added in the Nav (it needs the vans list)
+        desktop: [home, L.whInventory, L.whShip, L.whVans, L.whTransfers],
       };
     case "admin":
       return { tabs: [], more: [], desktop: [L.accounts, L.security] };
@@ -208,7 +209,7 @@ export default function Nav({ role, logout }) {
   const [auth, setAuth] = useState({ token: null, uid: null });
   const [sheetOpen, setSheetOpen] = useState(false);
   useEffect(() => subscribeAuth(setAuth), []);
-  useVans(auth.token); // van names for every screen (lib/vanNames.js)
+  const vansList = useVans(auth.token); // van names for every screen (lib/vanNames.js)
   const { items, loaded, refreshSeen, toasts, dismissToast } = useNotifications(
     auth.token,
     role,
@@ -225,19 +226,30 @@ export default function Nav({ role, logout }) {
   // category as `it.bucket` — so the shipping count was always 0 and the
   // المستندات dot never appeared.
   const counts = useMemo(() => {
-    const c = { modification: 0, shipping: 0, "shipping:car1": 0, "shipping:car2": 0 };
+    const c = { modification: 0, shipping: 0, "shipping:vans": 0 };
     for (const it of items || []) {
       if (!it?.needsAction) continue;
       if (it.bucket === "modification") c.modification += 1;
       if (it.bucket === "shipping") {
         c.shipping += 1;
-        if (it.route === "car1" || it.route === "car2") c[`shipping:${it.route}`] += 1;
+        // per van ("shipping:<van id>") and for the vans section as a whole
+        if (it.route) {
+          c[`shipping:${it.route}`] = (c[`shipping:${it.route}`] || 0) + 1;
+          c["shipping:vans"] += 1;
+        }
       }
     }
     return c;
   }, [items]);
 
-  const layout = layoutFor(role);
+  const baseLayout = layoutFor(role);
+  // Desktop: under العربات, one link per active van with its own dot.
+  const layout = useMemo(() => {
+    if (!baseLayout.desktop.includes(L.whVans)) return baseLayout;
+    const vanLinks = vansList.filter((v) => v.active !== false).map((v) => ({ href: `/warehouse/${v.id}`, label: v.label, short: v.label, icon: "warehouse", badge: `shipping:${v.id}`, sub: true }));
+    const i = baseLayout.desktop.indexOf(L.whVans);
+    return { ...baseLayout, desktop: [...baseLayout.desktop.slice(0, i + 1), ...vanLinks, ...baseLayout.desktop.slice(i + 1)] };
+  }, [baseLayout, vansList]);
   const hasTabbar = layout.tabs.length > 0;
   const countFor = (link) => (link.badge ? counts[link.badge] || 0 : 0);
   const moreCount = layout.more.reduce((n, l) => n + countFor(l), 0);

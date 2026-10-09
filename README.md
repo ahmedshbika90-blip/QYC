@@ -491,3 +491,11 @@ invoice logs and invoice-number years are keyed to its business day.
 One screen: a big **طلب جديد** button (asks: أمر شحن or مرتجع بضاعة), then
 **طلباتي** — with "بحاجة لإجراء منك" on top listing exactly what the nav
 badge on المستندات is counting.
+
+## Testing before production (staging)
+- **Branches:** `main` = production (Vercel production deployment). Work happens on `staging`; every push there gets a Vercel **Preview** URL. Merge `staging` → `main` only after testing.
+- **Separate Firebase project for testing** (e.g. `mubashir-staging`) so tests never touch real data. In Vercel → Settings → Environment Variables, give the **Preview** environment the staging project's values (all `FIREBASE_*` and `NEXT_PUBLIC_FIREBASE_*`); **Production** keeps the real ones.
+- **Scripts against staging:** put the staging values in `.env.staging` (never committed) and run with `ENV_FILE=.env.staging`, e.g. PowerShell:
+  `$env:ENV_FILE=".env.staging"; node scripts/demo/seed.js --run --confirm=mubashir-staging; Remove-Item Env:ENV_FILE`
+- Rules/indexes to staging: `firebase deploy --only firestore:rules,firestore:indexes --project mubashir-staging`.
+- `node scripts/vans/save-defaults.js` (optional) writes the two original vans into `vans`; the app works without it.

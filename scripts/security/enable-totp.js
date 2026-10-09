@@ -10,7 +10,7 @@
  * login AVAILABLE; it's required for admin / manager / accountant only once
  * REQUIRE_2FA=1 and NEXT_PUBLIC_REQUIRE_2FA=1 are set in Vercel.
  */
-require("dotenv").config({ path: require("path").join(__dirname, "..", "..", ".env.local") });
+require("dotenv").config({ path: require("path").join(__dirname, "..", "..", process.env.ENV_FILE || ".env.local") }); // ENV_FILE=.env.staging for the test project
 
 const args = Object.fromEntries(process.argv.slice(2).map((a) => { const [k, v] = a.replace(/^--/, "").split("="); return [k, v === undefined ? true : v]; }));
 

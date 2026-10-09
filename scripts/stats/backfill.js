@@ -17,7 +17,7 @@
  * Until it has run (meta/statsState.ready), the dashboards keep using the
  * old invoice-by-invoice calculation, so deploying first is safe.
  */
-require("dotenv").config({ path: require("path").join(__dirname, "..", "..", ".env.local") });
+require("dotenv").config({ path: require("path").join(__dirname, "..", "..", process.env.ENV_FILE || ".env.local") }); // ENV_FILE=.env.staging for the test project
 
 const args = Object.fromEntries(
   process.argv.slice(2).map((a) => {

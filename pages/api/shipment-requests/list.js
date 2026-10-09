@@ -2,6 +2,7 @@ const { adminDb } = require("../../../lib/firebaseAdmin");
 const { requireUser } = require("../../../lib/apiAuth");
 const { reportServerError } = require("../../../lib/monitor");
 const { isMineToDecide } = require("../../../lib/supervision");
+const { resolveVanFilter, whereVans } = require("../../../lib/vanFilter");
 
 const ROLE_TO_ROUTE = { agent_car1: "car1", agent_car2: "car2" };
 
@@ -42,12 +43,12 @@ export default async function handler(req, res) {
       query = coll.where("status", "==", "pending_warehouse");
       // ?route=car1|car2 — the keeper's per-car sections (جملة / تجزئة)
       // show only that car's requests.
-      if (route === "car1" || route === "car2") query = query.where("route", "==", route);
+      if (route) query = whereVans(query, await resolveVanFilter(String(route))); // a van or a category
     } else {
       if (decoded.role !== "manager") return res.status(403).json({ error: "غير مصرح" });
       query = coll;
       if (status) query = query.where("status", "==", status);
-      if (route) query = query.where("route", "==", route);
+      if (route) query = whereVans(query, await resolveVanFilter(String(route)));
     }
 
     const snap = await query.get();

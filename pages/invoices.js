@@ -19,7 +19,7 @@ import { useLiveRefresh } from "../lib/useLiveRefresh";
 import { getClients } from "../lib/clientsStore";
 import { formatDate, formatNumber } from "../lib/labels";
 
-import { vanName, vanShort, vanOptions } from "../lib/vanNames";
+import { vanShort, vanFilterOptions, matchesVanFilter, vanFilterName } from "../lib/vanNames";
 export default function SupervisorDashboard() {
   const { user, role, token, loading, logout } = useAuth(["manager"]);
   const [orders, setOrders] = useState([]);
@@ -113,7 +113,7 @@ export default function SupervisorDashboard() {
 
   const matchesFilters = useMemo(() => {
     return (order) => {
-      if (routeFilter !== "all" && order.route !== routeFilter) return false;
+      if (routeFilter !== "all" && !matchesVanFilter(routeFilter, order.route)) return false; // a van or a category
       if (nameQuery) {
         const name = clientsById[order.clientId]?.name || "";
         if (!name.toLowerCase().includes(nameQuery.toLowerCase())) return false;
@@ -180,13 +180,13 @@ export default function SupervisorDashboard() {
       <main className="max-w-5xl mx-auto px-4 pt-5 pb-8 sm:px-8">
         <TodayHeader
           title="الفواتير"
-          subtitle={routeFilter ? vanName(routeFilter) : "كل المسارات"}
+          subtitle={routeFilter && routeFilter !== "all" ? vanFilterName(routeFilter) : "كل العربات"}
           aside={
             <FilterChips
               className="shrink-0"
               value={routeFilter === "all" ? "" : routeFilter}
               onChange={(v) => setRouteFilter(v || "all")}
-              options={vanOptions(true)}
+              options={vanFilterOptions()}
             />
           }
           stats={[

@@ -2,6 +2,7 @@ const { adminDb } = require("../../lib/firebaseAdmin");
 const { requireUser } = require("../../lib/apiAuth");
 const { notifySignature } = require("../../lib/notifySig");
 const { isMineToDecide } = require("../../lib/supervision");
+const { listVans } = require("../../lib/vans");
 const { reportServerError } = require("../../lib/monitor");
 
 // Resolved items are "recent history": each history query is bounded by
@@ -19,7 +20,8 @@ async function bounded(fast, slow) {
 }
 
 const ROLE_TO_ROUTE = { agent_car1: "car1", agent_car2: "car2" };
-const ROUTE_LABEL = { car1: "مبيعات جملة", car2: "مبيعات تجزئة" };
+// Van names (lib/vans.js) — filled per request below; the originals by default.
+let ROUTE_LABEL = { car1: "مبيعات جملة", car2: "مبيعات تجزئة" };
 const RESOLVED_LIMIT = 20; // bounded — just enough recent history to notify on
 const CHANGE_LABEL = { cancel: "طلب إلغاء فاتورة", edit: "طلب تعديل فاتورة", refund: "طلب مرتجع", client_edit: "طلب تعديل بيانات عميل" };
 const changeLabel = (type) => CHANGE_LABEL[type] || "طلب تعديل";
@@ -53,6 +55,8 @@ export default async function handler(req, res) {
     // Nothing changed since the device's copy → 1 read, no queries.
     const sig = await notifySignature(decoded);
     if (sig && req.query.sig === sig) return res.status(200).json({ unchanged: true, sig });
+    // van names for the "from" line (only when the list is actually built)
+    ROUTE_LABEL = { car1: "مبيعات جملة", car2: "مبيعات تجزئة", ...Object.fromEntries((await listVans()).filter((v) => v.id !== "car1" && v.id !== "car2").map((v) => [v.id, v.label])) };
 
     if (role === "manager") {
       const [pendingRequests, pendingReceived, pendingDamage, stockCheck] = await Promise.all([

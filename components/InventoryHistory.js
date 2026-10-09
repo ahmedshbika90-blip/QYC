@@ -8,7 +8,7 @@ import { cachedGet } from "../lib/apiCache";
 import { useLiveRefresh } from "../lib/useLiveRefresh";
 import { ROUTES } from "../lib/roles";
 import { ROUTE_LABELS_SHORT } from "../lib/labels";
-import { allVanIds } from "../lib/vanNames";
+import { vanFilterOptions } from "../lib/vanNames";
 
 // Filterable, date-windowed, paginated inventory history. Used by several
 // pages with different fixed scopes:
@@ -119,7 +119,7 @@ export default function InventoryHistory({
           />
         )}
         {!fixedRoute && showRouteFilter && (
-          <FilterChips label="السيارة" value={routeFilter} onChange={setRouteFilter} options={allVanIds().map((r) => [r, `${r} · ${ROUTE_LABELS_SHORT[r] || r}`])} />
+          <FilterChips label="السيارة" value={routeFilter} onChange={setRouteFilter} options={vanFilterOptions()} />
         )}
         {scope !== "fleet" && <FilterChips
           label="الحالة"

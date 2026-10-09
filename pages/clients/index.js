@@ -12,7 +12,7 @@ import { PageLoading, SkeletonRows } from "../../components/Loading";
 import { apiFetch } from "../../lib/apiFetch";
 import { getClients } from "../../lib/clientsStore";
 
-import { vanName, vanOptions } from "../../lib/vanNames";
+import { vanName, vanFilterOptions, matchesVanFilter } from "../../lib/vanNames";
 // Search + filters all run in the browser on the version-cached client
 // list (see lib/clientsStore.js) — typing, filtering, or switching filters
 // costs zero Firestore reads.
@@ -73,7 +73,7 @@ export default function ClientsList() {
       if (locationQuery && !(c.location || "").toLowerCase().includes(locationQuery.toLowerCase()))
         return false;
       if (storeClass && c.storeClass !== storeClass) return false;
-      if (routeFilter && c.route !== routeFilter) return false;
+      if (routeFilter && !matchesVanFilter(routeFilter, c.route)) return false;
       return true;
     });
   }, [clients, search, nameQuery, deliveryRoute, locationQuery, storeClass, routeFilter]);
@@ -151,7 +151,7 @@ export default function ClientsList() {
           extraActiveCount={routeFilter ? 1 : 0}
         >
           {role === "manager" && (
-            <FilterChips label="نوع البيع" value={routeFilter} onChange={setRouteFilter} options={vanOptions()} />
+            <FilterChips label="نوع البيع" value={routeFilter} onChange={setRouteFilter} options={vanFilterOptions()} />
           )}
         </FilterPanel>
 

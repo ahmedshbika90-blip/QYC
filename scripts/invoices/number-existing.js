@@ -9,7 +9,7 @@
  * Safe to run while the app is in use; if invoices arrive while it runs it
  * asks you to run it again. Reads every invoice once.
  */
-require("dotenv").config({ path: require("path").join(__dirname, "..", "..", ".env.local") });
+require("dotenv").config({ path: require("path").join(__dirname, "..", "..", process.env.ENV_FILE || ".env.local") }); // ENV_FILE=.env.staging for the test project
 const args = Object.fromEntries(process.argv.slice(2).map((a) => { const [k, v] = a.replace(/^--/, "").split("="); return [k, v === undefined ? true : v]; }));
 
 (async () => {

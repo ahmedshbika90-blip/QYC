@@ -25,7 +25,7 @@
  * Best practice: run it on a separate demo Firebase project, or take a
  * backup first if it's the live one.
  */
-require("dotenv").config({ path: require("path").join(__dirname, "..", "..", ".env.local") });
+require("dotenv").config({ path: require("path").join(__dirname, "..", "..", process.env.ENV_FILE || ".env.local") }); // ENV_FILE=.env.staging for the test project
 const { admin, adminAuth, adminDb } = require("../../lib/firebaseAdmin");
 const { normalizeRole } = require("../../lib/roles");
 const { generate } = require("./generate");
