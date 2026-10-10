@@ -47,7 +47,8 @@ const rid = (n) => "req-p23-00000" + String(n).padStart(4, "0");
   assert.deepStrictEqual([w1.status, w2.status], [201, 201]);
   assert.strictEqual((await stock()).damaged, 12); // nothing moves until approved
   const nm = await call("pages/api/notifications.js", M);
-  assert.ok(nm.json.items.filter((i) => i.href === "/stock-adjustments").length >= 2);
+  const wo = nm.json.items.filter((i) => i.href.startsWith("/stock-adjustments?tab=writeoff&focus="));
+  assert.ok(wo.length >= 2 && wo.every((i) => i.bucket === "adjust" && i.tab === "writeoff")); // opens the exact section and request
   assert.strictEqual((await call(A, { ...K, method: "POST", body: { id: rid(7), action: "approve" } })).status, 403); // keeper can't approve his own
   const a1 = await call(A, { ...M, method: "POST", body: { id: rid(7), action: "approve" } });
   const a2 = await call(A, { ...M, method: "POST", body: { id: rid(8), action: "approve" } });
@@ -59,7 +60,8 @@ const rid = (n) => "req-p23-00000" + String(n).padStart(4, "0");
   const fs1 = await call(A, { ...M, method: "POST", body: { kind: "freeSample", mode: "company", items: [{ productId: "p1", qty: 4 }], requestId: rid(9) } });
   const fs2 = await call(A, { ...M, method: "POST", body: { kind: "freeSample", mode: "supplier", items: [{ productId: "p1", qty: 1 }], requestId: rid(10) } });
   assert.deepStrictEqual([fs1.status, fs2.status], [201, 201]);
-  assert.ok((await call("pages/api/notifications.js", K)).json.items.some((i) => i.href === "/stock-adjustments"));
+  const kn = (await call("pages/api/notifications.js", K)).json.items.filter((i) => i.tab === "freeSample");
+  assert.ok(kn.length === 2 && kn.every((i) => i.requestType === "طلب عينات مجانية" && i.href.includes("tab=freeSample"))); // no supplier/company for the keeper
   assert.strictEqual((await call(A, { ...M, method: "POST", body: { id: rid(9), action: "approve" } })).status, 403); // the keeper executes
   const d0 = (await stock()).depot;
   const e1 = await call(A, { ...K, method: "POST", body: { id: rid(9), action: "approve" } });
@@ -67,20 +69,26 @@ const rid = (n) => "req-p23-00000" + String(n).padStart(4, "0");
   assert.deepStrictEqual([e1.json.marginDeduction, e2.json.status, (await stock()).depot], [2400, "rejected", d0 - 4]);
   ok("free samples: manager requests (supplier or company), keeper executes; company-paid deducts cost, supplier-paid leaves with no value");
 
+  // an agent's free sample: its cost shows as a deduction on the invoice date
+  const smp = await call("pages/api/orders/create-staff.js", { ...W, method: "POST", body: { clientId: "1000", items: [{ productId: "p1", qty: 1 }, { productId: "p1", qty: 2, freeSample: true }], requestId: rid(30) } });
+  assert.strictEqual(smp.status, 201, JSON.stringify(smp.json));
+
   // ---------- 4. margin deductions (dated on approval) for manager and accountant ----------
   const mg = await call("pages/api/reports/margin.js", { ...M, query: { from: today, to: today } });
   assert.strictEqual(mg.status, 200, JSON.stringify(mg.json));
-  assert.deepStrictEqual([mg.json.deductions.total, mg.json.deductions.obsolete, mg.json.deductions.freeSamples], [4200, 1800, 2400]);
-  assert.strictEqual(mg.json.netMargin, Math.round((mg.json.totals.margin - 4200) * 100) / 100);
+  assert.deepStrictEqual([mg.json.deductions.agentSamples, mg.json.deductions.obsolete, mg.json.deductions.freeSamples, mg.json.deductions.total], [1200, 1800, 2400, 5400]);
+  assert.strictEqual(mg.json.netMargin, Math.round((mg.json.salesMargin - mg.json.deductions.total) * 100) / 100);
   const rp = await call("pages/api/accounting/report.js", { ...AC, query: { from: today, to: today } });
-  assert.strictEqual(rp.json.deductions.total, 4200);
+  assert.deepStrictEqual([rp.json.deductions.agentSamples, rp.json.deductions.total], [1200, 5400]);
   // accountant's inventory movements: everything, filterable
   const all = await call(A, { ...AC, query: { withDamage: "1" } });
   assert.ok(all.json.rows.length >= 4);
   assert.deepStrictEqual((await call(A, { ...AC, query: { kind: "freeSample", status: "rejected" } })).json.rows.map((r) => r.id), [rid(10)]);
   assert.strictEqual((await call(A, { ...AC, method: "POST", body: { id: rid(9), action: "approve" } })).status, 403);
   const na = await call("pages/api/notifications.js", AC);
-  assert.ok(na.json.items.length >= 3 && na.json.items.every((i) => !i.needsAction)); // informative only
+  assert.ok(na.json.items.length >= 3 && na.json.items.every((i) => !i.needsAction && i.href.startsWith("/accounting/stock-movements?tab="))); // informative only
+  // the manager hears how his free-sample requests ended
+  assert.ok((await call("pages/api/notifications.js", M)).json.items.some((i) => i.tab === "freeSample" && !i.needsAction));
   ok("margin deductions show on the manager's margin and the accountant's report (net margin); the accountant sees every movement and gets informative notifications");
 
   console.log("ALL STOCK-ADJUSTMENT SCENARIOS PASSED");

@@ -67,7 +67,22 @@ const BANKS = [
 // given, invoices use exactly those products, prices and costs, and the
 // products themselves are not rewritten. Without it, a built-in sample
 // catalog is used (tests, empty projects).
-function generate({ months = 4, seed = 2026, now = new Date(), uids = {}, wholesaleClients = 15, retailClients = 50, catalog = null } = {}) {
+// How sales move over the period (t = 0 at the start, 1 today).
+const TRENDS = {
+  growing: (t) => 0.75 + 0.5 * t, // steady growth (the original demo)
+  flat: () => 1,
+  declining: (t) => 1.25 - 0.55 * t,
+  seasonal: (t, dayOfMonth) => 1 + 0.35 * Math.sin((2 * Math.PI * dayOfMonth) / 30) + 0.1 * Math.sin(2 * Math.PI * t * 3), // monthly waves
+  spike: (t) => (t > 0.85 ? 1.9 : 0.9), // a jump in the last weeks
+};
+const VOLUMES = { low: 0.5, normal: 1, high: 2, veryhigh: 3.5 };
+
+function generate({ months = 4, seed = 2026, now = new Date(), uids = {}, wholesaleClients, retailClients, catalog = null, trend = "growing", volume = "normal" } = {}) {
+  const vol = typeof volume === "number" ? volume : VOLUMES[volume] || 1;
+  const trendFn = TRENDS[trend] || TRENDS.growing;
+  // more volume → more clients as well as more invoices per client
+  wholesaleClients = wholesaleClients ?? Math.max(4, Math.round(15 * Math.min(3, vol)));
+  retailClients = retailClients ?? Math.max(10, Math.round(50 * Math.min(3, vol)));
   const r = rng(seed);
   const pick = (arr) => arr[Math.floor(r() * arr.length)];
   const int = (a, b) => a + Math.floor(r() * (b - a + 1));
@@ -180,6 +195,7 @@ function generate({ months = 4, seed = 2026, now = new Date(), uids = {}, wholes
 
   // ── invoices ──
   const orders = [];
+  let dayTrend = 1; // set per day below from the chosen trend
   const soldByDay = []; // [{car1:{pid:qty}, car2:{...}}]
   const pickProducts = (n) => {
     const chosen = new Set();
@@ -191,7 +207,8 @@ function generate({ months = 4, seed = 2026, now = new Date(), uids = {}, wholes
     const route = client.route;
     const lines = pickProducts(route === "car1" ? int(2, 5) : int(1, 4)).map((pid) => {
       const p = P[pid];
-      const qty = route === "car1" ? int(8, 45) * (client.weight > 0.5 ? 2 : 1) : int(1, 6) + (client.weight > 0.5 ? int(1, 4) : 0);
+      const base = route === "car1" ? int(8, 45) * (client.weight > 0.5 ? 2 : 1) : int(1, 6) + (client.weight > 0.5 ? int(1, 4) : 0);
+      const qty = Math.max(1, Math.round(base * dayTrend)); // the chosen trend also moves order sizes
       const price = p[route];
       return { productId: pid, name: p.name, unit: p.unit, price, qty, freeSample: false, subtotal: price * qty, unitCost: p.cost };
     });
@@ -235,7 +252,8 @@ function generate({ months = 4, seed = 2026, now = new Date(), uids = {}, wholes
     const dow = new Date(`${ymdOf(i)}T12:00:00Z`).getUTCDay(); // 5 = Friday
     if (dow === 5) continue;
     const routeDay = (dow + 1) % 7; // Sat=0 … Thu=5
-    const growth = 0.75 + 0.5 * (i / totalDays) + (Number(ymdOf(i).slice(8)) <= 5 ? 0.1 : 0);
+    dayTrend = Math.max(0.1, trendFn(i / totalDays, Number(ymdOf(i).slice(8))));
+    const growth = dayTrend * Math.max(0.2, Math.sqrt(vol)) + (Number(ymdOf(i).slice(8)) <= 5 ? 0.1 : 0);
     // retail: clients on today's route, most of them buy
     R.forEach((c) => {
       if (c.doc.active === false) return;
@@ -527,4 +545,6 @@ function generate({ months = 4, seed = 2026, now = new Date(), uids = {}, wholes
   };
 }
 
-module.exports = { generate, PRODUCTS };
+module.exports = {
+  TRENDS,
+  VOLUMES, generate, PRODUCTS };

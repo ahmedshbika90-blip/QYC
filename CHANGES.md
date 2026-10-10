@@ -807,3 +807,43 @@ Tests: `tests/run13.js`, `tests/run14.js` new; `npm test` (14 files) and `next b
 - Damaged write-off modes renamed: **مرتجع شركة** (company return — leaves with no value) and **غير صالحة** (unusable — cost deducted from the margin).
 - The warehouse keeper sees only the plain names: no margin wording, no costs, no deduction lines. The manager and accountant still see the margin effect.
 - Filters on تسويات المخزون open from a **تصفية** button, like the rest of the system.
+
+---
+
+# Notifications to the exact place; agents' samples as a margin deduction
+- Warehouse keeper never sees who pays for free samples: notifications say "طلب عينات مجانية", the list and filters hide supplier/company.
+- Section tabs carry the menu item's red count (`components/SectionTabs.js`): a free-sample request lights تسويات المخزون **and** its "عينات مجانية" tab (same for تسوية تالف and تحويل بضاعة).
+- Adjustment notifications open the exact section and highlight the request (`?tab=…&focus=…`), for keeper, manager and accountant (other notifications already open the exact request).
+- Accountant now actually receives notifications (the client hook had him excluded). Manager is told how his free-sample requests ended; keeper how his write-offs ended (information).
+- Agents' free samples: their cost is shown as **"عينات المناديب"** under margin deductions (invoice date, per van) on the manager's margin page and the accountant's report, with "هامش المبيعات (قبل الخصومات)" and the net. The margin itself was already net of them. Daily summaries carry the sample cost (`sCost`) — rerun the backfill once to fill history.
+
+---
+
+# Staging test data tool
+- `npm run staging:fill -- --months= --trend= --volume= [--seed=]` and `npm run staging:clear` (`scripts/staging/data.js`): always the staging project (refuses any id without "staging").
+- Generator: trends `growing | flat | declining | seasonal | spike` (shape both invoice count and size), volume `low | normal | high | veryhigh` or a number (clients and invoices), 1–24 months.
+- Seed: `--clear` (business data only); refuses `--run` on a project whose id doesn't contain staging/test/demo unless `--allow-production`.
+- `scripts/staging/copy-products.js` copies the catalogue from production (read only) into staging. `scripts/setRole.js` accepts `ENV_FILE`.
+- Tests: `tests/run11.js` step 6.
+
+---
+
+# Account menu; damaged goods on the keeper's stock
+- Top bar: the reading-settings, language and sign-out icons are replaced by **one account button** (the person's initial). It opens a small menu: name and role, **الوضع الداكن** switch (one tap), **اللغة** ع / EN, **سهولة القراءة**, **تسجيل الخروج** (`components/AccountMenu.js`). Night mode also stays in the reading settings.
+- Warehouse stock (رصيد المخزن): each product with damaged goods shows "تالف: N — غير محسوب في الرصيد" until they leave through تسويات المخزون; a **التالف فقط** filter (with a count) shows only those products.
+
+---
+
+# Collections search; top bar back to one-tap icons
+- التحصيل → الدفعات: search by the last digits of the reference (match highlighted) and a bank filter; shows the count and total of what matches.
+- Top bar: reading settings, language, light/dark and sign-out are one tap each again, with more space between them and a thin divider before sign-out (the account menu is removed).
+
+---
+
+# Fresh start
+- `seed.js --clear` now also removes money returns, stock adjustments, invoice-number counters and the stats-check record; `--zero-stock` sets every stock balance to 0. On a real project it needs `--allow-production` on top of `--confirm`.
+
+---
+
+# Production locked
+- `seed.js` (fill and `--clear`) refuses any project whose id doesn't contain staging/test/demo — the `--allow-production` override is removed. After the fresh start, no script can wipe real data.

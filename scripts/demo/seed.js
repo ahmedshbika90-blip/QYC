@@ -35,8 +35,14 @@ const WIPE = [
   "transfers", "invoicePayments", "paymentRefs", "auditLog", "dailyCounters", "sentReports", "rateLimits", "agentOpenShipment",
   "dailyStats", "monthlyStats", "logState", "logPayments", "places",
   "competitorPrices", "stockLedger", "stockChecks", "statsDrift", "clientBalance",
+  "moneyReturns", "stockAdjustments",
 ];
-const META_RESET = ["clientIdCounter", "paymentRefsSearch", "paymentRefsSearch2", "invoiceNumbering", "stockCheckpoint", "stockCheck"];
+const META_RESET = ["clientIdCounter", "paymentRefsSearch", "paymentRefsSearch2", "invoiceNumbering", "stockCheckpoint", "stockCheck", "statsCheck"];
+/** Invoice-number counters (meta/invoiceCounter_YYYY) — numbering restarts at 1. */
+async function resetInvoiceCounters() {
+  const snap = await adminDb.collection("meta").get();
+  await Promise.all(snap.docs.filter((d) => d.id.startsWith("invoiceCounter_")).map((d) => d.ref.delete()));
+}
 const VERSION_KEYS = ["orders_car1", "orders_car2", "requests", "inventory", "clients", "shipmentRequests", "payments", "products", "competitors", "places", "stockCheck"];
 
 const parseArgs = (argv) =>
@@ -72,10 +78,20 @@ async function count(name) {
 async function main(argv) {
   if (argv) args = parseArgs(argv);
   const project = process.env.FIREBASE_PROJECT_ID;
-  const months = Math.min(12, Math.max(1, Number(args.months) || 4));
+  const months = Math.min(24, Math.max(1, Number(args.months) || 4));
   const seed = Number(args.seed) || 2026;
+  const trend = typeof args.trend === "string" ? args.trend : "growing";
+  const volume = typeof args.volume === "string" ? (isNaN(Number(args.volume)) ? args.volume : Number(args.volume)) : "normal";
   console.log(`\nFirebase project: ${project}`);
-  console.log(`Demo period: last ${months} month(s), seed ${seed}\n`);
+  // Production is locked: this script only writes to a project whose id says
+  // staging / test / demo. There is no override — real data can't be wiped
+  // or replaced from here (restore from a backup instead).
+  if (args.run && !/staging|test|demo/i.test(project || "")) {
+    console.error(`\nRefused: "${project}" is not a test project. This script never changes real data.\n`);
+    process.exit(1);
+  }
+  if (args.clear) return clearOnly(project);
+  console.log(`Demo period: last ${months} month(s) · trend ${trend} · volume ${volume} · seed ${seed}\n`);
 
   const uids = await staffUids();
   const prodSnap = await adminDb.collection("products").get();
@@ -86,7 +102,7 @@ async function main(argv) {
     console.error("No products found. Add your products (with wholesale and retail prices) first, then run this again.\n");
     process.exit(1);
   }
-  const data = generate({ months, seed, uids, catalog: real });
+  const data = generate({ months, seed, uids, catalog: real, trend, volume });
   const writes = data.clients.length + data.orders.length + data.inventoryDocs.length + data.invoicePayments.length + data.paymentRefs.length + data.dailyStats.length + data.monthlyStats.length + data.logState.length + data.logPayments.length + data.places.length + data.competitorPrices.length + data.clientBalance.length;
 
   console.log("Will DELETE:");
@@ -151,6 +167,31 @@ async function main(argv) {
 
   console.log(`\nDone — ${writes} documents written for ${data.period.from} → ${data.period.to}.`);
   console.log("Ask users to refresh the app (or sign out and in) to see the new data.\n");
+}
+
+/** --clear: delete all business data (keeps products, accounts, vans, settings). */
+async function clearOnly(project) {
+  console.log("\nWill DELETE (products, staff accounts and vans are kept" + (args["zero-stock"] ? "; every stock balance set to 0" : "") + "):");
+  for (const name of WIPE) console.log(`  ${name.padEnd(18)} ${await count(name)} documents`);
+  if (!args.run) return console.log(`\nDry run only. To apply add: --run --confirm=${project}\n`);
+  if (args.confirm !== project) {
+    console.error(`\nRefused: --confirm must equal the project id (${project}).\n`);
+    process.exit(1);
+  }
+  for (const name of WIPE) await adminDb.recursiveDelete(adminDb.collection(name));
+  await Promise.all(META_RESET.map((id) => adminDb.collection("meta").doc(id).delete()));
+  await resetInvoiceCounters();
+  const products = (await adminDb.collection("products").get()).docs;
+  await Promise.all(products.filter((d) => d.data().demo).map((d) => d.ref.delete()));
+  if (args["zero-stock"]) {
+    // fresh start: every balance (depot, every van, damaged) to 0 — real stock
+    // then comes in through goods receipts / the depot balance edit
+    const real = products.filter((d) => !d.data().demo);
+    await Promise.all(real.map((d) => d.ref.update({ stock: Object.fromEntries(Object.keys(d.data().stock || {}).map((k) => [k, 0])) })));
+    console.log(`Stock set to 0 on ${real.length} products.`);
+  }
+  await adminDb.collection("meta").doc("statsState").delete();
+  console.log(args["zero-stock"] ? "\nCleared — a fresh start.\n" : "\nCleared. Products keep their current stock; use --reset-stock on the next fill to align it.\n");
 }
 
 if (require.main === module) {

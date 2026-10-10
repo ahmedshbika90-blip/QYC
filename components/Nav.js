@@ -232,7 +232,12 @@ export default function Nav({ role, logout }) {
       if (!it?.needsAction) continue;
       if (it.bucket === "modification") c.modification += 1;
       // تسويات المخزون: write-offs, free samples and goods transfers waiting for you
-      if (it.bucket === "adjust" || it.bucket === "transfer") c.adjust += 1;
+      if (it.bucket === "adjust" || it.bucket === "transfer") {
+        c.adjust += 1;
+        // and the section inside تسويات المخزون it belongs to
+        const tab = it.bucket === "transfer" ? "transfer" : it.tab;
+        if (tab) c[`adjust:${tab}`] = (c[`adjust:${tab}`] || 0) + 1;
+      }
       if (it.bucket === "shipping") {
         c.shipping += 1;
         // per van ("shipping:<van id>") and for the vans section as a whole
@@ -330,13 +335,18 @@ export default function Nav({ role, logout }) {
             })}
           </nav>
 
-          <div className="flex items-center gap-1 shrink-0">
+          {/* Reading settings · language · light/dark · sign out — one tap each,
+              spaced so they don't feel cramped. */}
+          <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
             <Link href="/accessibility" className={iconBtn} aria-label="سهولة القراءة" title="سهولة القراءة">
               <span aria-hidden="true" className="font-display font-bold text-[1.05rem] leading-none">أ<span className="text-[0.75rem]">أ</span></span>
             </Link>
             <LangToggle />
-            {/* Light/dark lives in سهولة القراءة now. */}
-            <button type="button" onClick={() => setConfirmOut(true)} className={iconBtn} aria-label="تسجيل الخروج">
+            <button type="button" onClick={toggle} className={iconBtn} aria-label={isDark ? "الوضع الفاتح" : "الوضع الداكن"} title={isDark ? "الوضع الفاتح" : "الوضع الداكن"}>
+              <Icon name={isDark ? "sun" : "moon"} />
+            </button>
+            <span aria-hidden="true" className="w-px h-6 bg-line mx-0.5 sm:mx-1" />
+            <button type="button" onClick={() => setConfirmOut(true)} className={iconBtn} aria-label="تسجيل الخروج" title="تسجيل الخروج">
               <Icon name="logout" />
             </button>
           </div>

@@ -1,4 +1,5 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/router";
 import { useAuth } from "../../lib/useAuth";
 import Nav from "../../components/Nav";
 import Icon from "../../components/Icon";
@@ -13,7 +14,18 @@ const field = "w-full border border-line rounded-xl px-3 h-12 text-base bg-white
 
 export default function StockMovements() {
   const { role, token, loading, logout } = useAuth(["accountant"]);
+  const router = useRouter();
   const [kind, setKind] = useState("");
+  const focus = typeof router.query.focus === "string" ? router.query.focus : "";
+  // a notification opens the right kind and highlights the request
+  useEffect(() => {
+    if (["writeoff", "freeSample", "damage"].includes(router.query.tab)) setKind(router.query.tab);
+  }, [router.query.tab]);
+  useEffect(() => {
+    if (!focus) return;
+    const t = setTimeout(() => document.getElementById(`adj-${focus}`)?.scrollIntoView({ behavior: "smooth", block: "center" }), 500);
+    return () => clearTimeout(t);
+  }, [focus, kind]);
   const [status, setStatus] = useState("");
   const [p, setP] = useState(() => presetPeriod("month"));
   const [open, setOpen] = useState(false);
@@ -49,7 +61,7 @@ export default function StockMovements() {
           <p className="rounded-2xl bg-red-50 text-red-800 font-bold px-4 py-3">مخصوم من الهامش في هذه القائمة: <Money value={deducted} /></p>
         )}
         <ErrorLine error={error} onRetry={reload} />
-        {!data ? <SkeletonRows count={5} /> : <AdjustmentList rows={rows} />}
+        {!data ? <SkeletonRows count={5} /> : <AdjustmentList rows={rows} focus={focus} />}
       </main>
     </div>
   );
