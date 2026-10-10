@@ -20,6 +20,7 @@ export default function WarehouseInventory() {
   const [products, setProducts] = useState([]);
   const [fetching, setFetching] = useState(true);
   const [search, setSearch] = useState("");
+  const [onlyDamaged, setOnlyDamaged] = useState(false); // show only products with تالف
   const [cart, setCart] = useState([]);
   const [note, setNote] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -56,8 +57,8 @@ export default function WarehouseInventory() {
   }
 
   const visibleProducts = useMemo(
-    () => products.filter((p) => !search || p.name.toLowerCase().includes(search.toLowerCase())),
-    [products, search]
+    () => products.filter((p) => (!search || p.name.toLowerCase().includes(search.toLowerCase())) && (!onlyDamaged || (p.stock?.damaged ?? 0) > 0)),
+    [products, search, onlyDamaged]
   );
 
   // رصيد المخزن grouped by product type, each with its total depot units.
@@ -204,6 +205,14 @@ export default function WarehouseInventory() {
               placeholder="ابحث عن منتج..."
               className="w-full border rounded-lg px-3 h-12 text-base mb-3"
             />
+            {/* تالف stays on record under each product until it leaves through تسويات المخزون */}
+            {products.some((p) => (p.stock?.damaged ?? 0) > 0) && (
+              <label className="inline-flex items-center gap-2 h-11 px-3 mb-3 rounded-xl bg-white shadow-sm font-semibold text-ink cursor-pointer">
+                <input type="checkbox" checked={onlyDamaged} onChange={(e) => setOnlyDamaged(e.target.checked)} className="w-5 h-5" />
+                التالف فقط
+                <span className="text-sm text-red-700 num">({products.filter((p) => (p.stock?.damaged ?? 0) > 0).length})</span>
+              </label>
+            )}
             {fetching ? (
               <SkeletonRows count={5} />
             ) : visibleProducts.length === 0 ? (
@@ -231,6 +240,11 @@ export default function WarehouseInventory() {
                           <div>
                             <p className="text-gray-800">{p.name}</p>
                             {p.lowStock && <p className="text-xs text-amber-600 mt-0.5">رصيد منخفض</p>}
+                            {(p.stock?.damaged ?? 0) > 0 && (
+                              <p className="text-sm font-semibold text-red-700 mt-0.5">
+                                تالف: <span className="num">{formatQty(p.stock.damaged)}</span> {p.unit} — غير محسوب في الرصيد
+                              </p>
+                            )}
                           </div>
                           <p className={`font-medium ${(p.stock?.depot ?? 0) === 0 ? "text-red-500" : "text-gray-800"}`}>
                             {formatQty(p.stock?.depot ?? 0)} <span className="text-xs text-gray-400 font-normal">{p.unit}</span>

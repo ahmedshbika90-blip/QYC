@@ -57,13 +57,14 @@ jobs:
         run: npm run test:emulator
 
   deploy-rules:
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    # main → production project, staging → staging project (same rules and indexes)
+    if: (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/staging') && github.event_name == 'push'
     needs: [test, emulator]
     runs-on: ubuntu-latest
     timeout-minutes: 10
     env:
-      FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
-      FIREBASE_PROJECT_ID: ${{ secrets.FIREBASE_PROJECT_ID }}
+      FIREBASE_SERVICE_ACCOUNT: ${{ github.ref == 'refs/heads/main' && secrets.FIREBASE_SERVICE_ACCOUNT || secrets.FIREBASE_SERVICE_ACCOUNT_STAGING }}
+      FIREBASE_PROJECT_ID: ${{ github.ref == 'refs/heads/main' && secrets.FIREBASE_PROJECT_ID || secrets.FIREBASE_PROJECT_ID_STAGING }}
     steps:
       - uses: actions/checkout@v4
       - name: Deploy firestore.rules + indexes

@@ -10,7 +10,9 @@
     "test": "node tests/run.js && node tests/run2.js && node tests/run3.js && node tests/run4.js && node tests/run5.js && node tests/run6.js && node tests/run7.js && node tests/run8.js && node tests/run9.js && node tests/run10.js && node tests/run11.js && node tests/run12.js && node tests/run13.js && node tests/run14.js && node tests/run15.js && node tests/run16.js && node tests/run17.js && node tests/run18.js && node tests/run19.js && node tests/run20.js && node tests/run21.js && node tests/run22.js && node tests/run23.js",
     "stats:backfill": "node scripts/stats/backfill.js",
     "test:emulator": "npx -y firebase-tools@13 emulators:exec --only firestore,auth --project demo-mubashir \"node tests/emulator/run.js\"",
-    "invoices:number": "node scripts/invoices/number-existing.js"
+    "invoices:number": "node scripts/invoices/number-existing.js",
+    "staging:fill": "node scripts/staging/data.js fill",
+    "staging:clear": "node scripts/staging/data.js clear"
   },
   "dependencies": {
     "@fontsource/alexandria": "^5.3.0",

@@ -499,3 +499,6 @@ badge on المستندات is counting.
   `$env:ENV_FILE=".env.staging"; node scripts/demo/seed.js --run --confirm=mubashir-staging; Remove-Item Env:ENV_FILE`
 - Rules/indexes to staging: `firebase deploy --only firestore:rules,firestore:indexes --project mubashir-staging`.
 - `node scripts/vans/save-defaults.js` (optional) writes the two original vans into `vans`; the app works without it.
+
+## Testing
+See `docs/TESTING_GUIDE.md` (environments, staging setup, workflow, releases, backups) and `docs/TEST_PLAN_AR.md` (test cases by role). Bugs: GitHub issue template "Bug / مشكلة".

@@ -137,6 +137,32 @@ const { generate } = require("../scripts/demo/generate");
   assert.deepStrictEqual(db._data.products["p-real-1"].prices, { car1: 61000, car2: 64500 });
   ok("seeding uses the company's own products, prices and costs; leaves them (and stock) untouched; dry run changes nothing");
 
+  // ---------- staging test data: trend, volume, period, clear, safety ----------
+  const G = require("../scripts/demo/generate");
+  const salesHalves = (o) => {
+    const d = G.generate({ months: 4, seed: 7, catalog: undefined, ...o });
+    const xs = d.orders.map((x) => x.data.createdAt).sort();
+    const mid = new Date((Date.parse(xs[0]) + Date.parse(xs[xs.length - 1])) / 2).toISOString();
+    const sum = (f) => d.orders.filter((x) => f(x.data.createdAt)).reduce((a, x) => a + x.data.total, 0);
+    return { n: d.orders.length, ratio: sum((x) => x >= mid) / sum((x) => x < mid), from: d.period.from };
+  };
+  const gr = salesHalves({ trend: "growing" }), de = salesHalves({ trend: "declining" }), sp = salesHalves({ trend: "spike" });
+  assert.ok(gr.ratio > 1.15 && de.ratio < 0.8 && sp.ratio > gr.ratio, JSON.stringify({ gr, de, sp }));
+  assert.ok(salesHalves({ volume: "high" }).n > 1.6 * salesHalves({ volume: "normal" }).n && salesHalves({ volume: "low" }).n < 0.7 * salesHalves({}).n);
+  assert.ok(G.generate({ months: 8, seed: 7 }).period.from < G.generate({ months: 2, seed: 7 }).period.from);
+  // clear keeps products and accounts, removes business data
+  await main(["--run", "--confirm=demo-proj", "--clear"]);
+  assert.ok(Object.keys(db._data.orders || {}).length === 0 && Object.keys(db._data.clients || {}).length === 0);
+  assert.ok(Object.keys(db._data.products).length > 0);
+  // never on a project that doesn't look like a test one
+  process.env.FIREBASE_PROJECT_ID = "mahgoub-prod";
+  const exit = process.exit; let refused = false;
+  process.exit = () => { refused = true; throw new Error("exit"); };
+  await main(["--run", "--confirm=mahgoub-prod", "--clear"]).catch(() => {});
+  process.exit = exit;
+  assert.ok(refused);
+  ok("staging data: chosen trend (growing / declining / spike…), volume and period shape the history; clear wipes business data only; a non-test project is refused");
+
   console.log("ALL DEMO-DATA SCENARIOS PASSED");
 })().catch((e) => { console.error("FAILED:", e); process.exit(1); });
 `);

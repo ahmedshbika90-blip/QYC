@@ -72,10 +72,19 @@ async function count(name) {
 async function main(argv) {
   if (argv) args = parseArgs(argv);
   const project = process.env.FIREBASE_PROJECT_ID;
-  const months = Math.min(12, Math.max(1, Number(args.months) || 4));
+  const months = Math.min(24, Math.max(1, Number(args.months) || 4));
   const seed = Number(args.seed) || 2026;
+  const trend = typeof args.trend === "string" ? args.trend : "growing";
+  const volume = typeof args.volume === "string" ? (isNaN(Number(args.volume)) ? args.volume : Number(args.volume)) : "normal";
   console.log(`\nFirebase project: ${project}`);
-  console.log(`Demo period: last ${months} month(s), seed ${seed}\n`);
+  // Never on the real project by accident: a project whose id doesn't say
+  // staging / test / demo needs --allow-production on top of --confirm.
+  if (args.run && !/staging|test|demo/i.test(project || "") && !args["allow-production"]) {
+    console.error(`\nRefused: "${project}" doesn't look like a test project. Add --allow-production only if you really mean to replace REAL data.\n`);
+    process.exit(1);
+  }
+  if (args.clear) return clearOnly(project);
+  console.log(`Demo period: last ${months} month(s) · trend ${trend} · volume ${volume} · seed ${seed}\n`);
 
   const uids = await staffUids();
   const prodSnap = await adminDb.collection("products").get();
@@ -86,7 +95,7 @@ async function main(argv) {
     console.error("No products found. Add your products (with wholesale and retail prices) first, then run this again.\n");
     process.exit(1);
   }
-  const data = generate({ months, seed, uids, catalog: real });
+  const data = generate({ months, seed, uids, catalog: real, trend, volume });
   const writes = data.clients.length + data.orders.length + data.inventoryDocs.length + data.invoicePayments.length + data.paymentRefs.length + data.dailyStats.length + data.monthlyStats.length + data.logState.length + data.logPayments.length + data.places.length + data.competitorPrices.length + data.clientBalance.length;
 
   console.log("Will DELETE:");
@@ -151,6 +160,23 @@ async function main(argv) {
 
   console.log(`\nDone — ${writes} documents written for ${data.period.from} → ${data.period.to}.`);
   console.log("Ask users to refresh the app (or sign out and in) to see the new data.\n");
+}
+
+/** --clear: delete all business data (keeps products, accounts, vans, settings). */
+async function clearOnly(project) {
+  console.log("\nWill DELETE (products, staff accounts and vans are kept):");
+  for (const name of WIPE) console.log(`  ${name.padEnd(18)} ${await count(name)} documents`);
+  if (!args.run) return console.log(`\nDry run only. To apply add: --run --confirm=${project}\n`);
+  if (args.confirm !== project) {
+    console.error(`\nRefused: --confirm must equal the project id (${project}).\n`);
+    process.exit(1);
+  }
+  for (const name of WIPE) await adminDb.recursiveDelete(adminDb.collection(name));
+  await Promise.all(META_RESET.map((id) => adminDb.collection("meta").doc(id).delete()));
+  const demoProducts = (await adminDb.collection("products").get()).docs.filter((d) => d.data().demo);
+  await Promise.all(demoProducts.map((d) => d.ref.delete()));
+  await adminDb.collection("meta").doc("statsState").delete();
+  console.log("\nCleared. Products keep their current stock; use --reset-stock on the next fill to align it.\n");
 }
 
 if (require.main === module) {

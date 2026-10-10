@@ -16,7 +16,8 @@ const PendingActionModal = dynamic(() => import("./PendingActionModal"), { ssr: 
 const NotificationToastStack = dynamic(() => import("./NotificationToast"), { ssr: false });
 const NOTIFIED_ROLES = ["manager", "agent_car1", "agent_car2", "warehouse_keeper", "accountant"];
 import Icon from "./Icon";
-import LangToggle from "./LangToggle";
+import AccountMenu from "./AccountMenu";
+import { auth as fbAuth } from "../lib/firebaseClient";
 import { useVans } from "../lib/useVans";
 
 
@@ -336,14 +337,8 @@ export default function Nav({ role, logout }) {
           </nav>
 
           <div className="flex items-center gap-1 shrink-0">
-            <Link href="/accessibility" className={iconBtn} aria-label="سهولة القراءة" title="سهولة القراءة">
-              <span aria-hidden="true" className="font-display font-bold text-[1.05rem] leading-none">أ<span className="text-[0.75rem]">أ</span></span>
-            </Link>
-            <LangToggle />
-            {/* Light/dark lives in سهولة القراءة now. */}
-            <button type="button" onClick={() => setConfirmOut(true)} className={iconBtn} aria-label="تسجيل الخروج">
-              <Icon name="logout" />
-            </button>
+            {/* one account button: night mode, language, reading settings, sign out */}
+            <AccountMenu role={role} name={auth.token ? fbAuth.currentUser?.displayName || "" : ""} onLogout={() => setConfirmOut(true)} />
           </div>
         </div>
       </header>
