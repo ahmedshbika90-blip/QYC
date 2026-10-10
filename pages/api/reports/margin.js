@@ -56,7 +56,7 @@ export default async function handler(req, res) {
 
     const byProduct = new Map();
     const byRoute = {};
-    const totals = { revenue: 0, costedRevenue: 0, cost: 0, uncostedRevenue: 0, estimatedUnits: 0, discount: 0 };
+    const totals = { revenue: 0, costedRevenue: 0, cost: 0, uncostedRevenue: 0, estimatedUnits: 0, discount: 0, sampleCost: 0 };
 
     // Revenue is what the client actually pays: each invoice's discount is
     // spread over its lines in proportion to their value (lib/invoiceDiscount
@@ -87,6 +87,7 @@ export default async function handler(req, res) {
           totals.uncostedRevenue += revenue;
         } else {
           const cost = unitCost * it.qty;
+          if (it.freeSample) totals.sampleCost += cost; // agents' free samples, on the invoice date
           row.cost += cost;
           row.costedRevenue += revenue;
           totals.cost += cost;
@@ -128,11 +129,19 @@ export default async function handler(req, res) {
     // dated on approval — company-wide, so only without a van filter.
     const fromDay = businessDay(new Date(from));
     const toDay = req.query.to ? String(req.query.to).slice(0, 10) : businessDay(new Date());
-    const deductions = route === "all" ? await marginDeductions(fromDay, toDay) : null;
-    const grossMargin = summarize(totals).margin;
+    // Shown as deductions from the margin on SALES:
+    //   agents' free samples (cost, invoice date) — per van, so with any filter
+    //   unusable damaged goods + company-paid samples from the warehouse
+    //   (cost, approval date) — company-wide, so only without a van filter
+    const wh = route === "all" ? await marginDeductions(fromDay, toDay) : { total: 0, obsolete: 0, freeSamples: 0, items: [] };
+    const agentSamples = round(totals.sampleCost);
+    const margin = summarize(totals).margin; // already net of the agents' samples
+    const salesMargin = round(margin + agentSamples);
+    const deductions = { agentSamples, obsolete: wh.obsolete, freeSamples: wh.freeSamples, items: wh.items, total: round(agentSamples + wh.total) };
     return res.status(200).json({
       deductions,
-      netMargin: deductions ? round(grossMargin - deductions.total) : null,
+      salesMargin,
+      netMargin: round(salesMargin - deductions.total),
       route,
       from,
       to: req.query.to || null,

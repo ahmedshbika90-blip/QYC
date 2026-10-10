@@ -108,9 +108,11 @@ export default function MarginPage() {
 
             {data.deductions && data.deductions.total > 0 && (
               <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-3 text-sm">
-                <p className="font-bold text-red-900 mb-1">خصومات من الهامش (بتاريخ الاعتماد)</p>
-                {data.deductions.obsolete > 0 && <p className="text-red-900">تالف غير صالح: <span className="num">{fmt(data.deductions.obsolete)}</span></p>}
-                {data.deductions.freeSamples > 0 && <p className="text-red-900">عينات مجانية على الشركة: <span className="num">{fmt(data.deductions.freeSamples)}</span></p>}
+                <p className="text-ink">هامش المبيعات (قبل الخصومات): <span className="num font-bold">{fmt(data.salesMargin)}</span></p>
+                <p className="font-bold text-red-900 mt-2 mb-1">خصومات من الهامش</p>
+                {data.deductions.agentSamples > 0 && <p className="text-red-900">عينات المناديب (بتاريخ الفاتورة): <span className="num">{fmt(data.deductions.agentSamples)}</span></p>}
+                {data.deductions.freeSamples > 0 && <p className="text-red-900">عينات المخزن على الشركة (بتاريخ الاعتماد): <span className="num">{fmt(data.deductions.freeSamples)}</span></p>}
+                {data.deductions.obsolete > 0 && <p className="text-red-900">تالف غير صالح (بتاريخ الاعتماد): <span className="num">{fmt(data.deductions.obsolete)}</span></p>}
                 <p className="font-bold text-ink mt-1">صافي الهامش بعد الخصومات: <span className="num">{fmt(data.netMargin)}</span></p>
               </div>
             )}

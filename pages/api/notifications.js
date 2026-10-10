@@ -8,20 +8,23 @@ const { listVans } = require("../../lib/vans");
 const ADJ_LABEL = { writeoff: "تسوية تالف", freeSample: "عينات مجانية" };
 const ADJ_MODE = { transfer: "مرتجع شركة", obsolete: "غير صالحة", supplier: "على المورد", company: "على الشركة" };
 const ADJ_STATE = { pending: "بانتظار القرار", approved: "اعتُمدت", rejected: "رُفضت" };
-async function adjustmentItems(filter, needsAction) {
+async function adjustmentItems(filter, needsAction, { forKeeper = false, base = "/stock-adjustments" } = {}) {
   const snap = await adminDb.collection("stockAdjustments").get();
   return snap.docs
     .map((d) => ({ id: d.id, ...d.data() }))
     .filter(filter)
     .map((a) => ({
       id: `adj-${a.id}-${a.status}`,
-      bucket: "adjust", // lights تسويات المخزون in the menu
+      bucket: "adjust", // lights تسويات المخزون and its section
+      tab: a.kind, // the section inside it (writeoff / freeSample)
       needsAction: needsAction(a),
-      requestType: `${ADJ_LABEL[a.kind]} — ${ADJ_MODE[a.mode] || ""}`,
+      // The keeper isn't told who pays for samples, or the margin effect.
+      requestType: forKeeper && a.kind === "freeSample" ? "طلب عينات مجانية" : `${ADJ_LABEL[a.kind]} — ${ADJ_MODE[a.mode] || ""}`,
       from: a.items.map((i) => `${i.name} × ${i.qty}`).join("، "),
       state: needsAction(a) ? "بانتظارك" : ADJ_STATE[a.status],
       tone: a.status === "rejected" ? "bad" : a.status === "approved" ? "good" : undefined,
-      href: "/stock-adjustments",
+      // straight to the right section and the request itself
+      href: `${base}?tab=${a.kind}&focus=${encodeURIComponent(a.id)}`,
       at: a.decidedAt || a.requestedAt,
     }));
 }
@@ -140,11 +143,15 @@ export default async function handler(req, res) {
           at: r.createdAt,
         });
       });
-      // damaged write-offs waiting for the manager
-      items.push(...(await adjustmentItems((a) => a.kind === "writeoff" && a.status === "pending", () => true)));
+      // damaged write-offs waiting for him; the outcome of the free samples he asked for
+      const recent = new Date(Date.now() - 14 * 864e5).toISOString();
+      items.push(...(await adjustmentItems((a) => (a.kind === "writeoff" && a.status === "pending") || (a.kind === "freeSample" && a.status !== "pending" && String(a.decidedAt) >= recent), (a) => a.status === "pending")));
     } else if (role === "warehouse_keeper") {
-      // free samples the manager asked for, waiting to be executed
-      items.push(...(await adjustmentItems((a) => a.kind === "freeSample" && a.status === "pending", () => true)));
+      // free samples to execute; the outcome of his damaged write-offs
+      const recentK = new Date(Date.now() - 14 * 864e5).toISOString();
+      items.push(
+        ...(await adjustmentItems((a) => (a.kind === "freeSample" && a.status === "pending") || (a.kind === "writeoff" && a.status !== "pending" && String(a.decidedAt) >= recentK), (a) => a.status === "pending", { forKeeper: true }))
+      );
       // Transfers the supervisor created, waiting to be released. Its own
       // bucket, so it doesn't inflate the shipping-requests badge.
       const pendingTransfers = await adminDb.collection("transfers").where("status", "==", "pending").get();
@@ -210,8 +217,7 @@ export default async function handler(req, res) {
     } else if (role === "accountant") {
       // Information only: stock adjustments requested or decided in the last 14 days.
       const since = new Date(Date.now() - 14 * 864e5).toISOString();
-      const rows = await adjustmentItems((a) => String(a.decidedAt || a.requestedAt) >= since, () => false);
-      items.push(...rows.map((x) => ({ ...x, href: "/accounting/stock-movements" })));
+      items.push(...(await adjustmentItems((a) => String(a.decidedAt || a.requestedAt) >= since, () => false, { base: "/accounting/stock-movements" })));
     } else if (ROLE_TO_ROUTE[role]) {
       const myRoute = decoded.route;
 

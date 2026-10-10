@@ -1,4 +1,8 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/router";
+import SectionTabs from "../components/SectionTabs";
+import { useNotifications } from "../lib/useNotifications";
+import { getAuthFlags } from "../lib/authFlags";
 import Link from "next/link";
 import { useAuth } from "../lib/useAuth";
 import Nav from "../components/Nav";
@@ -94,12 +98,34 @@ function NewRequest({ token, kind, products, onDone, onCancel, showMargin }) {
 
 export default function StockAdjustments() {
   const { role, token, loading, logout } = useAuth(["warehouse_keeper", "manager"]);
+  const router = useRouter();
   const [tab, setTab] = useState("writeoff");
+  // A notification opens the exact section (?tab=) and request (?focus=).
+  const focus = typeof router.query.focus === "string" ? router.query.focus : "";
+  useEffect(() => {
+    if (["writeoff", "freeSample", "transfer"].includes(router.query.tab)) setTab(router.query.tab);
+  }, [router.query.tab]);
+  useEffect(() => {
+    if (!focus) return;
+    const t = setTimeout(() => document.getElementById(`adj-${focus}`)?.scrollIntoView({ behavior: "smooth", block: "center" }), 400);
+    return () => clearTimeout(t);
+  }, [focus, tab]);
   const [status, setStatus] = useState("");
   const [mode, setMode] = useState("");
   const [adding, setAdding] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const showMargin = role !== "warehouse_keeper"; // the keeper doesn't deal with the margin
+  // the red counts of the menu item, per section
+  const { items: notes } = useNotifications(token, role, getAuthFlags().uid);
+  const counts = useMemo(() => {
+    const c = {};
+    for (const it of notes || []) {
+      if (!it.needsAction) continue;
+      const t = it.bucket === "transfer" ? "transfer" : it.bucket === "adjust" ? it.tab : null;
+      if (t) c[t] = (c[t] || 0) + 1;
+    }
+    return c;
+  }, [notes]);
   const [toast, setToast] = useState("");
   const [busy, setBusy] = useState("");
   const list = useApi(token, tab === "transfer" ? null : `/api/stock-adjustments?kind=${tab}${status ? `&status=${status}` : ""}`);
@@ -138,7 +164,7 @@ export default function StockAdjustments() {
           <h1 className="font-display text-2xl sm:text-3xl font-bold text-ink">تسويات المخزون</h1>
           <p className="text-ink-soft mt-1">بضاعة تخرج من المخزون بغير البيع: تسوية التالف، العينات المجانية، وتحويل البضاعة.</p>
         </div>
-        <Choice label="" value={tab} onChange={(t) => { setTab(t); setAdding(false); setMode(""); }} options={TABS} />
+        <SectionTabs value={tab} onChange={(t) => { setTab(t); setAdding(false); setMode(""); router.replace({ pathname: router.pathname, query: { tab: t } }, undefined, { shallow: true }); }} tabs={TABS.map(([v, l]) => [v, l, counts[v] || 0])} />
         {tab === "transfer" ? (
           <Link href={role === "manager" ? "/transfers" : "/warehouse/transfers"} className="h-14 rounded-2xl bg-white shadow font-bold text-ink flex items-center justify-center gap-2">
             <Icon name="truck" size={22} /> فتح طلبات تحويل البضاعة
@@ -164,7 +190,9 @@ export default function StockAdjustments() {
               {filtersOpen && (
                 <section className="bg-white rounded-3xl shadow p-4 sm:p-5 mt-2 flex flex-col gap-4">
                   <Choice label="الحالة" value={status} onChange={setStatus} options={[["", "الكل"], ["pending", "بانتظار القرار"], ["approved", "معتمد"], ["rejected", "مرفوض"]]} />
-                  <Choice label="النوع" value={mode} onChange={setMode} options={tab === "writeoff" ? [["", "الكل"], ["transfer", "مرتجع شركة"], ["obsolete", "غير صالحة"]] : [["", "الكل"], ["supplier", "على المورد"], ["company", "على الشركة"]]} />
+                  {(tab === "writeoff" || showMargin) && (
+                    <Choice label="النوع" value={mode} onChange={setMode} options={tab === "writeoff" ? [["", "الكل"], ["transfer", "مرتجع شركة"], ["obsolete", "غير صالحة"]] : [["", "الكل"], ["supplier", "على المورد"], ["company", "على الشركة"]]} />
+                  )}
                 </section>
               )}
             </div>
@@ -175,6 +203,8 @@ export default function StockAdjustments() {
               <AdjustmentList
                 rows={rows}
                 showMargin={showMargin}
+                hideSampleMode={!showMargin}
+                focus={focus}
                 actionsFor={(a) =>
                   canDecide(a) && (
                     <div className="grid grid-cols-2 gap-2 pt-1">

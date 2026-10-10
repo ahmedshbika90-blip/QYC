@@ -232,7 +232,12 @@ export default function Nav({ role, logout }) {
       if (!it?.needsAction) continue;
       if (it.bucket === "modification") c.modification += 1;
       // تسويات المخزون: write-offs, free samples and goods transfers waiting for you
-      if (it.bucket === "adjust" || it.bucket === "transfer") c.adjust += 1;
+      if (it.bucket === "adjust" || it.bucket === "transfer") {
+        c.adjust += 1;
+        // and the section inside تسويات المخزون it belongs to
+        const tab = it.bucket === "transfer" ? "transfer" : it.tab;
+        if (tab) c[`adjust:${tab}`] = (c[`adjust:${tab}`] || 0) + 1;
+      }
       if (it.bucket === "shipping") {
         c.shipping += 1;
         // per van ("shipping:<van id>") and for the vans section as a whole

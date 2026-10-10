@@ -9,7 +9,7 @@
  * Automatically loads credentials from .env.local — no extra setup needed,
  * just run it from the project root (where .env.local lives).
  */
-require("dotenv").config({ path: require("path").join(__dirname, "..", ".env.local") });
+require("dotenv").config({ path: require("path").join(__dirname, "..", process.env.ENV_FILE || ".env.local") }); // ENV_FILE=.env.staging for the test project
 const { adminAuth } = require("../lib/firebaseAdmin");
 
 const { ASSIGNABLE_ROLES: VALID_ROLES } = require("../lib/roles");

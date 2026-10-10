@@ -8,19 +8,19 @@ export const MODE_NAME = { transfer: "مرتجع شركة", obsolete: "غير ص
 export const MODE_LABEL = { transfer: "مرتجع شركة (بدون قيمة)", obsolete: "غير صالحة (يُخصم من الهامش)", supplier: "على المورد (بدون قيمة)", company: "على الشركة (يُخصم من الهامش)" };
 export const STATUS_LABEL = { pending: ["بانتظار القرار", "bg-amber-100 text-amber-900"], approved: ["معتمد", "bg-green-100 text-green-800"], rejected: ["مرفوض", "bg-red-100 text-red-800"] };
 
-export default function AdjustmentList({ rows, actionsFor, showMargin = true }) {
+export default function AdjustmentList({ rows, actionsFor, showMargin = true, hideSampleMode = false, focus = "" }) {
   if (!rows.length) return <p className="text-ink-soft bg-white rounded-2xl shadow px-4 py-8 text-center">لا توجد حركات مطابقة.</p>;
   return (
     <ul className="flex flex-col gap-3">
       {rows.map((a) => {
         const [sl, st] = STATUS_LABEL[a.status] || [a.status, "bg-gray-100 text-gray-700"];
         return (
-          <li key={`${a.kind}-${a.id}`} className="bg-white rounded-2xl shadow p-4 flex flex-col gap-2 min-w-0">
+          <li key={`${a.kind}-${a.id}`} id={`adj-${a.id}`} className={`bg-white rounded-2xl shadow p-4 flex flex-col gap-2 min-w-0 ${focus === a.id ? "ring-4 ring-accent" : ""}`}>
             <div className="flex flex-wrap items-start justify-between gap-2">
               <div className="min-w-0">
                 <p className="font-bold text-ink break-words">
                   {KIND_LABEL[a.kind] || a.kind}
-                  {a.mode && <span className="font-semibold text-ink-soft"> — {(showMargin ? MODE_LABEL : MODE_NAME)[a.mode]}</span>}
+                  {a.mode && !(hideSampleMode && a.kind === "freeSample") && <span className="font-semibold text-ink-soft"> — {(showMargin ? MODE_LABEL : MODE_NAME)[a.mode]}</span>}
                 </p>
                 <p className="text-sm text-ink-soft break-words">
                   طُلب {formatDateTime(a.requestedAt)}

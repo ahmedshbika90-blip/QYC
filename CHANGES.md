@@ -807,3 +807,12 @@ Tests: `tests/run13.js`, `tests/run14.js` new; `npm test` (14 files) and `next b
 - Damaged write-off modes renamed: **مرتجع شركة** (company return — leaves with no value) and **غير صالحة** (unusable — cost deducted from the margin).
 - The warehouse keeper sees only the plain names: no margin wording, no costs, no deduction lines. The manager and accountant still see the margin effect.
 - Filters on تسويات المخزون open from a **تصفية** button, like the rest of the system.
+
+---
+
+# Notifications to the exact place; agents' samples as a margin deduction
+- Warehouse keeper never sees who pays for free samples: notifications say "طلب عينات مجانية", the list and filters hide supplier/company.
+- Section tabs carry the menu item's red count (`components/SectionTabs.js`): a free-sample request lights تسويات المخزون **and** its "عينات مجانية" tab (same for تسوية تالف and تحويل بضاعة).
+- Adjustment notifications open the exact section and highlight the request (`?tab=…&focus=…`), for keeper, manager and accountant (other notifications already open the exact request).
+- Accountant now actually receives notifications (the client hook had him excluded). Manager is told how his free-sample requests ended; keeper how his write-offs ended (information).
+- Agents' free samples: their cost is shown as **"عينات المناديب"** under margin deductions (invoice date, per van) on the manager's margin page and the accountant's report, with "هامش المبيعات (قبل الخصومات)" and the net. The margin itself was already net of them. Daily summaries carry the sample cost (`sCost`) — rerun the backfill once to fill history.
