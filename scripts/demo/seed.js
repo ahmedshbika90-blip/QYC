@@ -35,8 +35,14 @@ const WIPE = [
   "transfers", "invoicePayments", "paymentRefs", "auditLog", "dailyCounters", "sentReports", "rateLimits", "agentOpenShipment",
   "dailyStats", "monthlyStats", "logState", "logPayments", "places",
   "competitorPrices", "stockLedger", "stockChecks", "statsDrift", "clientBalance",
+  "moneyReturns", "stockAdjustments",
 ];
-const META_RESET = ["clientIdCounter", "paymentRefsSearch", "paymentRefsSearch2", "invoiceNumbering", "stockCheckpoint", "stockCheck"];
+const META_RESET = ["clientIdCounter", "paymentRefsSearch", "paymentRefsSearch2", "invoiceNumbering", "stockCheckpoint", "stockCheck", "statsCheck"];
+/** Invoice-number counters (meta/invoiceCounter_YYYY) — numbering restarts at 1. */
+async function resetInvoiceCounters() {
+  const snap = await adminDb.collection("meta").get();
+  await Promise.all(snap.docs.filter((d) => d.id.startsWith("invoiceCounter_")).map((d) => d.ref.delete()));
+}
 const VERSION_KEYS = ["orders_car1", "orders_car2", "requests", "inventory", "clients", "shipmentRequests", "payments", "products", "competitors", "places", "stockCheck"];
 
 const parseArgs = (argv) =>
@@ -77,10 +83,11 @@ async function main(argv) {
   const trend = typeof args.trend === "string" ? args.trend : "growing";
   const volume = typeof args.volume === "string" ? (isNaN(Number(args.volume)) ? args.volume : Number(args.volume)) : "normal";
   console.log(`\nFirebase project: ${project}`);
-  // Never on the real project by accident: a project whose id doesn't say
-  // staging / test / demo needs --allow-production on top of --confirm.
-  if (args.run && !/staging|test|demo/i.test(project || "") && !args["allow-production"]) {
-    console.error(`\nRefused: "${project}" doesn't look like a test project. Add --allow-production only if you really mean to replace REAL data.\n`);
+  // Production is locked: this script only writes to a project whose id says
+  // staging / test / demo. There is no override — real data can't be wiped
+  // or replaced from here (restore from a backup instead).
+  if (args.run && !/staging|test|demo/i.test(project || "")) {
+    console.error(`\nRefused: "${project}" is not a test project. This script never changes real data.\n`);
     process.exit(1);
   }
   if (args.clear) return clearOnly(project);
@@ -164,7 +171,7 @@ async function main(argv) {
 
 /** --clear: delete all business data (keeps products, accounts, vans, settings). */
 async function clearOnly(project) {
-  console.log("\nWill DELETE (products, staff accounts and vans are kept):");
+  console.log("\nWill DELETE (products, staff accounts and vans are kept" + (args["zero-stock"] ? "; every stock balance set to 0" : "") + "):");
   for (const name of WIPE) console.log(`  ${name.padEnd(18)} ${await count(name)} documents`);
   if (!args.run) return console.log(`\nDry run only. To apply add: --run --confirm=${project}\n`);
   if (args.confirm !== project) {
@@ -173,10 +180,18 @@ async function clearOnly(project) {
   }
   for (const name of WIPE) await adminDb.recursiveDelete(adminDb.collection(name));
   await Promise.all(META_RESET.map((id) => adminDb.collection("meta").doc(id).delete()));
-  const demoProducts = (await adminDb.collection("products").get()).docs.filter((d) => d.data().demo);
-  await Promise.all(demoProducts.map((d) => d.ref.delete()));
+  await resetInvoiceCounters();
+  const products = (await adminDb.collection("products").get()).docs;
+  await Promise.all(products.filter((d) => d.data().demo).map((d) => d.ref.delete()));
+  if (args["zero-stock"]) {
+    // fresh start: every balance (depot, every van, damaged) to 0 — real stock
+    // then comes in through goods receipts / the depot balance edit
+    const real = products.filter((d) => !d.data().demo);
+    await Promise.all(real.map((d) => d.ref.update({ stock: Object.fromEntries(Object.keys(d.data().stock || {}).map((k) => [k, 0])) })));
+    console.log(`Stock set to 0 on ${real.length} products.`);
+  }
   await adminDb.collection("meta").doc("statsState").delete();
-  console.log("\nCleared. Products keep their current stock; use --reset-stock on the next fill to align it.\n");
+  console.log(args["zero-stock"] ? "\nCleared — a fresh start.\n" : "\nCleared. Products keep their current stock; use --reset-stock on the next fill to align it.\n");
 }
 
 if (require.main === module) {

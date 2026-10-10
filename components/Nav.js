@@ -16,8 +16,7 @@ const PendingActionModal = dynamic(() => import("./PendingActionModal"), { ssr: 
 const NotificationToastStack = dynamic(() => import("./NotificationToast"), { ssr: false });
 const NOTIFIED_ROLES = ["manager", "agent_car1", "agent_car2", "warehouse_keeper", "accountant"];
 import Icon from "./Icon";
-import AccountMenu from "./AccountMenu";
-import { auth as fbAuth } from "../lib/firebaseClient";
+import LangToggle from "./LangToggle";
 import { useVans } from "../lib/useVans";
 
 
@@ -336,9 +335,20 @@ export default function Nav({ role, logout }) {
             })}
           </nav>
 
-          <div className="flex items-center gap-1 shrink-0">
-            {/* one account button: night mode, language, reading settings, sign out */}
-            <AccountMenu role={role} name={auth.token ? fbAuth.currentUser?.displayName || "" : ""} onLogout={() => setConfirmOut(true)} />
+          {/* Reading settings · language · light/dark · sign out — one tap each,
+              spaced so they don't feel cramped. */}
+          <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
+            <Link href="/accessibility" className={iconBtn} aria-label="سهولة القراءة" title="سهولة القراءة">
+              <span aria-hidden="true" className="font-display font-bold text-[1.05rem] leading-none">أ<span className="text-[0.75rem]">أ</span></span>
+            </Link>
+            <LangToggle />
+            <button type="button" onClick={toggle} className={iconBtn} aria-label={isDark ? "الوضع الفاتح" : "الوضع الداكن"} title={isDark ? "الوضع الفاتح" : "الوضع الداكن"}>
+              <Icon name={isDark ? "sun" : "moon"} />
+            </button>
+            <span aria-hidden="true" className="w-px h-6 bg-line mx-0.5 sm:mx-1" />
+            <button type="button" onClick={() => setConfirmOut(true)} className={iconBtn} aria-label="تسجيل الخروج" title="تسجيل الخروج">
+              <Icon name="logout" />
+            </button>
           </div>
         </div>
       </header>

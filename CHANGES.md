@@ -831,3 +831,19 @@ Tests: `tests/run13.js`, `tests/run14.js` new; `npm test` (14 files) and `next b
 # Account menu; damaged goods on the keeper's stock
 - Top bar: the reading-settings, language and sign-out icons are replaced by **one account button** (the person's initial). It opens a small menu: name and role, **الوضع الداكن** switch (one tap), **اللغة** ع / EN, **سهولة القراءة**, **تسجيل الخروج** (`components/AccountMenu.js`). Night mode also stays in the reading settings.
 - Warehouse stock (رصيد المخزن): each product with damaged goods shows "تالف: N — غير محسوب في الرصيد" until they leave through تسويات المخزون; a **التالف فقط** filter (with a count) shows only those products.
+
+---
+
+# Collections search; top bar back to one-tap icons
+- التحصيل → الدفعات: search by the last digits of the reference (match highlighted) and a bank filter; shows the count and total of what matches.
+- Top bar: reading settings, language, light/dark and sign-out are one tap each again, with more space between them and a thin divider before sign-out (the account menu is removed).
+
+---
+
+# Fresh start
+- `seed.js --clear` now also removes money returns, stock adjustments, invoice-number counters and the stats-check record; `--zero-stock` sets every stock balance to 0. On a real project it needs `--allow-production` on top of `--confirm`.
+
+---
+
+# Production locked
+- `seed.js` (fill and `--clear`) refuses any project whose id doesn't contain staging/test/demo — the `--allow-production` override is removed. After the fresh start, no script can wipe real data.

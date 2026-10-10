@@ -112,3 +112,6 @@ Use the same simple password for all test accounts; never reuse a real password.
 
 ## 5. Backups (production)
 Firebase console → Firestore → **Backups** (or Google Cloud console → Firestore → Backups) → create a **daily backup schedule**, retention 7–14 days. Test a restore once into the staging project.
+
+## 6. Production is protected
+The demo/clear script (`scripts/demo/seed.js`, `npm run staging:fill/clear`) only ever writes to a project whose id contains staging / test / demo — there is no override. Real data can't be cleared or replaced by any script; if something goes wrong, restore from a Firestore backup.

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useAuth } from "../../lib/useAuth";
 import Nav from "../../components/Nav";
 import Icon from "../../components/Icon";
@@ -22,12 +22,20 @@ export default function Collections() {
   const [p, setP] = useState(() => presetPeriod("week"));
   const [route, setRoute] = useState("");
   const [filtersOpen, setFiltersOpen] = useState(false);
+  // الدفعات: search by the last digits of the reference, and a bank filter
+  const [refQ, setRefQ] = useState("");
+  const [bank, setBank] = useState("");
   const { data, error, reload } = useApi(token, `/api/accounting/collections?from=${p.from}&to=${p.to}${route ? `&route=${route}` : ""}`);
   function choose(k) {
     setPreset(k);
     if (k === "today") setP({ from: todayYmd(), to: todayYmd() });
     else if (k !== "custom") setP(presetPeriod(k));
   }
+  const digits = refQ.replace(/[٠-٩]/g, (d) => String(d.charCodeAt(0) - 0x0660)).replace(/\D/g, "");
+  const shown = useMemo(
+    () => (data?.payments || []).filter((x) => (!bank || x.bank === bank) && (!digits || String(x.ref).endsWith(digits))),
+    [data, bank, digits]
+  );
   if (loading) return <PageLoading />;
   const max = Math.max(1, ...(data?.byDay || []).map((d) => d.amount));
   return (
@@ -110,14 +118,41 @@ export default function Collections() {
             )}
             <section className="flex flex-col gap-3">
               <h2 className="font-display text-lg font-bold text-ink">الدفعات</h2>
-              {data.payments.length === 0 ? (
-                <p className="text-ink-soft bg-white rounded-2xl shadow px-4 py-6 text-center">لا توجد دفعات في هذه الفترة.</p>
+              <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-2">
+                <div className="relative">
+                  <Icon name="search" size={20} className="absolute top-1/2 -translate-y-1/2 start-3.5 text-ink-soft pointer-events-none" />
+                  <input value={refQ} onChange={(e) => setRefQ(e.target.value)} inputMode="numeric" placeholder="آخر 4 أرقام من رقم العملية" aria-label="آخر 4 أرقام من رقم العملية" className="w-full h-12 rounded-xl border-2 border-line bg-white ps-11 pe-3 text-base" />
+                </div>
+                <select value={bank} onChange={(e) => setBank(e.target.value)} aria-label="البنك" className="h-12 rounded-xl border-2 border-line bg-white px-3 text-base">
+                  <option value="">كل البنوك</option>
+                  {data.byBank.map((b) => <option key={b.bank} value={b.bank}>{b.bankLabel}</option>)}
+                </select>
+              </div>
+              {(digits || bank) && (
+                <p className="text-ink-soft">
+                  <span className="num">{shown.length}</span> دفعة · المجموع <Money value={shown.reduce((a, x) => a + x.amount, 0)} className="font-bold text-ink" />
+                </p>
+              )}
+              {shown.length === 0 ? (
+                <p className="text-ink-soft bg-white rounded-2xl shadow px-4 py-6 text-center">{data.payments.length ? "لا توجد دفعة مطابقة." : "لا توجد دفعات في هذه الفترة."}</p>
               ) : (
                 <ul className="bg-white rounded-2xl shadow divide-y divide-line">
-                  {data.payments.map((x) => (
+                  {shown.map((x) => (
                     <li key={x.id} className="px-4 py-3 flex flex-wrap items-start justify-between gap-3">
                       <div className="min-w-0">
-                        <p className="font-semibold text-ink break-words">{x.bankLabel} · <span className="num" dir="ltr">{x.ref}</span></p>
+                        <p className="font-semibold text-ink break-words">
+                          {x.bankLabel} ·{" "}
+                          <span className="num" dir="ltr">
+                            {digits && String(x.ref).endsWith(digits) ? (
+                              <>
+                                {String(x.ref).slice(0, -digits.length)}
+                                <mark className="bg-amber-100 text-ink rounded px-0.5">{digits}</mark>
+                              </>
+                            ) : (
+                              x.ref
+                            )}
+                          </span>
+                        </p>
                         <p className="text-ink-soft break-words">
                           <span className="num">{x.date}</span> · {ROUTE_LABEL[x.route] || x.route} · سجلات{" "}
                           {x.logIds.map((l) => <a key={l} href={`/accounting/logs/${encodeURIComponent(l)}`} className="num text-accent-ink font-semibold me-1.5" dir="ltr">{l.slice(-10)}</a>)}

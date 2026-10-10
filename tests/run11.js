@@ -150,8 +150,11 @@ const { generate } = require("../scripts/demo/generate");
   assert.ok(gr.ratio > 1.15 && de.ratio < 0.8 && sp.ratio > gr.ratio, JSON.stringify({ gr, de, sp }));
   assert.ok(salesHalves({ volume: "high" }).n > 1.6 * salesHalves({ volume: "normal" }).n && salesHalves({ volume: "low" }).n < 0.7 * salesHalves({}).n);
   assert.ok(G.generate({ months: 8, seed: 7 }).period.from < G.generate({ months: 2, seed: 7 }).period.from);
-  // clear keeps products and accounts, removes business data
-  await main(["--run", "--confirm=demo-proj", "--clear"]);
+  // clear keeps products and accounts, removes business data (and, with --zero-stock, every balance)
+  await db.collection("meta").doc("invoiceCounter_2026").set({ value: 900 });
+  await main(["--run", "--confirm=demo-proj", "--clear", "--zero-stock"]);
+  assert.ok(!db._data.meta.invoiceCounter_2026); // numbering restarts at 1
+  assert.ok(Object.values(db._data.products).every((p) => Object.values(p.stock || {}).every((v) => v === 0)));
   assert.ok(Object.keys(db._data.orders || {}).length === 0 && Object.keys(db._data.clients || {}).length === 0);
   assert.ok(Object.keys(db._data.products).length > 0);
   // never on a project that doesn't look like a test one
